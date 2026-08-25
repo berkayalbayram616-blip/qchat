@@ -974,7 +974,6 @@ mesaj_html = """
         .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .settings-actions .small-btn { flex: 1; min-width: 90px; }
 
-
         .pinned-banner {
             background: #fff6d0; border: 1px solid #e0b400; border-radius: 4px;
             padding: 6px 8px; margin-bottom: 8px; font-size: 12px; font-weight: 600;
@@ -1163,12 +1162,6 @@ mesaj_html = """
                     </select>
                     <div class="room-create-btn-row">
                         <button type="button" class="btn-ok" onclick="odaRolVer()">Rol Ver</button>
-                        <button type="button" class="btn-cancel" onclick="odaKickAt()">Kickle</button>
-                    </div>
-                    <span class="field-label">Süreli Ban (Dakika)</span>
-                    <div class="room-create-btn-row">
-                        <input type="text" id="odaBanDakika" placeholder="Örn: 30" maxlength="6" style="flex:1;">
-                        <button type="button" class="btn-cancel" onclick="odaGeciciBanla()" style="background:linear-gradient(180deg,#e0a37f,#a8551a); border-color:#70381c; color:#fff;">⏳ Banla</button>
                     </div>
                     <div class="room-create-btn-row" id="odaLiderYapSatiri" style="display:none;">
                         <button type="button" class="btn-ok" onclick="odaLiderYap()" style="background:linear-gradient(180deg,#f7c948,#c78e1a); border-color:#8a5f10;">👑 Lider Yap</button>
@@ -1564,30 +1557,6 @@ mesaj_html = """
                 else alert("⚠️ " + (res.hata || "İşlem başarısız."));
             });
         }
-
-        function odaKickAt() {
-            const hedef = document.getElementById('odaYonetimHedef').value;
-            if (!hedef) return;
-            if (!confirm(hedef + " kullanıcısını bu odadan atmak istiyor musunuz?")) return;
-            fetch('/api/oda_kick', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef)
-            }).then(r => r.json()).then(res => {
-                if (res.basarili) odaYetkiYukle();
-                else alert("⚠️ " + (res.hata || "İşlem başarısız."));
-            });
-        }
-
-        function odaGeciciBanla() {
-            const hedef = document.getElementById('odaYonetimHedef').value;
-            const dakikaStr = document.getElementById('odaBanDakika').value.trim();
-            if (!hedef) return;
-            const dakika = parseFloat(dakikaStr);
-            if (!dakika || dakika <= 0) {
-                alert("Lütfen geçerli bir dakika değeri girin.");
-                return;
-            }
             if (!confirm(hedef + " kullanıcısını " + dakika + " dakikalığına bu odadan banlamak istiyor musunuz?")) return;
             fetch('/api/oda_ban', {
                 method: 'POST',
@@ -2186,7 +2155,6 @@ def giris():
 
     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
-
 @app.route("/sifre-unuttum", methods=["GET", "POST"])
 def sifre_unuttum():
     return render_template_string("""
@@ -2506,6 +2474,12 @@ def post_oda_kick():
     if not oda_yonetebilir_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu odayı yönetme yetkiniz yok."})
 
+    if oda_lideri_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
+
+    if oda_lideri_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
+
     if hedef not in kullanici_db:
         return jsonify({"basarili": False, "hata": "Kullanıcı bulunamadı."})
 
@@ -2545,6 +2519,9 @@ def post_oda_ban():
 
     if not oda_yonetebilir_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu odayı yönetme yetkiniz yok."})
+
+    if oda_lideri_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
 
     if hedef not in kullanici_db:
         return jsonify({"basarili": False, "hata": "Kullanıcı bulunamadı."})
