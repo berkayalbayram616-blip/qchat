@@ -308,8 +308,6 @@ def kullanici_adi_bul(kimlik):
         return kimlik
     if kimlik in kullanici_renames:
         return kullanici_renames[kimlik]
-    if e_posta_gecerli_mi(kimlik):
-        return email_hesaplari.get(kimlik)
     return None
 
 def email_baska_hesapta_var_mi(email, mevcut_kullanici=None):
@@ -805,9 +803,6 @@ giris_html = """
             <form method="POST">
                 <span class="field-label">Kullanıcı Adı</span>
                 <input type="text" name="kullanici" placeholder="Kullanıcı adınızı girin" maxlength="15" value="{{ kullanici|default('') }}" required autocomplete="off">
-                <span class="field-label">E-posta</span>
-                <input type="email" name="email" placeholder="Yeni hesap için e-posta adresiniz" maxlength="120" value="{{ email|default('') }}" autocomplete="off">
-                <div class="sifre-ipucu">Yeni hesap açarken kod bu e-postaya gönderilir. Mevcut hesabınızla girişte boş bırakabilirsiniz.</div>
                 <span class="field-label">Şifre</span>
                 <input type="password" name="sifre" placeholder="Şifrenizi girin" minlength="7" maxlength="15" required autocomplete="off">
                 {% if kod_gerekli %}
@@ -825,8 +820,8 @@ giris_html = """
                     <label for="beni_hatirla">🔒 Beni hatırla</label>
                 </div>
                 <button type="submit">GİRİŞ YAP / KAYDOL</button>
-                <div style="text-align:center; margin-top:10px; font-size:12px;">
-                    <a href="/sifre-unuttum" style="color:#1c5fb0; font-weight:700; text-decoration:none;">Şifremi unuttum</a>
+                <div style="text-align:center; margin-top:10px; font-size:12px; color:#5a7a9a;">
+                    E-posta ile giriş kaldırıldı.
                 </div>
             </form>
         </div>
@@ -892,8 +887,8 @@ sifre_unuttum_html = """
             {% if hata %}<div class="error">⚠️ {{ hata }}</div>{% endif %}
             {% if onay_mesaji %}<div class="error" style="color:#1d5d2a;background:#e7f7ea;border-color:#b9e3c1;">✅ {{ onay_mesaji }}</div>{% endif %}
             <form method="POST">
-                <span class="field-label">Kullanıcı Adı veya E-posta</span>
-                <input type="text" name="kimlik" placeholder="Kullanıcı adınızı veya e-postanızı girin" maxlength="120" value="{{ kimlik|default('') }}" required autocomplete="off">
+                <span class="field-label">Kullanıcı Adı</span>
+                <input type="text" name="kimlik" placeholder="Kullanıcı adınızı girin" maxlength="120" value="{{ kimlik|default('') }}" required autocomplete="off">
                 {% if kod_gerekli %}
                 <span class="field-label">Doğrulama Kodu</span>
                 <input type="text" name="dogrulama_kodu" placeholder="E-postaya gelen 6 haneli kod" inputmode="numeric" maxlength="6" pattern="\\d{6}" autocomplete="off">
@@ -2171,81 +2166,38 @@ def giris():
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
-            # Yeni hesap akışı: önce kod gönder, sonra kodla oluştur.
-            if bekleyen and bekleyen.get("kullanici") == kullanici:
-                kod_gerekli = True
-                if time.time() - bekleyen.get("olusturma_zamani", 0) > EMAIL_DOGRULAMA_SANIYE:
-                    bekleyen_kayitlar.pop(bekleyen_token, None)
-                    session.pop("kayit_dogrulama_token", None)
-                    hata = "⏳ Doğrulama kodunun süresi doldu. Lütfen tekrar kod gönderin."
-                    return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
-
-                if not email or email != bekleyen.get("email"):
-                    hata = "❌ E-posta adresi doğrulama isteğiyle aynı olmalı."
-                    return render_template_string(giris_html, hata=hata, kod_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=bekleyen.get("email", form_email))
-
-                if not kod:
-                    hata = "📩 E-postanıza gelen 6 haneli kodu girin."
-                    return render_template_string(giris_html, hata=hata, kod_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
-
-                if kod != bekleyen.get("kod"):
-                    hata = "❌ Doğrulama kodu yanlış."
-                    return render_template_string(giris_html, hata=hata, kod_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
-
-                kullanici_db[kullanici] = bekleyen["sifre_hash"]
-                kullanici_emailini_kaydet(kullanici, email)
-                kullanici_kayit_zamani[kullanici] = time.time()
-                session.pop("kayit_dogrulama_token", None)
-                bekleyen_kayitlar.pop(bekleyen_token, None)
-                session["kullanici"] = kullanici
-                session.permanent = remember
-                son_aktiflik[kullanici] = time.time()
-                kullanici_oturum_son_kayit[kullanici] = time.time()
-                log_ekle(f"Yeni hesap oluşturuldu: '{kullanici}' ({email})")
-                durumu_kaydet()
-                return redirect("/")
+            if kullanici in kullanici_db:
+                if sifre_dogrula(kullanici, sifre):
+                    giris_denemesini_temizle(kullanici)
+                    session["kullanici"] = kullanici
+                    session.permanent = remember
+                    son_aktiflik[kullanici] = time.time()
+                    kullanici_oturum_son_kayit[kullanici] = time.time()
+                    log_ekle(f"'{kullanici}' oturum açtı.")
+                    return redirect("/")
+                else:
+                    kilitlendi = giris_hatali_deneme_kaydet(kullanici)
+                    if kilitlendi:
+                        hata = f"🔒 Çok fazla hatalı deneme! Hesap {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
+                    else:
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
+                        hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
+                    return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
             gecerli, hata_mesaji = sifre_guclu_mu(sifre)
             if not gecerli:
                 hata = hata_mesaji
                 return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
 
-            if not email:
-                hata = "❌ Yeni hesap için e-posta adresi gerekli."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
-
-            if not e_posta_gecerli_mi(email):
-                hata = "❌ Geçerli bir e-posta adresi girin."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
-
-            if email in banli_emailler:
-                hata = "🚫 Bu e-posta ile yeni hesap oluşturamazsınız."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
-
-            if email_baska_hesapta_var_mi(email, kullanici):
-                hata = "❌ Bu e-posta başka bir hesapta kayıtlı."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
-
-            kod_uret = dogrulama_kodu_uret()
-            try:
-                eposta_dogrulama_kodu_gonder(email, kod_uret, kullanici)
-            except Exception as e:
-                log_ekle(f"E-posta gönderilemedi: {e}")
-                hata = f"❌ Doğrulama e-postası gönderilemedi: {e}"
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
-
-            token = secrets.token_hex(16)
-            bekleyen_kayitlar[token] = {
-                "kullanici": kullanici,
-                "email": email,
-                "sifre_hash": sifre_hashle(sifre),
-                "kod": kod_uret,
-                "olusturma_zamani": time.time(),
-            }
-            session["kayit_dogrulama_token"] = token
-            onay_mesaji = f"Doğrulama kodu {email} adresine gönderildi. Lütfen kodu girip tekrar gönderin."
-            kod_gerekli = True
-            return render_template_string(giris_html, hata=None, kod_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+            kullanici_db[kullanici] = sifre_hashle(sifre)
+            kullanici_kayit_zamani[kullanici] = time.time()
+            session["kullanici"] = kullanici
+            session.permanent = remember
+            son_aktiflik[kullanici] = time.time()
+            kullanici_oturum_son_kayit[kullanici] = time.time()
+            log_ekle(f"Yeni hesap oluşturuldu: '{kullanici}'")
+            durumu_kaydet()
+            return redirect("/")
 
         hata = "Lütfen tüm alanları doldurun."
 
@@ -2255,132 +2207,27 @@ def giris():
 
     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
+
 @app.route("/sifre-unuttum", methods=["GET", "POST"])
 def sifre_unuttum():
-    hata = None
-    onay_mesaji = None
-    kod_gerekli = False
-    form_kimlik = ""
-
-    token = session.get("sifre_sifirlama_token")
-    bekleyen = bekleyen_sifre_sifirlama.get(token) if token else None
-
-    if bekleyen and time.time() - bekleyen.get("olusturma_zamani", 0) > SIFRE_SIFIRLAMA_SANIYE:
-        bekleyen_sifre_sifirlama.pop(token, None)
-        session.pop("sifre_sifirlama_token", None)
-        bekleyen = None
-
-    if request.method == "POST":
-        kimlik = request.form.get("kimlik", "").strip()
-        kod = request.form.get("dogrulama_kodu", "").strip()
-        yeni_sifre = request.form.get("yeni_sifre", "").strip()
-        kod_yenile = request.form.get("kod_yenile") == "1"
-
-        form_kimlik = kimlik or (bekleyen.get("kimlik") if bekleyen else "")
-
-        if kod_yenile and bekleyen:
-            hedef_kullanici = bekleyen.get("kullanici")
-            hedef_email = bekleyen.get("email")
-            if not hedef_kullanici or not hedef_email:
-                hata = "❌ Şifre sıfırlama oturumu bozulmuş. Lütfen tekrar deneyin."
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-            yeni_kod = dogrulama_kodu_uret()
-            bekleyen["kod"] = yeni_kod
-            bekleyen["olusturma_zamani"] = time.time()
-            try:
-                eposta_sifre_sifirlama_kodu_gonder(hedef_email, yeni_kod, hedef_kullanici)
-            except Exception as e:
-                log_ekle(f"Şifre sıfırlama e-postası gönderilemedi: {e}")
-                hata = f"❌ Şifre sıfırlama e-postası gönderilemedi: {e}"
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=True, kimlik=form_kimlik)
-
-            onay_mesaji = f"Yeni kod {hedef_email} adresine gönderildi."
-            kod_gerekli = True
-            return render_template_string(sifre_unuttum_html, hata=None, onay_mesaji=onay_mesaji, kod_gerekli=True, kimlik=form_kimlik)
-
-        if bekleyen:
-            hedef_kullanici = bekleyen.get("kullanici")
-            hedef_email = bekleyen.get("email")
-            if not hedef_kullanici or not hedef_email:
-                hata = "❌ Şifre sıfırlama oturumu bozulmuş. Lütfen tekrar deneyin."
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-            if time.time() - bekleyen.get("olusturma_zamani", 0) > SIFRE_SIFIRLAMA_SANIYE:
-                bekleyen_sifre_sifirlama.pop(token, None)
-                session.pop("sifre_sifirlama_token", None)
-                hata = "⏳ Doğrulama kodunun süresi doldu. Lütfen tekrar kod gönderin."
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-            if kimlik and e_posta_normalize(kimlik) not in {e_posta_normalize(bekleyen.get("kimlik", "")), e_posta_normalize(hedef_kullanici), e_posta_normalize(hedef_email)}:
-                hata = "❌ Girilen kullanıcı/e-posta, doğrulama isteğiyle aynı olmalı."
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=True, kimlik=form_kimlik)
-
-            if not kod:
-                hata = "📩 E-postanıza gelen 6 haneli kodu girin."
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=True, kimlik=form_kimlik)
-
-            if kod != bekleyen.get("kod"):
-                hata = "❌ Doğrulama kodu yanlış."
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=True, kimlik=form_kimlik)
-
-            gecerli, hata_mesaji = sifre_guclu_mu(yeni_sifre)
-            if not gecerli:
-                hata = hata_mesaji
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=True, kimlik=form_kimlik)
-
-            kullanici_db[hedef_kullanici] = sifre_hashle(yeni_sifre)
-            kullanici_kayit_zamani[hedef_kullanici] = time.time()
-            durumu_kaydet()
-            bekleyen_sifre_sifirlama.pop(token, None)
-            session.pop("sifre_sifirlama_token", None)
-            log_ekle(f"'{hedef_kullanici}' için şifre sıfırlandı ({hedef_email}).")
-            onay_mesaji = "Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz."
-            return render_template_string(sifre_unuttum_html, hata=None, onay_mesaji=onay_mesaji, kod_gerekli=False, kimlik="")
-
-        if not kimlik:
-            hata = "Lütfen kullanıcı adınızı veya e-posta adresinizi girin."
-            return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-        hedef_kullanici = kullanici_adi_bul(kimlik)
-        if not hedef_kullanici:
-            hata = "❌ Bu kullanıcı veya e-posta bulunamadı."
-            return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-        hedef_email = kullanici_emaili_al(hedef_kullanici)
-        if not hedef_email:
-            hata = "❌ Bu hesapta kayıtlı e-posta bulunmuyor."
-            return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-        yeni_kod = dogrulama_kodu_uret()
-        try:
-            eposta_sifre_sifirlama_kodu_gonder(hedef_email, yeni_kod, hedef_kullanici)
-        except Exception as e:
-            log_ekle(f"Şifre sıfırlama e-postası gönderilemedi: {e}")
-            hata = f"❌ Şifre sıfırlama e-postası gönderilemedi: {e}"
-            return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
-
-        token = secrets.token_hex(16)
-        bekleyen_sifre_sifirlama[token] = {
-            "kullanici": hedef_kullanici,
-            "email": hedef_email,
-            "kimlik": kimlik,
-            "kod": yeni_kod,
-            "olusturma_zamani": time.time(),
-        }
-        session["sifre_sifirlama_token"] = token
-        kod_gerekli = True
-        onay_mesaji = f"Doğrulama kodu {hedef_email} adresine gönderildi. Kodu girip yeni şifrenizi belirleyin."
-        return render_template_string(sifre_unuttum_html, hata=None, onay_mesaji=onay_mesaji, kod_gerekli=True, kimlik=form_kimlik)
-
-    if bekleyen and bekleyen.get("kullanici"):
-        kod_gerekli = True
-        onay_mesaji = f"Doğrulama kodu {bekleyen.get('email')} adresine gönderildi."
-        form_kimlik = bekleyen.get("kimlik", "")
-
-    return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=onay_mesaji, kod_gerekli=kod_gerekli, kimlik=form_kimlik)
+    return render_template_string("""
+    <!DOCTYPE html><html lang="tr"><head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devre Dışı</title>
+    <style>
+    body{font-family:Segoe UI,Tahoma,sans-serif;background:#eaf2fa;min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
+    .box{background:#fff;border:1px solid #b9cfe4;border-radius:8px;padding:24px;max-width:420px;text-align:center;box-shadow:0 12px 32px rgba(20,60,110,.2)}
+    h2{margin:0 0 10px;color:#1c3d5c} p{margin:0;color:#33475c;line-height:1.5}
+    a{display:inline-block;margin-top:14px;color:#1c5fb0;font-weight:700;text-decoration:none}
+    </style></head><body><div class="box">
+    <h2>Şifremi unuttum kapatıldı</h2>
+    <p>E-posta ile işlem kaldırıldı. Şu an sadece kullanıcı adı ve şifre ile giriş yapılır.</p>
+    <a href="/giris">Girişe dön</a>
+    </div></body></html>
+    """)
 
 @app.route("/api/kullanicilar", methods=["GET"])
+
 def get_kullanicilar():
     if "kullanici" in session:
         son_aktiflik[session["kullanici"]] = time.time()
