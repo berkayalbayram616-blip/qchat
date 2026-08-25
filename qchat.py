@@ -1557,20 +1557,6 @@ mesaj_html = """
                 else alert("⚠️ " + (res.hata || "İşlem başarısız."));
             });
         }
-            if (!confirm(hedef + " kullanıcısını " + dakika + " dakikalığına bu odadan banlamak istiyor musunuz?")) return;
-            fetch('/api/oda_ban', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef) + '&dakika=' + encodeURIComponent(dakika)
-            }).then(r => r.json()).then(res => {
-                if (res.basarili) {
-                    document.getElementById('odaBanDakika').value = '';
-                    odaYetkiYukle();
-                } else {
-                    alert("⚠️ " + (res.hata || "İşlem başarısız."));
-                }
-            });
-        }
 
         function odaLiderYap() {
             const hedef = document.getElementById('odaYonetimHedef').value;
