@@ -820,9 +820,6 @@ giris_html = """
                     <label for="beni_hatirla">🔒 Beni hatırla</label>
                 </div>
                 <button type="submit">GİRİŞ YAP / KAYDOL</button>
-                <div style="text-align:center; margin-top:10px; font-size:12px; color:#5a7a9a;">
-                    E-posta ile giriş kaldırıldı.
-                </div>
             </form>
         </div>
     </div>
@@ -1687,31 +1684,13 @@ mesaj_html = """
                     odalariGuncelle();
                     mesajlariGuncelle(true);
                     odaYetkiYukle();
-                } else if (res.izin_yok) {
-                    if (confirm(res.hata + "\\n\\nSistem'den izin istemek ister misiniz?")) {
-                        izinIste();
-                    }
                 } else {
                     alert("⚠️ " + (res.hata || "Oda kurulamadı."));
                 }
             })
             .catch(err => alert("Oda kurulurken hata oluştu: " + err));
         }
-
-        function izinIste() {
-            fetch('/api/oda_izin_iste', { method: 'POST' })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.basarili) {
-                        alert("✅ İsteğiniz Sistem'e gönderildi. Onay bekleyiniz.");
-                    } else {
-                        alert("⚠️ " + (res.hata || "İstek gönderilemedi."));
-                    }
-                })
-                .catch(err => alert("İstek gönderilirken hata oluştu: " + err));
-        }
-
-        function kullanicilariGuncelle() {
+function kullanicilariGuncelle() {
             fetch('/api/kullanicilar')
                 .then(res => {
                     if (res.status === 403) window.location.reload();
@@ -2324,9 +2303,6 @@ def post_oda_olustur():
         return jsonify({"basarili": False, "hata": "Önce giriş yapmalısınız."})
 
     kullanici = session["kullanici"]
-
-    if not oda_kurma_yetkisi_var_mi(kullanici):
-        return jsonify({"basarili": False, "izin_yok": True, "hata": "Oda kurma izniniz yok. Sistem Sistem'inden izin isteyin."})
 
     oda = request.form.get("oda", "").strip()
     sifre = request.form.get("sifre", "").strip()
