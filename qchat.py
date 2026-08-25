@@ -498,6 +498,14 @@ def kullanici_oturum_toplamini_al(kullanici, simdi=None):
             toplam += int(simdi - son)
         return max(0, toplam)
 
+def kullanici_kredi_hesapla(kullanici, simdi=None):
+    if not kullanici:
+        return 0
+    if simdi is None:
+        simdi = time.time()
+    saniye = kullanici_oturum_toplamini_al(kullanici, simdi)
+    return max(0, int(saniye // 60) * 20)
+
 def kullanici_bilgi_hazirla(kullanici):
     simdi = time.time()
     mesaj_sayisi = sum(1 for m in sohbet_gecmisi if m.get("gonderen") == kullanici)
@@ -509,6 +517,7 @@ def kullanici_bilgi_hazirla(kullanici):
         "kayit_tarihi": time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(kayit_ts)) if kayit_ts else None,
         "mesaj_sayisi": mesaj_sayisi,
         "oturum_suresi_saniye": kullanici_oturum_toplamini_al(kullanici, simdi),
+        "kredi": kullanici_kredi_hesapla(kullanici, simdi),
         "online": bool(son_aktiflik.get(kullanici) and simdi - son_aktiflik.get(kullanici, 0) < 10),
     }
 
@@ -1113,7 +1122,7 @@ mesaj_html = """
             <div id="pinnedBanner" class="pinned-banner">📌 <span id="pinnedText"></span></div>
 
             <div class="topbar">
-                <div class="user-info">👤 {{ kullanici }}</div>
+                <div class="user-info">👤 {{ kullanici }} <span id="krediGoster" style="margin-left:8px; font-size:11.5px; font-weight:700; color:#7a5200; background:#fff6d0; border:1px solid #e0b400; border-radius:999px; padding:3px 8px;">🪙 0 kredi</span></div>
                 <div style="display:flex; gap:6px; align-items:center;">
                     <button type="button" class="logout-btn settings-btn" onclick="ayarlarPenceresiAc()">⚙️ Ayarlar</button>
                     <a href="/cikis" class="logout-btn">Çıkış Yap</a>
@@ -1262,6 +1271,18 @@ mesaj_html = """
             ayarlarUygula();
         }
 
+        function krediGuncelle() {
+            fetch('/api/kullanici_bilgi?kullanici=' + encodeURIComponent("{{ kullanici }}"))
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('krediGoster');
+                    if (el && data && data.basarili) {
+                        el.textContent = '🪙 ' + (data.kredi || 0) + ' kredi';
+                    }
+                })
+                .catch(() => {});
+        }
+
         function ayarlarPenceresiAc() {
             ayarlarUygula();
             document.getElementById('ayarlarOverlay').style.display = 'flex';
@@ -1272,6 +1293,7 @@ mesaj_html = """
         }
 
         ayarlarYukle();
+        krediGuncelle();
 
         function sesContextBaslat() {
             if (!audioCtx) {
@@ -1929,6 +1951,7 @@ function kullanicilariGuncelle() {
                     }
                 })
                 .catch(err => console.log(err));
+            krediGuncelle();
         }
 
         function mesajSil(mesajId) {
@@ -1981,6 +2004,7 @@ function kullanicilariGuncelle() {
                     input.value = '';
                     yanitTemizle();
                     mesajlariGuncelle();
+        krediGuncelle();
                 }
             });
         }
@@ -2070,6 +2094,7 @@ function kullanicilariGuncelle() {
         setInterval(odalariGuncelle, 5000);
         setInterval(kullanicilariGuncelle, 5000);
         setInterval(mesajlariGuncelle, 1000);
+        setInterval(krediGuncelle, 30000);
         odalariGuncelle();
         kullanicilariGuncelle();
         mesajlariGuncelle();
