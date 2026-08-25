@@ -104,7 +104,7 @@ def _tum_hatalari_yakala(e):
 veri_kilidi = threading.RLock()  # sohbet_gecmisi / odalar_db / oda_* gibi paylaşılan verileri korur
 
 mesaj_kuyrugu = queue.Queue()
-izin_istek_kuyrugu = queue.Queue()  # Admin'e gönderilecek "oda kurma izni" istekleri
+izin_istek_kuyrugu = queue.Queue()  # Sistem'e gönderilecek "oda kurma izni" istekleri
 oda_izin_istekleri = {}  # {kullanici_adi: istek_zamani} - cevap bekleyen istekler
 yaziyor_durumu = {}
 son_aktiflik = {}
@@ -150,7 +150,7 @@ def sikayetleri_kaydet(liste):
 sikayetler = sikayetleri_yukle()
 sikayet_kilidi = threading.Lock()
 
-_son_admin_acilis = 0
+_son_sistem_acilis = 0
 bakim_modu = False
 yavas_mod_saniye = 0
 kufur_filtresi = False
@@ -407,7 +407,7 @@ oda_gecici_banlar = veriler.get("oda_gecici_banlar", {})   # {oda_adi: {kullanic
 oda_kurma_izni = set(veriler.get("oda_kurma_izni", []))    # oda kurma yetkisi verilmiş kullanıcılar
 
 if "Genel" not in oda_liderleri:
-    oda_liderleri["Genel"] = "Admin"
+    oda_liderleri["Genel"] = "Sistem"
 
 def oda_rolunu_al(oda, kullanici):
     """Kullanıcının bir odadaki rolünü döndürür: 'lider', 'yonetici' veya 'uye'."""
@@ -418,16 +418,16 @@ def oda_rolunu_al(oda, kullanici):
     return oda_roller.get(oda, {}).get(kullanici, "uye")
 
 def oda_yonetebilir_mi(oda, kullanici):
-    """Kullanıcı bu odayı yönetebilir mi (lider, liderin yetki verdiği yönetici veya sistem Admin'i)?"""
-    if kullanici == "Admin":
+    """Kullanıcı bu odayı yönetebilir mi (lider, liderin yetki verdiği yönetici veya sistem Sistem'i)?"""
+    if kullanici == "Sistem":
         return True
     return oda_rolunu_al(oda, kullanici) in ("lider", "yonetici")
 
 def oda_lideri_mi(oda, kullanici):
-    return kullanici == "Admin" or oda_liderleri.get(oda) == kullanici
+    return kullanici == "Sistem" or oda_liderleri.get(oda) == kullanici
 
 def oda_kurma_yetkisi_var_mi(kullanici):
-    return kullanici == "Admin" or kullanici in oda_kurma_izni
+    return kullanici == "Sistem" or kullanici in oda_kurma_izni
 
 def oda_banli_mi(oda, kullanici):
     if kullanici in oda_yasaklari.get(oda, []):
@@ -613,7 +613,7 @@ def guvenlik_kontrolu():
             return "Kick", 403
         return redirect("/giris")
 
-    if bakim_modu and kullanici != "Admin":
+    if bakim_modu and kullanici != "Sistem":
         if request.path.startswith("/api/"):
             return "Bakım", 403
         if request.path == "/":
@@ -1050,7 +1050,7 @@ mesaj_html = """
         .msg-private { background: #eef6ff; border-left: 3px solid #3a8ee6; }
         .msg-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
         .msg-user { font-weight: 700; }
-        .msg-admin { color: #b8281f !important; font-weight: 700; }
+        .msg-sistem { color: #b8281f !important; font-weight: 700; }
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
 
@@ -1124,7 +1124,7 @@ mesaj_html = """
                             <button type="button" class="small-btn" onclick="ayarlarSifirla()">Sıfırla</button>
                             <button type="button" class="small-btn" onclick="ayarlarPenceresiKapat()">Kapat</button>
                         </div>
-                        {% if kullanici != "Admin" %}
+                        {% if kullanici != "Sistem" %}
                         <form method="POST" action="/hesap-sil" onsubmit="return confirm('Hesabın kalıcı olarak silinsin ve çıkış yapılsın mı?');" style="margin:0;">
                             <button type="submit" class="small-btn" style="width:100%; background:linear-gradient(180deg,#f28b82,#c0392b); border-color:#8f241a;">🗑️ Hesabı Sil ve Çıkış Yap</button>
                         </form>
@@ -1688,7 +1688,7 @@ mesaj_html = """
                     mesajlariGuncelle(true);
                     odaYetkiYukle();
                 } else if (res.izin_yok) {
-                    if (confirm(res.hata + "\\n\\nAdmin'den izin istemek ister misiniz?")) {
+                    if (confirm(res.hata + "\\n\\nSistem'den izin istemek ister misiniz?")) {
                         izinIste();
                     }
                 } else {
@@ -1703,7 +1703,7 @@ mesaj_html = """
                 .then(r => r.json())
                 .then(res => {
                     if (res.basarili) {
-                        alert("✅ İsteğiniz Admin'e gönderildi. Onay bekleyiniz.");
+                        alert("✅ İsteğiniz Sistem'e gönderildi. Onay bekleyiniz.");
                     } else {
                         alert("⚠️ " + (res.hata || "İstek gönderilemedi."));
                     }
@@ -1767,7 +1767,7 @@ mesaj_html = """
                         if (sonMesaj.gonderen === '📢 ALARM') {
                             sirenSesiCal();
                             alert("🚨 SİSTEM ALARMI: " + sonMesaj.mesaj);
-                        } else if (sonMesaj.gonderen === 'Admin' || sonMesaj.gonderen === '📢 DUYURU' || sonMesaj.gonderen === '📢 SAYAÇ') {
+                        } else if (sonMesaj.gonderen === 'Sistem' || sonMesaj.gonderen === '📢 DUYURU' || sonMesaj.gonderen === '📢 SAYAÇ') {
                             almaSesiCal();
                         }
                     }
@@ -1811,14 +1811,14 @@ mesaj_html = """
                             head.className = 'msg-head';
 
                             const isim = document.createElement('span');
-                            isim.className = isDuyuru ? 'msg-user msg-admin' : (m.gonderen === 'Admin' ? 'msg-user msg-admin' : 'msg-user');
+                            isim.className = isDuyuru ? 'msg-user msg-sistem' : (m.gonderen === 'Sistem' ? 'msg-user msg-sistem' : 'msg-user');
 
                             let gosterim = m.gonderen;
                             if (isPrivate) {
                                 gosterim = m.gonderen + " ➔ " + m.alici;
                             }
                             isim.textContent = gosterim;
-                            if (!isDuyuru && m.gonderen !== 'Admin') {
+                            if (!isDuyuru && m.gonderen !== 'Sistem') {
                                 isim.style.color = kullaniciRengi(m.gonderen || '');
                             }
                             head.appendChild(isim);
@@ -1831,7 +1831,7 @@ mesaj_html = """
                             }
 
                             // Mesajın en sağında gerekli işlem butonları.
-                            if (!isDuyuru && m.gonderen !== 'Admin' && m.gonderen !== "{{ kullanici }}") {
+                            if (!isDuyuru && m.gonderen !== 'Sistem' && m.gonderen !== "{{ kullanici }}") {
                                 const sikayetBtn = document.createElement('button');
                                 sikayetBtn.type = 'button';
                                 sikayetBtn.className = 'msg-action-btn sikayet-mesaj-btn';
@@ -1938,7 +1938,7 @@ mesaj_html = """
         }
 
         function sikayetPenceresiAc(kullanici, ilgiliMesaj = null) {
-            if (!kullanici || kullanici === "{{ kullanici }}" || kullanici === "Admin") return;
+            if (!kullanici || kullanici === "{{ kullanici }}" || kullanici === "Sistem") return;
             const nedenler = ["Küfür","Taciz","Uygunsuz davranış","Spam","Hakaret","Tehdit / güvenlik","Diğer"];
             let secenekler = nedenler.map(n => `<option value="${n}">${n}</option>`).join('');
             const onceki = document.getElementById('sikayetModal');
@@ -2050,8 +2050,8 @@ def hesap_sil():
     kullanici = session.get("kullanici")
     if not kullanici:
         return redirect("/giris")
-    if kullanici == "Admin":
-        return "<h2 style='font-family:sans-serif;color:#b91c1c;text-align:center;'>Admin hesabı silinemez.</h2>", 403
+    if kullanici == "Sistem":
+        return "<h2 style='font-family:sans-serif;color:#b91c1c;text-align:center;'>Sistem hesabı silinemez.</h2>", 403
 
     with veri_kilidi:
         kullanici_db.pop(kullanici, None)
@@ -2081,7 +2081,7 @@ def hesap_sil():
 
         for oda_adi, lider in list(oda_liderleri.items()):
             if lider == kullanici:
-                oda_liderleri[oda_adi] = "Admin"
+                oda_liderleri[oda_adi] = "Sistem"
             oda_roller.get(oda_adi, {}).pop(kullanici, None)
             if kullanici in oda_yasaklari.get(oda_adi, []):
                 try:
@@ -2135,7 +2135,7 @@ def giris():
                 hata = "❌ Şifre çok uzun (en fazla 20 karakter)."
                 return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
-            if kullanici.lower() == "admin" and kullanici not in kullanici_db:
+            if kullanici.lower() == "sistem" and kullanici not in kullanici_db:
                 hata = "❌ Bu kullanıcı adını kullanamazsınız!"
                 return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -2326,7 +2326,7 @@ def post_oda_olustur():
     kullanici = session["kullanici"]
 
     if not oda_kurma_yetkisi_var_mi(kullanici):
-        return jsonify({"basarili": False, "izin_yok": True, "hata": "Oda kurma izniniz yok. Sistem Admin'inden izin isteyin."})
+        return jsonify({"basarili": False, "izin_yok": True, "hata": "Oda kurma izniniz yok. Sistem Sistem'inden izin isteyin."})
 
     oda = request.form.get("oda", "").strip()
     sifre = request.form.get("sifre", "").strip()
@@ -2368,7 +2368,7 @@ def post_oda_izin_iste():
 
     with veri_kilidi:
         if kullanici in oda_izin_istekleri:
-            return jsonify({"basarili": False, "hata": "Zaten bekleyen bir isteğiniz var, Admin'in cevabını bekleyin."})
+            return jsonify({"basarili": False, "hata": "Zaten bekleyen bir isteğiniz var, Sistem'in cevabını bekleyin."})
         oda_izin_istekleri[kullanici] = time.time()
 
     log_ekle(f"'{kullanici}' oda kurma izni istedi.")
@@ -2379,7 +2379,7 @@ def post_oda_izin_iste():
 def get_oda_kontrol():
     oda = request.args.get("oda", "Genel")
     kullanici = session.get("kullanici")
-    # Odanın lideri (veya sistem Admin'i) kendi odasına şifresiz girebilir
+    # Odanın lideri (veya sistem Sistem'i) kendi odasına şifresiz girebilir
     kilitli = bool(odalar_db.get(oda, "")) and not oda_lideri_mi(oda, kullanici)
     return jsonify({"kilitli": kilitli})
 
@@ -2390,7 +2390,7 @@ def post_oda_giris():
     kullanici = session.get("kullanici")
     if kullanici and oda_banli_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu odadan atıldınız."})
-    # Oda lideri (veya sistem Admin'i) şifreyi bilmese de kendi odasına girebilir
+    # Oda lideri (veya sistem Sistem'i) şifreyi bilmese de kendi odasına girebilir
     if kullanici and oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": True})
     if odalar_db.get(oda) == sifre:
@@ -2435,7 +2435,7 @@ def post_oda_kapat():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    # Yalnızca odanın lideri (odayı kuran/devralan kişi) veya sistem Admin'i kapatabilir
+    # Yalnızca odanın lideri (odayı kuran/devralan kişi) veya sistem Sistem'i kapatabilir
     if not oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu odayı yalnızca lideri kapatabilir."})
 
@@ -2459,7 +2459,7 @@ def get_oda_yetki():
 
     uyeler = []
     for isim in kullanici_db.keys():
-        if isim == "Admin":
+        if isim == "Sistem":
             continue
         uyeler.append({
             "isim": isim,
@@ -2491,7 +2491,7 @@ def post_oda_rol_ver():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    # Rol atama yetkisi yalnızca odanın liderinde (veya sistem Admin'inde) olsun
+    # Rol atama yetkisi yalnızca odanın liderinde (veya sistem Sistem'inde) olsun
     if not oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu işlem için odanın lideri olmanız gerekir."})
 
@@ -2536,7 +2536,7 @@ def post_oda_kick():
     if hedef == oda_liderleri.get(oda):
         return jsonify({"basarili": False, "hata": "Oda liderini atamazsınız."})
 
-    # Yöneticiler yalnızca sıradan üyeleri atabilir; sadece lider (veya Admin) diğer yöneticileri de atabilir
+    # Yöneticiler yalnızca sıradan üyeleri atabilir; sadece lider (veya Sistem) diğer yöneticileri de atabilir
     if oda_rolunu_al(oda, hedef) == "yonetici" and not oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bir yöneticiyi ancak lider odadan atabilir."})
 
@@ -2576,7 +2576,7 @@ def post_oda_ban():
     if hedef == oda_liderleri.get(oda):
         return jsonify({"basarili": False, "hata": "Oda liderini banlayamazsınız."})
 
-    # Yöneticiler yalnızca sıradan üyeleri banlayabilir; yöneticileri ancak lider (veya Admin) banlayabilir
+    # Yöneticiler yalnızca sıradan üyeleri banlayabilir; yöneticileri ancak lider (veya Sistem) banlayabilir
     if oda_rolunu_al(oda, hedef) == "yonetici" and not oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bir yöneticiyi ancak lider banlayabilir."})
 
@@ -2621,7 +2621,7 @@ def post_oda_lider_yap():
         eski_lider = oda_liderleri.get(oda)
         oda_liderleri[oda] = hedef
         oda_roller.setdefault(oda, {}).pop(hedef, None)
-        if eski_lider and eski_lider != hedef and eski_lider != "Admin":
+        if eski_lider and eski_lider != hedef and eski_lider != "Sistem":
             oda_roller.setdefault(oda, {})[eski_lider] = "yonetici"
 
     log_ekle(f"'{kullanici}', '{oda}' odasının liderliğini '{hedef}' kullanıcısına devretti.")
@@ -2630,8 +2630,8 @@ def post_oda_lider_yap():
 
 @app.route("/api/oda_kurma_izni_ver", methods=["POST"])
 def post_oda_kurma_izni_ver():
-    if session.get("kullanici") != "Admin":
-        return jsonify({"basarili": False, "hata": "Bu işlem yalnızca sistem Admin'i tarafından yapılabilir."})
+    if session.get("kullanici") != "Sistem":
+        return jsonify({"basarili": False, "hata": "Bu işlem yalnızca sistem Sistem'i tarafından yapılabilir."})
 
     hedef = request.form.get("hedef", "").strip()
     izin_ver = request.form.get("izin", "1") == "1"
@@ -2695,7 +2695,7 @@ def post_mesaj_sil():
             return jsonify({"basarili": False, "hata": "Sadece kendi mesajınızı silebilirsiniz."}), 403
 
         # Duyuru/sistem mesajları normal kullanıcı mesajı olarak silinemez.
-        if bulunan.get("gonderen") in ["Admin", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"]:
+        if bulunan.get("gonderen") in ["Sistem", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"]:
             return jsonify({"basarili": False, "hata": "Bu mesaj silinemez."}), 403
 
         sohbet_gecmisi.remove(bulunan)
@@ -2742,7 +2742,7 @@ def post_gonder():
         if oda_banli_mi(oda, kullanici):
             return "Bu odadan atıldınız.", 403
 
-        if yavas_mod_saniye > 0 and kullanici != "Admin":
+        if yavas_mod_saniye > 0 and kullanici != "Sistem":
             son_z = son_mesaj_zamani.get(kullanici, 0)
             fark = simdi - son_z
             if fark < yavas_mod_saniye:
@@ -2763,7 +2763,7 @@ def post_gonder():
         mesaj = request.form.get("mesaj", "").strip()[:200]  # istemcideki maxlength=200 ile aynı sınır, sunucu tarafında da uygulanır
         alici = request.form.get("alici", "Genel").strip()
 
-        if kufur_filtresi and kullanici != "Admin":
+        if kufur_filtresi and kullanici != "Sistem":
             mesaj = kufur_filtrele(mesaj)
 
         if mesaj:
@@ -2852,7 +2852,7 @@ def mesaj_goster(veri):
         yanit = cevap_giris.get().strip()
         if yanit:
             hedef = kullanici if alici != "Genel" else "Genel"
-            sohbet_gecmisi.append({"gonderen": "Admin", "mesaj": yanit, "alici": hedef, "oda": oda, "zaman": time.time()})
+            sohbet_gecmisi.append({"gonderen": "Sistem", "mesaj": yanit, "alici": hedef, "oda": oda, "zaman": time.time()})
             pencere.destroy()
 
     cevap_giris.bind("<Return>", cevabi_gonder)
@@ -2917,21 +2917,21 @@ def izin_istek_goster(kullanici):
     """Oda izin isteği kaydı tutulur; sağ alt köşe bildirimi kapatıldı."""
     return
 
-def admin_yazma_penceresi():
-    global _son_admin_acilis
+def sistem_yazma_penceresi():
+    global _son_sistem_acilis
     simdi = time.time()
-    if simdi - _son_admin_acilis < 0.4:
+    if simdi - _son_sistem_acilis < 0.4:
         return
-    _son_admin_acilis = simdi
+    _son_sistem_acilis = simdi
 
-    admin_win = tk.Toplevel(root)
-    admin_win.title("Admin Hızlı Mesaj")
-    admin_win.attributes("-topmost", True)
-    admin_win.overrideredirect(True)
+    sistem_win = tk.Toplevel(root)
+    sistem_win.title("Sistem Hızlı Mesaj")
+    sistem_win.attributes("-topmost", True)
+    sistem_win.overrideredirect(True)
     bg_color = "#F3F7FB"
-    admin_win.configure(bg=bg_color)
+    sistem_win.configure(bg=bg_color)
 
-    cerceve_dis = tk.Frame(admin_win, bg="black", bd=0)
+    cerceve_dis = tk.Frame(sistem_win, bg="black", bd=0)
     cerceve_dis.pack(fill="both", expand=True)
 
     cerceve_ic = tk.Frame(cerceve_dis, bg=bg_color, bd=0, relief="flat")
@@ -2940,13 +2940,13 @@ def admin_yazma_penceresi():
     baslik_cubugu = tk.Frame(cerceve_ic, bg="#111827", height=34)
     baslik_cubugu.pack(fill="x", side="top")
 
-    kapat_btn = tk.Button(baslik_cubugu, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=admin_win.destroy)
+    kapat_btn = tk.Button(baslik_cubugu, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=sistem_win.destroy)
     kapat_btn.pack(side="right", padx=4, pady=2)
 
     alt_panel = tk.Frame(cerceve_ic, bg=bg_color)
     alt_panel.pack(fill="x", side="bottom", pady=10)
     
-    tk.Label(alt_panel, text="Admin:", font=("Arial", 11, "bold"), bg=bg_color, fg="black").pack(side="left", padx=(12, 5))
+    tk.Label(alt_panel, text="Sistem:", font=("Arial", 11, "bold"), bg=bg_color, fg="black").pack(side="left", padx=(12, 5))
 
     cevap_giris = tk.Entry(alt_panel, font=("Arial", 11), bd=2, relief="sunken")
     cevap_giris.pack(side="left", fill="x", expand=True, padx=(0, 5))
@@ -2954,15 +2954,15 @@ def admin_yazma_penceresi():
     def cevabi_gonder(event=None):
         yanit = cevap_giris.get().strip()
         if yanit:
-            sohbet_gecmisi.append({"gonderen": "Admin", "mesaj": yanit, "alici": "Genel", "oda": "Genel", "zaman": time.time()})
-        admin_win.destroy()
+            sohbet_gecmisi.append({"gonderen": "Sistem", "mesaj": yanit, "alici": "Genel", "oda": "Genel", "zaman": time.time()})
+        sistem_win.destroy()
 
     cevap_giris.bind("<Return>", lambda e: cevabi_gonder())
-    admin_win.bind("<Escape>", lambda e: admin_win.destroy())
+    sistem_win.bind("<Escape>", lambda e: sistem_win.destroy())
 
     tk.Button(alt_panel, text="Gönder", font=("Arial", 10, "bold"), bg="#CCCCCC", bd=2, relief="raised", command=cevabi_gonder).pack(side="right", padx=(0, 12))
 
-    admin_win.update_idletasks()
+    sistem_win.update_idletasks()
     pencere_genislik = 440
     pencere_yukseklik = cerceve_ic.winfo_reqheight() + 15
     
@@ -2972,7 +2972,7 @@ def admin_yazma_penceresi():
     x = ekran_genislik - pencere_genislik - 20
     y = ekran_yukseklik - pencere_yukseklik - 150
     
-    admin_win.geometry(f"{pencere_genislik}x{pencere_yukseklik}+{x}+{y}")
+    sistem_win.geometry(f"{pencere_genislik}x{pencere_yukseklik}+{x}+{y}")
     cevap_giris.focus_set()
 
 def ghost_mode_chat(ilk_isim):
@@ -3137,7 +3137,7 @@ def ghost_mode_isteme():
     eg, ey = root.winfo_screenwidth(), root.winfo_screenheight()
     prompt.geometry(f"{pw}x{ph}+{(eg//2)-(pw//2)}+{(ey//2)-(ph//2)}")
 
-def admin_sikayetler_penceresi(parent):
+def sistem_sikayetler_penceresi(parent):
     if hasattr(root, "sikayet_penceresi") and root.sikayet_penceresi.winfo_exists():
         root.sikayet_penceresi.lift(); return
 
@@ -3222,7 +3222,7 @@ def admin_sikayetler_penceresi(parent):
 
     def sustur():
         hedef=hedefi_al()
-        if not hedef or hedef=="Admin": return
+        if not hedef or hedef=="Sistem": return
         dakika=tk.simpledialog.askinteger("Sustur", f"{hedef} kaç dakika susturulsun?", minvalue=1, maxvalue=10080, parent=win)
         if dakika:
             susturulanlar[hedef]={"bitis":time.time()+dakika*60,"oda":"Hepsi"}
@@ -3230,12 +3230,12 @@ def admin_sikayetler_penceresi(parent):
 
     def kick():
         hedef=hedefi_al()
-        if not hedef or hedef=="Admin": return
+        if not hedef or hedef=="Sistem": return
         zorla_cikis.add(hedef); log_ekle(f"Şikayet üzerinden '{hedef}' kicklendi."); durumu_kaydet()
 
     def ban():
         hedef=hedefi_al()
-        if not hedef or hedef=="Admin": return
+        if not hedef or hedef=="Sistem": return
         kullanici_banla_ve_email(hedef); log_ekle(f"Şikayet üzerinden '{hedef}' banlandı."); durumu_kaydet()
 
     tk.Button(action,text="💾 Durumu Kaydet",font=("Arial",8,"bold"),bg="#0066CC",fg="white",command=durum_kaydet).pack(side="right",padx=2)
@@ -3248,7 +3248,7 @@ def admin_sikayetler_penceresi(parent):
     win.update_idletasks()
     win.geometry(f"920x500+{(root.winfo_screenwidth()-920)//2}+{(root.winfo_screenheight()-500)//2}")
 
-def admin_yonetim_penceresi():
+def sistem_yonetim_penceresi():
     if hasattr(root, "yonetim_paneli") and root.yonetim_paneli.winfo_exists():
         root.yonetim_paneli.lift()
         return
@@ -3367,7 +3367,7 @@ def admin_yonetim_penceresi():
         secili = kullanici_liste.curselection()
         if secili:
             k_isim = k_ismini_al(kullanici_liste.get(secili[0]))
-            if k_isim != "Admin" and k_isim != "":
+            if k_isim != "Sistem" and k_isim != "":
                 kullanici_banla_ve_email(k_isim)
                 log_ekle(f"'{k_isim}' engellendi (Ban).")
                 guncelle_veriler(zorla=True)
@@ -3387,7 +3387,7 @@ def admin_yonetim_penceresi():
         secili = kullanici_liste.curselection()
         if secili:
             k_isim = k_ismini_al(kullanici_liste.get(secili[0]))
-            if k_isim != "Admin" and k_isim != "":
+            if k_isim != "Sistem" and k_isim != "":
                 if k_isim in kullanici_db: del kullanici_db[k_isim]
                 if k_isim in engellenenler: kullanici_banini_ac(k_isim)
                 if k_isim in susturulanlar: del susturulanlar[k_isim]
@@ -3395,7 +3395,7 @@ def admin_yonetim_penceresi():
                 for oda_adi, lider in list(oda_liderleri.items()):
                     if lider == k_isim:
                         oda_roller.get(oda_adi, {}).pop(k_isim, None)
-                        oda_liderleri[oda_adi] = "Admin"
+                        oda_liderleri[oda_adi] = "Sistem"
                 for roller in oda_roller.values():
                     roller.pop(k_isim, None)
                 for yasakli_liste in oda_yasaklari.values():
@@ -3410,7 +3410,7 @@ def admin_yonetim_penceresi():
         secili = kullanici_liste.curselection()
         if secili:
             k_isim = k_ismini_al(kullanici_liste.get(secili[0]))
-            if k_isim != "Admin" and k_isim in kullanici_db:
+            if k_isim != "Sistem" and k_isim in kullanici_db:
                 zorla_cikis.add(k_isim)
                 log_ekle(f"'{k_isim}' oturumdan atıldı (Kick).")
                 sohbet_gecmisi.append({"gonderen": "📢 DUYURU", "mesaj": f"👢 {k_isim} sunucudan atıldı.", "alici": "Genel", "oda": "Genel", "zaman": time.time()})
@@ -3484,7 +3484,7 @@ def admin_yonetim_penceresi():
         secili = kullanici_liste.curselection()
         if not secili: return
         eski_isim = k_ismini_al(kullanici_liste.get(secili[0]))
-        if eski_isim == "Admin" or not eski_isim: return
+        if eski_isim == "Sistem" or not eski_isim: return
 
         duzen_win = tk.Toplevel(panel)
         duzen_win.title("Üye Düzenle")
@@ -3590,7 +3590,7 @@ def admin_yonetim_penceresi():
         secili = kullanici_liste.curselection()
         if not secili: return
         k_isim = k_ismini_al(kullanici_liste.get(secili[0]))
-        if k_isim == "Admin" or not k_isim: return
+        if k_isim == "Sistem" or not k_isim: return
 
         s_win = tk.Toplevel(panel)
         s_win.title("Sustur")
@@ -3813,7 +3813,7 @@ def admin_yonetim_penceresi():
                     pass
                 else:
                     oda_izin_istekleri.pop(hedef, None)
-                    if izin_ver and hedef in kullanici_db and hedef != "Admin":
+                    if izin_ver and hedef in kullanici_db and hedef != "Sistem":
                         oda_kurma_izni.add(hedef)
                         log_ekle(f"'{hedef}' kullanıcısına oda kurma izni verildi (istekler panelinden onaylandı).")
                     elif not izin_ver:
@@ -4031,9 +4031,9 @@ def admin_yonetim_penceresi():
             ozel_oda_sayisi = len([o for o in odalar_db.keys() if o != "Genel"])
             if isim and isim not in odalar_db and ozel_oda_sayisi < MAKS_OZEL_ODA:
                 odalar_db[isim] = sif
-                oda_olustur_kaydi(isim, "Admin")
+                oda_olustur_kaydi(isim, "Sistem")
                 durumu_kaydet()
-                log_ekle(f"Admin oda kurdu: '{isim}'")
+                log_ekle(f"Sistem oda kurdu: '{isim}'")
                 listeyi_yenile()
                 isim_giris.delete(0, tk.END)
                 sifre_giris.delete(0, tk.END)
@@ -4110,7 +4110,7 @@ def admin_yonetim_penceresi():
         secili = kullanici_liste.curselection()
         if secili:
             k_isim = k_ismini_al(kullanici_liste.get(secili[0]))
-            if k_isim != "Admin" and k_isim in kullanici_db:
+            if k_isim != "Sistem" and k_isim in kullanici_db:
                 if k_isim in oda_kurma_izni:
                     oda_kurma_izni.discard(k_isim)
                     log_ekle(f"'{k_isim}' kullanıcısının oda kurma izni alındı.")
@@ -4119,7 +4119,7 @@ def admin_yonetim_penceresi():
                     log_ekle(f"'{k_isim}' kullanıcısına oda kurma izni verildi.")
                 durumu_kaydet()
 
-    panel_btn(btn_frame, text="⚠️ Şikayetler", bg="#b45309", command=lambda: admin_sikayetler_penceresi(panel)).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="⚠️ Şikayetler", bg="#b45309", command=lambda: sistem_sikayetler_penceresi(panel)).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🏠 Oda Yönetimi", command=oda_yonetim_isteme).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🏷️ Oda Kurma İzni Ver/Al", command=oda_kurma_izni_toggle).pack(fill="x", pady=1)
     btn_bakim = panel_btn(btn_frame, text="🟢 Bakım Kapalı" if not bakim_modu else "🛠️ Bakım Açık", bg="#16a34a" if not bakim_modu else "#f97316", command=toggle_bakim)
@@ -4234,8 +4234,8 @@ def guvenli_tetikle(fonksiyon):
 
 def kisayol_dinle():
     try:
-        keyboard.add_hotkey('ctrl+alt+c', lambda: guvenli_tetikle(admin_yazma_penceresi))
-        keyboard.add_hotkey('ctrl+alt+p', lambda: guvenli_tetikle(admin_yonetim_penceresi))
+        keyboard.add_hotkey('ctrl+alt+c', lambda: guvenli_tetikle(sistem_yazma_penceresi))
+        keyboard.add_hotkey('ctrl+alt+p', lambda: guvenli_tetikle(sistem_yonetim_penceresi))
     except Exception as e:
         print(f"⚠️ Kısayol dinleyici başlatılamadı: {e}")
 
