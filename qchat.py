@@ -1050,6 +1050,18 @@ mesaj_html = """
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
 
+        .msg-reply {
+            margin: 4px 0 6px;
+            padding: 5px 6px;
+            border-left: 3px solid #3a8ee6;
+            background: #eef6ff;
+            border-radius: 4px;
+            font-size: 11.5px;
+            color: #33475c;
+        }
+        .msg-reply .reply-from { font-weight: 700; color: #1c3d5c; }
+        .msg-reply .reply-text { display: block; margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
+
         .msg-duyuru { color: #7a3d99; font-weight: 700; background: #f7ecff; border: 1px dashed #b07fd9; padding: 5px 6px; }
         .msg-sayac {
             color: #fff200 !important; background: linear-gradient(180deg,#d3261a,#a01912) !important;
@@ -1195,6 +1207,13 @@ mesaj_html = """
             <div class="typing-indicator" id="yaziyorBox"></div>
 
             <form id="mesajForm" onsubmit="mesajGonder(event)">
+                <div id="replyBar" style="display:none; margin:0 0 8px; padding:8px 10px; border:1px solid #b9cfe4; border-radius:6px; background:#eef6ff; font-size:12px; color:#24465f; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+                    <div style="min-width:0;">
+                        <div><strong id="replyToName">Yanıt</strong></div>
+                        <div id="replyToText" style="margin-top:3px; font-size:11.5px; color:#44627c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:360px;"></div>
+                    </div>
+                    <button type="button" onclick="yanitTemizle()" style="flex:0 0 auto; padding:4px 8px; border:1px solid #8fa9c4; border-radius:4px; background:#fff; color:#24465f; cursor:pointer; font-weight:700;">İptal</button>
+                </div>
                 <div class="input-row">
                     <input type="text" id="mesajInput" placeholder="Mesajınızı yazın..." maxlength="200" autocomplete="off" oninput="yaziyorBildir()" required>
                 </div>
@@ -1209,6 +1228,7 @@ mesaj_html = """
         let sonYazmaSuresi = 0;
         let audioCtx = null;
         let aktifOda = "Genel";
+        let yanitHedefi = null;
         const AYARLAR_KEY = "qchat_ayarlar";
         let kullaniciAyarlar = { sesler: true };
 
@@ -1668,6 +1688,75 @@ function kullanicilariGuncelle() {
                 .catch(err => console.log(err));
         }
 
+
+        function yanitOzetMetni(metin) {
+            return (metin || '').toString().replace(/\s+/g, ' ').trim().slice(0, 140);
+        }
+
+        function yanitTemizle() {
+            yanitHedefi = null;
+            const bar = document.getElementById('replyBar');
+            const name = document.getElementById('replyToName');
+            const text = document.getElementById('replyToText');
+            if (bar) bar.style.display = 'none';
+            if (name) name.textContent = 'Yanıt';
+            if (text) text.textContent = '';
+        }
+
+        function yanitHazirla(m) {
+            if (!m || !m.gonderen || m.gonderen === "{{ kullanici }}" || m.gonderen === "Sistem") return;
+            yanitHedefi = {
+                id: m.id || '',
+                gonderen: m.gonderen || '',
+                mesaj: m.mesaj || '',
+                alici: m.alici || 'Genel',
+                oda: m.oda || aktifOda
+            };
+            const bar = document.getElementById('replyBar');
+            const name = document.getElementById('replyToName');
+            const text = document.getElementById('replyToText');
+            if (bar) bar.style.display = 'flex';
+            if (name) name.textContent = 'Yanıt: ' + (yanitHedefi.gonderen || '');
+            if (text) text.textContent = yanitOzetMetni(yanitHedefi.mesaj);
+            const input = document.getElementById('mesajInput');
+            if (input) input.focus();
+        }
+
+        function mesajSwipeKur(div, m) {
+            if (!div || !m || !m.gonderen || m.gonderen === "{{ kullanici }}" || m.gonderen === "Sistem") return;
+            let basladi = false;
+            let tamamlandi = false;
+            let startX = 0;
+            let startY = 0;
+            const esik = 65;
+            div.style.touchAction = 'pan-y';
+
+            const temizle = () => { basladi = false; tamamlandi = false; };
+
+            div.addEventListener('pointerdown', (e) => {
+                if (e.button !== undefined && e.button !== 0) return;
+                basladi = true;
+                tamamlandi = false;
+                startX = e.clientX;
+                startY = e.clientY;
+            });
+
+            div.addEventListener('pointermove', (e) => {
+                if (!basladi || tamamlandi) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                if (Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy)) return;
+                if (Math.abs(dx) >= esik) {
+                    tamamlandi = true;
+                    yanitHazirla(m);
+                }
+            });
+
+            div.addEventListener('pointerup', temizle);
+            div.addEventListener('pointercancel', temizle);
+            div.addEventListener('pointerleave', temizle);
+        }
+
         function mesajlariGuncelle(zorla = false) {
             if (zorla) { sonMesajSayisi = 0; ilkYukleme = true; }
             fetch('/api/mesajlar?oda=' + encodeURIComponent(aktifOda))
@@ -1744,6 +1833,20 @@ function kullanicilariGuncelle() {
                             const head = document.createElement('div');
                             head.className = 'msg-head';
 
+                            if (m.reply_to && m.reply_to.gonderen) {
+                                const reply = document.createElement('div');
+                                reply.className = 'msg-reply';
+                                const replyFrom = document.createElement('span');
+                                replyFrom.className = 'reply-from';
+                                replyFrom.textContent = '↩ ' + m.reply_to.gonderen;
+                                reply.appendChild(replyFrom);
+                                const replyText = document.createElement('span');
+                                replyText.className = 'reply-text';
+                                replyText.textContent = m.reply_to.mesaj || '';
+                                reply.appendChild(replyText);
+                                div.appendChild(reply);
+                            }
+
                             const isim = document.createElement('span');
                             isim.className = isDuyuru ? 'msg-user msg-sistem' : (m.gonderen === 'Sistem' ? 'msg-user msg-sistem' : 'msg-user');
 
@@ -1804,6 +1907,7 @@ function kullanicilariGuncelle() {
                                 div.title = 'Kullanıcı bilgilerini aç';
                                 div.onclick = () => kullaniciBilgiAc(m.gonderen);
                             }
+                            mesajSwipeKur(div, m);
                         }
                         if (isPrivate && !isSayac) {
                             dmBox.appendChild(div);
@@ -1853,10 +1957,19 @@ function kullanicilariGuncelle() {
             const alici = document.getElementById('aliciSec').value;
             const mesaj = input.value.trim();
             if(!mesaj) return;
+            const reply = yanitHedefi;
+            let body = 'mesaj=' + encodeURIComponent(mesaj) + '&alici=' + encodeURIComponent(alici) + '&oda=' + encodeURIComponent(aktifOda);
+            if (reply) {
+                body += '&reply_id=' + encodeURIComponent(reply.id || '') +
+                        '&reply_gonderen=' + encodeURIComponent(reply.gonderen || '') +
+                        '&reply_mesaj=' + encodeURIComponent(reply.mesaj || '') +
+                        '&reply_alici=' + encodeURIComponent(reply.alici || '') +
+                        '&reply_oda=' + encodeURIComponent(reply.oda || '');
+            }
             fetch('/api/gonder', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'mesaj=' + encodeURIComponent(mesaj) + '&alici=' + encodeURIComponent(alici) + '&oda=' + encodeURIComponent(aktifOda)
+                body: body
             }).then(res => {
                 if (res.status === 403) {
                     res.text().then(text => {
@@ -1866,6 +1979,7 @@ function kullanicilariGuncelle() {
                 } else {
                     gonderSesiCal();
                     input.value = '';
+                    yanitTemizle();
                     mesajlariGuncelle();
                 }
             });
@@ -2707,6 +2821,19 @@ def post_gonder():
 
         if mesaj:
             veri = {"id": secrets.token_hex(8), "gonderen": kullanici, "mesaj": mesaj, "alici": alici, "oda": oda, "zaman": simdi}
+            reply_id = request.form.get("reply_id", "").strip()
+            reply_gonderen = request.form.get("reply_gonderen", "").strip()
+            reply_mesaj = request.form.get("reply_mesaj", "").strip()
+            reply_alici = request.form.get("reply_alici", "").strip()
+            reply_oda = request.form.get("reply_oda", "").strip()
+            if reply_id or reply_gonderen or reply_mesaj:
+                veri["reply_to"] = {
+                    "id": reply_id,
+                    "gonderen": reply_gonderen,
+                    "mesaj": reply_mesaj,
+                    "alici": reply_alici,
+                    "oda": reply_oda
+                }
             sohbet_gecmisi.append(veri)
             mesaj_kuyrugu.put(veri)
             yaziyor_durumu.pop(kullanici, None)
