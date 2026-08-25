@@ -1,7 +1,11 @@
 from flask import Flask, request, render_template_string, redirect, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-import tkinter as tk
-from tkinter import simpledialog
+try:
+    import tkinter as tk
+    from tkinter import simpledialog
+except Exception:
+    tk = None
+    simpledialog = None
 import queue
 import threading
 import secrets
@@ -12,7 +16,10 @@ import json
 import os
 import sys
 import logging
-import keyboard
+try:
+    import keyboard
+except Exception:
+    keyboard = None
 import re
 from datetime import timedelta
 from email.message import EmailMessage
@@ -293,7 +300,6 @@ def dogrulama_kodu_uret():
 def kullanici_emaili_al(kullanici):
     return e_posta_normalize(kullanici_emailleri.get(kullanici, ""))
 
-
 def kullanici_adi_bul(kimlik):
     kimlik = e_posta_normalize(kimlik)
     if not kimlik:
@@ -361,7 +367,6 @@ def eposta_kodu_gonder(hedef_email, konu, icerik):
         server.login(smtp_kullanici, smtp_sifre)
         server.send_message(msg)
 
-
 def eposta_dogrulama_kodu_gonder(hedef_email, kod, kullanici):
     icerik = (
         f"Merhaba {kullanici},\n\n"
@@ -369,7 +374,6 @@ def eposta_dogrulama_kodu_gonder(hedef_email, kod, kullanici):
         "Bu kodu kimseyle paylaşma. Kod 10 dakika geçerlidir.\n"
     )
     eposta_kodu_gonder(hedef_email, "QChat Doğrulama Kodu", icerik)
-
 
 def eposta_sifre_sifirlama_kodu_gonder(hedef_email, kod, kullanici):
     icerik = (
@@ -617,7 +621,6 @@ def guvenlik_kontrolu():
         if request.path == "/":
             return render_template_string(bakim_html)
 
-
 ban_html = """
 <!DOCTYPE html>
 <html lang="tr">
@@ -697,7 +700,6 @@ ban_html = """
 </html>
 """
 
-
 @app.route("/ban-geri-bildirim", methods=["GET", "POST"])
 def ban_geri_bildirim_gonder():
     kullanici = session.get("kullanici", "Bilinmeyen")
@@ -729,7 +731,6 @@ def ban_geri_bildirim_gonder():
 
     session["ban_geri_bildirim_gonderildi"] = True
     return _ban_geri_bildirim_sayfasi("Geri bildirimin alındı.", gonderildi=True, status=200)
-
 
 giris_html = """
 <!DOCTYPE html>
@@ -981,37 +982,6 @@ mesaj_html = """
         .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .settings-actions .small-btn { flex: 1; min-width: 90px; }
 
-        body.settings-dark { background: linear-gradient(180deg, #132032 0%, #1b2b40 45%, #22354d 100%) !important; }
-        body.settings-dark .win7-window,
-        body.settings-dark .settings-card {
-            background: #1c2837; border-color: #4b6a8d; box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,.05) inset;
-        }
-        body.settings-dark .content,
-        body.settings-dark .settings-body { background: transparent; }
-        body.settings-dark .topbar,
-        body.settings-dark .panel-box,
-        body.settings-dark .room-create-panel,
-        body.settings-dark .chat-box,
-        body.settings-dark .pinned-banner,
-        body.settings-dark .settings-row {
-            background: #243345; border-color: #5d748f; color: #eef4fb;
-        }
-        body.settings-dark .chat-title { background: linear-gradient(180deg,#34475e,#1f2b3a); color: #eef4fb; }
-        body.settings-dark .user-info,
-        body.settings-dark .field-label,
-        body.settings-dark .sifre-ipucu,
-        body.settings-dark .settings-title { color: #eef4fb; }
-        body.settings-dark select,
-        body.settings-dark input[type="text"],
-        body.settings-dark input[type="password"],
-        body.settings-dark input[type="email"] {
-            background: #162231; color: #eef4fb; border-color: #60799a;
-        }
-        body.settings-dark,
-        body.settings-dark * {
-            color: #eef4fb !important;
-        }
-        body.settings-dark .settings-title { color: #fff !important; }
 
         .pinned-banner {
             background: #fff6d0; border: 1px solid #e0b400; border-radius: 4px;
@@ -1152,9 +1122,6 @@ mesaj_html = """
                     <div class="settings-title">⚙️ Ayarlar</div>
                     <div class="settings-body">
                         <div class="settings-row">
-                            <label><input type="checkbox" id="ayarKoyuMod"> Koyu Mod</label>
-                        </div>
-                        <div class="settings-row">
                             <label><input type="checkbox" id="ayarSesler"> Sesler</label>
                         </div>
                         <div class="settings-actions">
@@ -1258,14 +1225,13 @@ mesaj_html = """
         let audioCtx = null;
         let aktifOda = "Genel";
         const AYARLAR_KEY = "qchat_ayarlar";
-        let kullaniciAyarlar = { koyuMod: false, sesler: true };
+        let kullaniciAyarlar = { sesler: true };
 
         function ayarlarYukle() {
             try {
                 const ham = localStorage.getItem(AYARLAR_KEY);
                 if (ham) {
                     const kayitli = JSON.parse(ham);
-                    kullaniciAyarlar.koyuMod = !!kayitli.koyuMod;
                     kullaniciAyarlar.sesler = kayitli.sesler !== false;
                 }
             } catch (e) {}
@@ -1273,17 +1239,12 @@ mesaj_html = """
         }
 
         function ayarlarUygula() {
-            document.body.classList.toggle('settings-dark', kullaniciAyarlar.koyuMod);
-            const koyu = document.getElementById('ayarKoyuMod');
             const ses = document.getElementById('ayarSesler');
-            if (koyu) koyu.checked = kullaniciAyarlar.koyuMod;
             if (ses) ses.checked = kullaniciAyarlar.sesler;
         }
 
         function ayarlarKaydet() {
-            const koyu = document.getElementById('ayarKoyuMod');
             const ses = document.getElementById('ayarSesler');
-            kullaniciAyarlar.koyuMod = !!(koyu && koyu.checked);
             kullaniciAyarlar.sesler = !!(ses && ses.checked);
             try { localStorage.setItem(AYARLAR_KEY, JSON.stringify(kullaniciAyarlar)); } catch (e) {}
             ayarlarUygula();
@@ -1291,7 +1252,7 @@ mesaj_html = """
         }
 
         function ayarlarSifirla() {
-            kullaniciAyarlar = { koyuMod: false, sesler: true };
+            kullaniciAyarlar = { sesler: true };
             try { localStorage.removeItem(AYARLAR_KEY); } catch (e) {}
             ayarlarUygula();
         }
@@ -2419,7 +2380,6 @@ def sifre_unuttum():
 
     return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=onay_mesaji, kod_gerekli=kod_gerekli, kimlik=form_kimlik)
 
-
 @app.route("/api/kullanicilar", methods=["GET"])
 def get_kullanicilar():
     if "kullanici" in session:
@@ -3440,7 +3400,6 @@ def admin_sikayetler_penceresi(parent):
     yenile()
     win.update_idletasks()
     win.geometry(f"920x500+{(root.winfo_screenwidth()-920)//2}+{(root.winfo_screenheight()-500)//2}")
-
 
 def admin_yonetim_penceresi():
     if hasattr(root, "yonetim_paneli") and root.yonetim_paneli.winfo_exists():
@@ -4482,20 +4441,24 @@ def terminal_dinle():
             time.sleep(1)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()
-    root.update_idletasks()
+    if tk is None:
+        print("Tkinter bulunamadı; yalnızca web sunucusu başlatılıyor.")
+        flask_baslat()
+    else:
+        root = tk.Tk()
+        root.withdraw()
+        root.update_idletasks()
 
-    kayit_thread = threading.Thread(target=otomatik_kayit, daemon=True)
-    kayit_thread.start()
+        kayit_thread = threading.Thread(target=otomatik_kayit, daemon=True)
+        kayit_thread.start()
 
-    term_thread = threading.Thread(target=terminal_dinle, daemon=True)
-    term_thread.start()
+        term_thread = threading.Thread(target=terminal_dinle, daemon=True)
+        term_thread.start()
 
-    flask_thread = threading.Thread(target=flask_baslat, daemon=True)
-    flask_thread.start()
+        flask_thread = threading.Thread(target=flask_baslat, daemon=True)
+        flask_thread.start()
 
-    kisayol_dinle()
+        kisayol_dinle()
 
-    root.after(100, mesaj_kontrol)
-    root.mainloop()
+        root.after(100, mesaj_kontrol)
+        root.mainloop()
