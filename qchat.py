@@ -308,6 +308,8 @@ def kullanici_adi_bul(kimlik):
         return kimlik
     if kimlik in kullanici_renames:
         return kullanici_renames[kimlik]
+    if e_posta_gecerli_mi(kimlik):
+        return email_hesaplari.get(kimlik)
     return None
 
 def email_baska_hesapta_var_mi(email, mevcut_kullanici=None):
@@ -890,8 +892,8 @@ sifre_unuttum_html = """
             {% if hata %}<div class="error">⚠️ {{ hata }}</div>{% endif %}
             {% if onay_mesaji %}<div class="error" style="color:#1d5d2a;background:#e7f7ea;border-color:#b9e3c1;">✅ {{ onay_mesaji }}</div>{% endif %}
             <form method="POST">
-                <span class="field-label">Kullanıcı Adı</span>
-                <input type="text" name="kimlik" placeholder="Kullanıcı adınızı girin" maxlength="120" value="{{ kimlik|default('') }}" required autocomplete="off">
+                <span class="field-label">Kullanıcı Adı veya E-posta</span>
+                <input type="text" name="kimlik" placeholder="Kullanıcı adınızı veya e-postanızı girin" maxlength="120" value="{{ kimlik|default('') }}" required autocomplete="off">
                 {% if kod_gerekli %}
                 <span class="field-label">Doğrulama Kodu</span>
                 <input type="text" name="dogrulama_kodu" placeholder="E-postaya gelen 6 haneli kod" inputmode="numeric" maxlength="6" pattern="\\d{6}" autocomplete="off">
@@ -2337,12 +2339,12 @@ def sifre_unuttum():
             return render_template_string(sifre_unuttum_html, hata=None, onay_mesaji=onay_mesaji, kod_gerekli=False, kimlik="")
 
         if not kimlik:
-            hata = "Lütfen kullanıcı adınızı girin."
+            hata = "Lütfen kullanıcı adınızı veya e-posta adresinizi girin."
             return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
 
         hedef_kullanici = kullanici_adi_bul(kimlik)
         if not hedef_kullanici:
-            hata = "❌ Bu kullanıcı bulunamadı."
+            hata = "❌ Bu kullanıcı veya e-posta bulunamadı."
             return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
 
         hedef_email = kullanici_emaili_al(hedef_kullanici)
