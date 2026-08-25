@@ -22,8 +22,6 @@ except Exception:
     keyboard = None
 import re
 from datetime import timedelta
-from email.message import EmailMessage
-import smtplib
 
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
@@ -344,28 +342,13 @@ def kullanici_banini_ac(kullanici):
         banli_emailler.discard(email)
 
 def eposta_kodu_gonder(hedef_email, konu, icerik):
-    smtp_host = os.getenv("QCHAT_SMTP_HOST", "").strip()
-    smtp_port = int(os.getenv("QCHAT_SMTP_PORT", "587"))
-    smtp_kullanici = os.getenv("QCHAT_SMTP_USER", "").strip()
-    smtp_sifre = os.getenv("QCHAT_SMTP_PASS", "").strip()
-    gonderen = os.getenv("QCHAT_SMTP_FROM", smtp_kullanici).strip() or smtp_kullanici
-
-    if not smtp_host or not smtp_kullanici or not smtp_sifre:
-        raise RuntimeError("SMTP ayarları eksik. QCHAT_SMTP_HOST, QCHAT_SMTP_USER ve QCHAT_SMTP_PASS gerekli.")
-
-    msg = EmailMessage()
-    msg["Subject"] = konu
-    msg["From"] = gonderen
-    msg["To"] = hedef_email
-    msg.set_content(icerik)
-
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
-        server.ehlo()
-        if os.getenv("QCHAT_SMTP_TLS", "1") == "1":
-            server.starttls()
-            server.ehlo()
-        server.login(smtp_kullanici, smtp_sifre)
-        server.send_message(msg)
+    """
+    E-posta göndermek yerine doğrulama kodunu konsola ve log'a yazar.
+    Böylece Render'da SMTP ayarı gerektirmez.
+    """
+    mesaj = f"[QChat] {konu} -> {hedef_email}: {icerik}"
+    print(mesaj)
+    log_ekle(mesaj)
 
 def eposta_dogrulama_kodu_gonder(hedef_email, kod, kullanici):
     icerik = (
@@ -374,6 +357,7 @@ def eposta_dogrulama_kodu_gonder(hedef_email, kod, kullanici):
         "Bu kodu kimseyle paylaşma. Kod 10 dakika geçerlidir.\n"
     )
     eposta_kodu_gonder(hedef_email, "QChat Doğrulama Kodu", icerik)
+    return kod
 
 def eposta_sifre_sifirlama_kodu_gonder(hedef_email, kod, kullanici):
     icerik = (
@@ -382,6 +366,8 @@ def eposta_sifre_sifirlama_kodu_gonder(hedef_email, kod, kullanici):
         "Bu kodu kimseyle paylaşma. Kod 10 dakika geçerlidir.\n"
     )
     eposta_kodu_gonder(hedef_email, "QChat Şifre Sıfırlama Kodu", icerik)
+    return kod
+
 
 sohbet_gecmisi = veriler.get("sohbet_gecmisi", [])
 engellenenler = set(veriler.get("engellenenler", []))
@@ -807,7 +793,7 @@ giris_html = """
                 <input type="text" name="kullanici" placeholder="Kullanıcı adınızı girin" maxlength="15" value="{{ kullanici|default('') }}" required autocomplete="off">
                 <span class="field-label">E-posta</span>
                 <input type="email" name="email" placeholder="Yeni hesap için e-posta adresiniz" maxlength="120" value="{{ email|default('') }}" autocomplete="off">
-                <div class="sifre-ipucu">Yeni hesap açarken kod bu e-postaya gönderilir. Mevcut hesabınızla girişte boş bırakabilirsiniz.</div>
+                <div class="sifre-ipucu">Yeni hesap açarken doğrulama kodu ekranda gösterilir. Mevcut hesabınızla girişte boş bırakabilirsiniz.</div>
                 <span class="field-label">Şifre</span>
                 <input type="password" name="sifre" placeholder="Şifrenizi girin" minlength="7" maxlength="15" required autocomplete="off">
                 {% if kod_gerekli %}
@@ -900,7 +886,7 @@ sifre_unuttum_html = """
                 <span class="field-label">Yeni Şifre</span>
                 <input type="password" name="yeni_sifre" placeholder="Yeni şifrenizi girin" minlength="7" maxlength="15" autocomplete="off">
                 {% endif %}
-                <div class="sifre-ipucu">Kod kayıtlı e-posta adresinize gönderilir. Yeni şifre 7-15 karakter olmalı ve en az 1 büyük harf ile 1 özel karakter içermelidir.</div>
+                <div class="sifre-ipucu">Kod ekranda gösterilir. Yeni şifre 7-15 karakter olmalı ve en az 1 büyük harf ile 1 özel karakter içermelidir.</div>
                 <button type="submit">{% if kod_gerekli %}ŞİFREYİ SIFIRLA{% else %}KOD GÖNDER{% endif %}</button>
                 {% if kod_gerekli %}
                 <button type="submit" name="kod_yenile" value="1" style="background:linear-gradient(180deg,#7fb8e0,#2a6ea8); border-color:#1c4a70;">KODU YENİDEN GÖNDER</button>
@@ -2227,12 +2213,7 @@ def giris():
                 return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
 
             kod_uret = dogrulama_kodu_uret()
-            try:
-                eposta_dogrulama_kodu_gonder(email, kod_uret, kullanici)
-            except Exception as e:
-                log_ekle(f"E-posta gönderilemedi: {e}")
-                hata = f"❌ Doğrulama e-postası gönderilemedi: {e}"
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
+            eposta_dogrulama_kodu_gonder(email, kod_uret, kullanici)
 
             token = secrets.token_hex(16)
             bekleyen_kayitlar[token] = {
@@ -2243,7 +2224,7 @@ def giris():
                 "olusturma_zamani": time.time(),
             }
             session["kayit_dogrulama_token"] = token
-            onay_mesaji = f"Doğrulama kodu {email} adresine gönderildi. Lütfen kodu girip tekrar gönderin."
+            onay_mesaji = f"Doğrulama kodu oluşturuldu: {kod_uret}. Kodu aşağıdaki alana girin."
             kod_gerekli = True
             return render_template_string(giris_html, hata=None, kod_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -2251,7 +2232,7 @@ def giris():
 
     if bekleyen and bekleyen.get("kullanici"):
         kod_gerekli = True
-        onay_mesaji = "Doğrulama kodu gönderildi. Lütfen e-postanıza bakın."
+        onay_mesaji = "Doğrulama kodu hazır. Lütfen aşağıdaki kodu girin."
 
     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -2288,14 +2269,9 @@ def sifre_unuttum():
             yeni_kod = dogrulama_kodu_uret()
             bekleyen["kod"] = yeni_kod
             bekleyen["olusturma_zamani"] = time.time()
-            try:
-                eposta_sifre_sifirlama_kodu_gonder(hedef_email, yeni_kod, hedef_kullanici)
-            except Exception as e:
-                log_ekle(f"Şifre sıfırlama e-postası gönderilemedi: {e}")
-                hata = f"❌ Şifre sıfırlama e-postası gönderilemedi: {e}"
-                return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=True, kimlik=form_kimlik)
+            eposta_sifre_sifirlama_kodu_gonder(hedef_email, yeni_kod, hedef_kullanici)
 
-            onay_mesaji = f"Yeni kod {hedef_email} adresine gönderildi."
+            onay_mesaji = f"Yeni kod oluşturuldu: {yeni_kod}. Aşağıya girin."
             kod_gerekli = True
             return render_template_string(sifre_unuttum_html, hata=None, onay_mesaji=onay_mesaji, kod_gerekli=True, kimlik=form_kimlik)
 
@@ -2353,12 +2329,7 @@ def sifre_unuttum():
             return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
 
         yeni_kod = dogrulama_kodu_uret()
-        try:
-            eposta_sifre_sifirlama_kodu_gonder(hedef_email, yeni_kod, hedef_kullanici)
-        except Exception as e:
-            log_ekle(f"Şifre sıfırlama e-postası gönderilemedi: {e}")
-            hata = f"❌ Şifre sıfırlama e-postası gönderilemedi: {e}"
-            return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=None, kod_gerekli=False, kimlik=form_kimlik)
+        eposta_sifre_sifirlama_kodu_gonder(hedef_email, yeni_kod, hedef_kullanici)
 
         token = secrets.token_hex(16)
         bekleyen_sifre_sifirlama[token] = {
@@ -2375,7 +2346,7 @@ def sifre_unuttum():
 
     if bekleyen and bekleyen.get("kullanici"):
         kod_gerekli = True
-        onay_mesaji = f"Doğrulama kodu {bekleyen.get('email')} adresine gönderildi."
+        onay_mesaji = f"Doğrulama kodu hazır: {bekleyen.get('kod')}."
         form_kimlik = bekleyen.get("kimlik", "")
 
     return render_template_string(sifre_unuttum_html, hata=hata, onay_mesaji=onay_mesaji, kod_gerekli=kod_gerekli, kimlik=form_kimlik)
