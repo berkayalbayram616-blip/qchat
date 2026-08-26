@@ -1454,6 +1454,7 @@ mesaj_html = """
                             <div style="font-size:18px;font-weight:800;color:#0f172a;">${data.isim || kullanici}</div>
                             <div style="margin-top:4px;color:${onlineColor};font-weight:700;">${onlineText}</div>
                             <div style="margin-top:8px;display:grid;gap:6px;">
+                                <div><strong>Kredi:</strong> ${formatliSayi(data.kredi || 0)}</div>
                                 <div><strong>Hesap oluşturma:</strong> ${data.kayit_tarihi || 'Bilinmiyor'}</div>
                                 <div><strong>Mesaj sayısı:</strong> ${formatliSayi(data.mesaj_sayisi || 0)}</div>
                                 <div><strong>Bu sitede süre:</strong> ${sureFormatla(data.oturum_suresi_saniye || 0)}</div>
