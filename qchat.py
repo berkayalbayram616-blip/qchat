@@ -1094,7 +1094,21 @@ mesaj_html = """
         }
         .msg-action-btn:hover { filter: brightness(1.05); }
         .msg-action-btn:active { filter: brightness(0.9); }
-        .input-row { display: flex; gap: 6px; }
+        .mention-list {
+            display: none; position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 4px;
+            max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #8fa9c4;
+            border-radius: 5px; box-shadow: 0 6px 18px rgba(20,60,110,.18); z-index: 5000;
+        }
+        .mention-item {
+            padding: 7px 9px; font-size: 13px; font-weight: 700; color: #24465f; cursor: pointer;
+            border-bottom: 1px solid #eef3f8;
+        }
+        .mention-item:last-child { border-bottom: 0; }
+        .mention-item:hover, .mention-item.active { background: #fff6d0; color: #6b5200; }
+        .mention-highlight {
+            background: #fff2a8; color: #7a5a00; border-radius: 3px; padding: 0 2px; font-weight: 800;
+        }
+        .input-row { display: flex; gap: 6px; position: relative; }
         input[type="text"] {
             flex: 1; padding: 8px 10px; font-size: 14px; font-family: inherit;
             border: 1px solid #8fa9c4; border-radius: 4px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,.1);
@@ -1225,6 +1239,7 @@ mesaj_html = """
                 </div>
                 <div class="input-row">
                     <input type="text" id="mesajInput" placeholder="Mesajınızı yazın..." maxlength="200" autocomplete="off" oninput="yaziyorBildir()" required>
+                    <div id="mentionList" class="mention-list"></div>
                 </div>
                 <button type="submit">GÖNDER</button>
             </form>
@@ -1240,6 +1255,8 @@ mesaj_html = """
         let yanitHedefi = null;
         const AYARLAR_KEY = "qchat_ayarlar";
         let kullaniciAyarlar = { sesler: true };
+        let mentionKullanicilari = [];
+        let mentionAcik = false;
 
         function ayarlarYukle() {
             try {
@@ -1469,6 +1486,93 @@ mesaj_html = """
 
             yukle();
             kullaniciBilgiTimer = setInterval(yukle, 5000);
+        }
+
+        function mentionKullanicilariniYukle() {
+            fetch('/api/kullanicilar')
+                .then(res => res.json())
+                .then(data => {
+                    mentionKullanicilari = Array.isArray(data) ? data.filter(k => k && k !== "{{ kullanici }}") : [];
+                })
+                .catch(() => {});
+        }
+
+        function mentionKapat() {
+            const liste = document.getElementById('mentionList');
+            if (liste) { liste.style.display = 'none'; liste.innerHTML = ''; }
+            mentionAcik = false;
+        }
+
+        function mentionIcerikGuncelle() {
+            const input = document.getElementById('mesajInput');
+            const liste = document.getElementById('mentionList');
+            if (!input || !liste) return;
+
+            const cursor = input.selectionStart ?? input.value.length;
+            const sol = input.value.slice(0, cursor);
+            const match = sol.match(/(?:^|\s)@([\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
+            if (!match) { mentionKapat(); return; }
+
+            const aranan = (match[1] || '').toLocaleLowerCase('tr-TR');
+            const sonuclar = mentionKullanicilari
+                .filter(k => k.toLocaleLowerCase('tr-TR').startsWith(aranan))
+                .slice(0, 8);
+
+            if (!sonuclar.length) { mentionKapat(); return; }
+
+            liste.innerHTML = '';
+            sonuclar.forEach(k => {
+                const item = document.createElement('div');
+                item.className = 'mention-item';
+                item.textContent = '@' + k;
+                item.onmousedown = (e) => {
+                    e.preventDefault();
+                    mentionSec(k);
+                };
+                liste.appendChild(item);
+            });
+            liste.style.display = 'block';
+            mentionAcik = true;
+        }
+
+        function mentionSec(kullanici) {
+            const input = document.getElementById('mesajInput');
+            if (!input || !kullanici) return;
+            const cursor = input.selectionStart ?? input.value.length;
+            const once = input.value.slice(0, cursor);
+            const sonra = input.value.slice(cursor);
+            const match = once.match(/(^|\s)@([\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
+            if (!match) return;
+            const baslangic = once.length - match[0].length + match[1].length;
+            input.value = once.slice(0, baslangic) + '@' + kullanici + ' ' + sonra;
+            const yeniCursor = baslangic + kullanici.length + 2;
+            input.focus();
+            input.setSelectionRange(yeniCursor, yeniCursor);
+            mentionKapat();
+            yaziyorBildir();
+        }
+
+        function mesajMetniRenderEt(hedef, metin) {
+            hedef.textContent = '';
+            const parcalar = String(metin || '').split(/(@[\wÇĞİÖŞÜçğıöşü0-9._-]+)/g);
+            parcalar.forEach(parca => {
+                const mentionAdi = parca.slice(1);
+                const bilinenKullanici = mentionAdi && mentionKullanicilari.some(k => k === mentionAdi);
+                if (bilinenKullanici && /^@[\wÇĞİÖŞÜçğıöşü0-9._-]+$/.test(parca)) {
+                    const span = document.createElement('span');
+                    span.className = 'mention-highlight';
+                    span.textContent = parca;
+                    hedef.appendChild(span);
+                } else {
+                    hedef.appendChild(document.createTextNode(parca));
+                }
+            });
+        }
+
+        function yeniMesajBildirimSesiCal(sonMesaj) {
+            if (!sonMesaj || !kullaniciAyarlar.sesler) return;
+            if (sonMesaj.gonderen === "{{ kullanici }}") return;
+            almaSesiCal();
         }
 
         function yaziyorBildir() {
@@ -1815,6 +1919,8 @@ function kullanicilariGuncelle() {
                             alert("🚨 SİSTEM ALARMI: " + sonMesaj.mesaj);
                         } else if (sonMesaj.gonderen === 'Sistem' || sonMesaj.gonderen === '📢 DUYURU' || sonMesaj.gonderen === '📢 SAYAÇ') {
                             almaSesiCal();
+                        } else {
+                            yeniMesajBildirimSesiCal(sonMesaj);
                         }
                     }
                     
@@ -1922,7 +2028,7 @@ function kullanicilariGuncelle() {
 
                             const govde = document.createElement('div');
                             govde.className = 'msg-body';
-                            govde.textContent = m.mesaj;
+                            mesajMetniRenderEt(govde, m.mesaj);
                             div.appendChild(govde);
 
                             if (!isDuyuru && m.gonderen) {
@@ -2091,6 +2197,19 @@ function kullanicilariGuncelle() {
                     }).catch(() => alert('⚠️ Şikayet gönderilirken bağlantı hatası oluştu.'));
             };
         }
+
+        const mesajInput = document.getElementById('mesajInput');
+        if (mesajInput) {
+            mesajInput.addEventListener('input', mentionIcerikGuncelle);
+            mesajInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { mentionKapat(); return; }
+                if (e.key === 'Enter') mentionKapat();
+            });
+            mesajInput.addEventListener('blur', () => setTimeout(mentionKapat, 120));
+            mesajInput.addEventListener('focus', mentionKullanicilariniYukle);
+            mesajInput.addEventListener('click', mentionIcerikGuncelle);
+        }
+        mentionKullanicilariniYukle();
 
         setInterval(odalariGuncelle, 5000);
         setInterval(kullanicilariGuncelle, 5000);
