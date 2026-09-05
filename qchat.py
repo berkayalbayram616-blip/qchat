@@ -167,13 +167,13 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 <div class="stat"><b>💬 Mesaj</b>{{ mesaj_sayisi }}</div>
 </div>
 
-<div class="tabs">
-<button class="tab active" onclick="tabAc('kullanicilar',this)">👥 Kullanıcılar</button>
-<button class="tab" onclick="tabAc('odalar',this)">🏠 Odalar</button>
-<button class="tab" onclick="tabAc('duyurular',this)">📢 Sistem</button>
-<button class="tab" onclick="tabAc('sikayetler',this)">⚠️ Şikayetler</button>
-<button class="tab" onclick="tabAc('adminchat',this)">💬 Admin Chat</button>
-<button class="tab" onclick="tabAc('loglar',this)">📋 Loglar</button>
+<div class="tabs" id="adminTabs">
+<button type="button" class="tab active" data-tab="kullanicilar">👥 Kullanıcılar</button>
+<button type="button" class="tab" data-tab="odalar">🏠 Odalar</button>
+<button type="button" class="tab" data-tab="duyurular">📢 Sistem</button>
+<button type="button" class="tab" data-tab="sikayetler">⚠️ Şikayetler</button>
+<button type="button" class="tab" data-tab="adminchat">💬 Admin Chat</button>
+<button type="button" class="tab" data-tab="loglar">📋 Loglar</button>
 </div>
 
 <div id="kullanicilar" class="section active">
@@ -193,13 +193,13 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 {% if u.banli %}
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="unban"><button class="btn dark">✅ Banı Kaldır</button></form>
 {% else %}
-<button type="button" class="btn red" onclick="sureIleIslem('ban', {{ u.isim|tojson }})">🚫 Banla</button>
+<button type="button" class="btn red" data-admin-action="ban" data-hedef="{{ u.isim|e }}">🚫 Banla</button>
 {% endif %}
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">👢 Kick</button></form>
 {% if u.muteli %}
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="unmute"><button class="btn green">🔊 Mute Kaldır</button></form>
 {% else %}
-<button type="button" class="btn dark" onclick="sureIleIslem('mute', {{ u.isim|tojson }})">🔇 Sustur</button>
+<button type="button" class="btn dark" data-admin-action="mute" data-hedef="{{ u.isim|e }}">🔇 Sustur</button>
 {% endif %}
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="oda_izni"><button class="btn purple">{{ '🏷️ Oda İznini Al' if u.oda_izni else '🏷️ Oda İzni Ver' }}</button></form>
 <form method="get" action="/admin" style="margin:0"><input type="hidden" name="duzenle" value="{{ u.isim }}"><button class="btn">✏️ Düzenle</button></form>
@@ -314,73 +314,161 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 function tabAc(id,btn){
  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
- const sec=document.getElementById(id); if(sec) sec.classList.add('active');
- if(btn) btn.classList.add('active');
+ const sec=document.getElementById(id);
+ if(sec) sec.classList.add('active');
+ const aktifBtn=btn || document.querySelector('.tab[data-tab="'+CSS.escape(id)+'"]');
+ if(aktifBtn) aktifBtn.classList.add('active');
  if(id==='adminchat') adminChatYukle();
 }
+
 function sayiVeBirimSor(metin){
  const sayi=prompt(metin + "\nSayı:", "10");
  if(sayi===null) return null;
  const n=Number(sayi);
- if(!Number.isFinite(n) || n<=0) { alert("Geçerli bir sayı girin."); return null; }
+ if(!Number.isFinite(n) || n<=0){ alert("Geçerli bir sayı girin."); return null; }
  const birim=(prompt("Birim: dakika / saat / gün / yıl", "dakika")||"").toLowerCase().trim();
- if(!["dakika","saat","gün","gun","yıl","yil"].includes(birim)) { alert("Birim dakika, saat, gün veya yıl olmalı."); return null; }
+ if(!["dakika","saat","gün","gun","yıl","yil"].includes(birim)){
+   alert("Birim dakika, saat, gün veya yıl olmalı."); return null;
+ }
  return {n, birim:(birim==="gun"?"gün":(birim==="yil"?"yıl":birim))};
 }
+
+function aktifSekmeId(){
+ const btn=document.querySelector('#adminTabs .tab.active');
+ return btn?.dataset?.tab || 'kullanicilar';
+}
+
 async function adminPanelYenile(){
  const scroll=window.scrollY;
- const aktif=document.querySelector('.tab.active')?.getAttribute('onclick')?.match(/tabAc\('([^']+)'/)?.[1] || 'kullanicilar';
- const r=await fetch('/admin',{cache:'no-store'});
+ const aktif=aktifSekmeId();
+ const r=await fetch('/admin',{cache:'no-store',credentials:'same-origin'});
+ if(!r.ok) throw new Error('Yönetim paneli yenilenemedi.');
  const html=await r.text();
  const doc=new DOMParser().parseFromString(html,'text/html');
- const yeni=doc.querySelector('.panel'), mevcut=document.querySelector('.panel');
- if(yeni && mevcut) mevcut.replaceWith(yeni);
- const btn=[...document.querySelectorAll('.tab')].find(x=>x.getAttribute('onclick')?.includes("tabAc('"+aktif+"'"));
- if(btn) tabAc(aktif,btn);
+ const yeni=doc.querySelector('.panel');
+ const mevcut=document.querySelector('.panel');
+ if(!yeni || !mevcut) throw new Error('Panel içeriği bulunamadı.');
+ mevcut.replaceWith(yeni);
+ const btn=document.querySelector('#adminTabs .tab[data-tab="'+CSS.escape(aktif)+'"]');
+ tabAc(aktif,btn);
  window.scrollTo(0,scroll);
 }
+
 async function ajaxForm(form){
  const fd=new FormData(form);
- const r=await fetch(form.action,{method:form.method||'POST',body:fd,redirect:'follow'});
+ const r=await fetch(form.action,{
+   method:(form.method||'POST').toUpperCase(),
+   body:fd,
+   redirect:'follow',
+   credentials:'same-origin'
+ });
  if(!r.ok) throw new Error('İşlem başarısız');
  await adminPanelYenile();
 }
+
 async function sureIleIslem(islem,hedef){
- const secim=sayiVeBirimSor(islem==='ban' ? hedef+' kaç süre banlansın?' : hedef+' kaç süre susturulsun?');
+ const secim=sayiVeBirimSor(
+   islem==='ban' ? hedef+' kaç süre banlansın?' : hedef+' kaç süre susturulsun?'
+ );
  if(!secim) return;
  const fd=new FormData();
- fd.append('islem',islem); fd.append('hedef',hedef);
- fd.append('sayi',String(secim.n)); fd.append('birim',secim.birim);
+ fd.append('islem',islem);
+ fd.append('hedef',hedef);
+ fd.append('sayi',String(secim.n));
+ fd.append('birim',secim.birim);
  try{
-   const r=await fetch('/admin/islem',{method:'POST',body:fd,redirect:'follow'});
+   const r=await fetch('/admin/islem',{
+     method:'POST',
+     body:fd,
+     redirect:'follow',
+     credentials:'same-origin'
+   });
    if(!r.ok) throw new Error('İşlem başarısız');
    await adminPanelYenile();
- }catch(e){ alert(e.message||'İşlem başarısız.'); }
+ }catch(e){
+   alert(e.message||'İşlem başarısız.');
+ }
 }
-document.addEventListener('submit', async (e)=>{
- const f=e.target;
- if(f.matches('form[action="/admin/islem"]')){
+
+/* Panel içindeki tıklamalar tek noktadan yönetilir; AJAX ile panel yenilense bile çalışmaya devam eder. */
+document.addEventListener('click', (e)=>{
+ const tab=e.target.closest('#adminTabs .tab');
+ if(tab){
    e.preventDefault();
-   try{ await ajaxForm(f); }catch(err){ alert(err.message||'İşlem başarısız.'); }
+   tabAc(tab.dataset.tab,tab);
+   return;
+ }
+ const banBtn=e.target.closest('button[data-admin-action="ban"]');
+ if(banBtn){
+   e.preventDefault();
+   sureIleIslem('ban',banBtn.dataset.hedef);
+   return;
+ }
+ const muteBtn=e.target.closest('button[data-admin-action="mute"]');
+ if(muteBtn){
+   e.preventDefault();
+   sureIleIslem('mute',muteBtn.dataset.hedef);
  }
 });
+
+document.addEventListener('submit', async (e)=>{
+ const f=e.target;
+ if(f && f.matches('form[action="/admin/islem"]')){
+   e.preventDefault();
+   if(f.dataset.submitting==='1') return;
+   f.dataset.submitting='1';
+   try{
+     await ajaxForm(f);
+   }catch(err){
+     alert(err.message||'İşlem başarısız.');
+   }finally{
+     f.dataset.submitting='0';
+   }
+ }
+});
+
 async function adminMesajGonder(){
- const el=document.getElementById('adminChatInput'); if(!el || !el.value.trim()) return;
- const fd=new FormData(); fd.append('mesaj',el.value.trim());
- const r=await fetch('/admin/admin_mesaj',{method:'POST',body:fd});
- const data=await r.json();
- if(!data.basarili){ alert(data.hata||'Mesaj gönderilemedi.'); return; }
- el.value=''; adminChatYukle();
+ const el=document.getElementById('adminChatInput');
+ if(!el || !el.value.trim()) return;
+ const fd=new FormData();
+ fd.append('mesaj',el.value.trim());
+ try{
+   const r=await fetch('/admin/admin_mesaj',{
+     method:'POST',
+     body:fd,
+     credentials:'same-origin'
+   });
+   const data=await r.json();
+   if(!data.basarili){ alert(data.hata||'Mesaj gönderilemedi.'); return; }
+   el.value='';
+   adminChatYukle();
+ }catch(e){
+   alert('Admin mesajı gönderilemedi.');
+ }
 }
+
 async function adminChatYukle(){
- const box=document.getElementById('adminChatMessages'); if(!box) return;
- const r=await fetch('/admin/admin_chat',{cache:'no-store'});
- const data=await r.json();
- box.innerHTML=(data.mesajlar||[]).map(m=>`<div style="padding:5px 2px;border-bottom:1px solid #e5e7eb;"><b>${escapeHtml(m.gonderen)}</b>: ${escapeHtml(m.mesaj)}</div>`).join('');
- box.scrollTop=box.scrollHeight;
+ const box=document.getElementById('adminChatMessages');
+ if(!box) return;
+ try{
+   const r=await fetch('/admin/admin_chat',{cache:'no-store',credentials:'same-origin'});
+   if(!r.ok) return;
+   const data=await r.json();
+   box.innerHTML=(data.mesajlar||[]).map(m=>`<div style="padding:5px 2px;border-bottom:1px solid #e5e7eb;"><b>${escapeHtml(m.gonderen)}</b>: ${escapeHtml(m.mesaj)}</div>`).join('');
+   box.scrollTop=box.scrollHeight;
+ }catch(_e){}
 }
-function escapeHtml(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}
-setInterval(()=>{ if(document.visibilityState==='visible') adminChatYukle(); },3000);
+
+function escapeHtml(s){
+ const d=document.createElement('div');
+ d.textContent=s ?? '';
+ return d.innerHTML;
+}
+
+setInterval(()=>{
+ if(document.visibilityState==='visible' && document.getElementById('adminChatMessages'))
+   adminChatYukle();
+},3000);
 </script>
 </body></html>
 """
