@@ -189,7 +189,7 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 
 {% if duzenlenen %}
 <div class="box" style="margin-top:12px">
-<h3>✏️ Hesap Düzenle — {{ duzenlenen }}</h3>
+<h3>✏️ Hesap Düzenleme — {{ duzenlenen }}</h3>
 <form method="post" action="/admin/islem">
 <input type="hidden" name="islem" value="duzenle"><input type="hidden" name="eski_isim" value="{{ duzenlenen }}">
 <div class="form-grid">
