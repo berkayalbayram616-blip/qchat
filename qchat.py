@@ -71,6 +71,101 @@ app.permanent_session_lifetime = timedelta(days=30)
 
 app.secret_key = secrets.token_hex(32)
 
+# ==================== YÖNETİCİ PANELİ ====================
+ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
+ADMIN_SIFRE = os.getenv("QCHAT_ADMIN_PASS", "Berkay123321")
+
+def admin_giris_gerekli():
+    return session.get("admin_giris") is True
+
+admin_login_html = """
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QChat Yönetici Girişi</title>
+<style>
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#bcd6ee,#eaf2fa);min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
+.card{width:340px;background:#f4f8fc;border:1px solid #5b8ac4;border-radius:8px;box-shadow:0 12px 32px rgba(20,60,110,.35);overflow:hidden}
+.title{background:linear-gradient(180deg,#79bdf7,#1c5fb0);color:#fff;padding:12px;font-weight:700}
+.body{padding:20px}.body h2{margin-top:0;color:#1c3d5c;font-size:18px}.body input{width:100%;box-sizing:border-box;padding:9px;margin:7px 0 12px;border:1px solid #8fa9c4;border-radius:4px}.btn{width:100%;padding:10px;border:1px solid #1c5fb0;border-radius:4px;background:#2d7fd6;color:#fff;font-weight:700}.error{background:#fdeaea;border:1px solid #e6a6a9;color:#a4141a;padding:8px;border-radius:4px;margin-bottom:10px}
+</style></head><body><div class="card"><div class="title">🔐 QChat Yönetici Paneli</div><div class="body"><h2>Yönetici Girişi</h2>
+{% if hata %}<div class="error">{{ hata }}</div>{% endif %}
+<form method="post"><input name="kullanici" placeholder="Yönetici adı" required autocomplete="off"><input type="password" name="sifre" placeholder="Şifre" required autocomplete="off"><button class="btn">GİRİŞ YAP</button></form>
+</div></div></body></html>
+"""
+
+admin_html = """
+<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QChat Yönetim Paneli</title>
+<style>
+*{box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#bcd6ee,#eaf2fa);margin:0;padding:24px;color:#24384c}
+.wrap{max-width:1050px;margin:auto}.top{background:linear-gradient(180deg,#79bdf7,#1c5fb0);color:#fff;padding:14px 18px;border-radius:8px 8px 0 0;font-weight:700;display:flex;justify-content:space-between}.top a{color:#fff;text-decoration:none;background:#c0392b;padding:6px 10px;border-radius:4px}.panel{background:#f4f8fc;border:1px solid #5b8ac4;border-top:0;border-radius:0 0 8px 8px;padding:16px}.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.stat{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:12px;flex:1;min-width:160px}.users{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}.user{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:12px}.online{color:#15803d;font-weight:700}.offline{color:#64748b}.banned{color:#b91c1c;font-weight:700}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.actions form{margin:0}.btn{border:1px solid #1c5fb0;background:#2d7fd6;color:#fff;border-radius:4px;padding:6px 9px;font-weight:700;cursor:pointer}.red{background:#c0392b;border-color:#8f241a}.gray{background:#64748b;border-color:#475569}.info{font-size:12px;color:#526b82;line-height:1.5}
+</style></head><body><div class="wrap"><div class="top"><span>🛠️ QChat Yönetim Paneli — {{ admin }}</span><a href="/admin/cikis">Çıkış</a></div><div class="panel">
+<div class="stats"><div class="stat"><b>👥 Kullanıcı</b><br>{{ toplam_kullanici }}</div><div class="stat"><b>🟢 Online</b><br>{{ online }}</div><div class="stat"><b>🚫 Banlı</b><br>{{ banli }}</div></div>
+<div class="users">{% for u in kullanicilar %}<div class="user"><b>{{ u.isim }}</b><br>
+<span class="{{ 'online' if u.online else 'offline' }}">● {{ 'Online' if u.online else 'Çevrimdışı' }}</span>
+{% if u.banli %}<br><span class="banned">🚫 Banlı</span>{% endif %}
+<div class="info">Mesaj: {{ u.mesaj_sayisi }}<br>E-posta: {{ u.email or 'Yok' }}</div>
+<div class="actions">
+{% if u.isim != admin %}<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unban' if u.banli else 'ban' }}"><button class="btn {{ 'gray' if u.banli else 'red' }}">{{ '✅ Banı Kaldır' if u.banli else '🚫 Banla' }}</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn gray">👢 Kick</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="mute"><button class="btn gray">🔇 10 dk Sustur</button></form>{% endif %}
+</div></div>{% endfor %}</div></div></div></body></html>
+"""
+
+@app.route("/admin", methods=["GET","POST"])
+def admin_panel():
+    if admin_giris_gerekli():
+        kullanici_listesi = []
+        simdi = time.time()
+        for isim in sorted(kullanici_db.keys(), key=str.lower):
+            kullanici_listesi.append({
+                "isim": isim,
+                "online": bool(son_aktiflik.get(isim) and simdi - son_aktiflik.get(isim,0) < 10),
+                "banli": isim in engellenenler,
+                "mesaj_sayisi": sum(1 for m in sohbet_gecmisi if m.get("gonderen")==isim),
+                "email": kullanici_emailleri.get(isim)
+            })
+        return render_template_string(admin_html, admin=ADMIN_KULLANICI,
+                                      kullanicilar=kullanici_listesi,
+                                      toplam_kullanici=len(kullanici_listesi),
+                                      online=sum(1 for u in kullanici_listesi if u["online"]),
+                                      banli=sum(1 for u in kullanici_listesi if u["banli"]))
+    if request.method == "POST":
+        kullanici = (request.form.get("kullanici") or "").strip()
+        sifre = request.form.get("sifre") or ""
+        if kullanici == ADMIN_KULLANICI and sifre == ADMIN_SIFRE:
+            session["admin_giris"] = True
+            session.permanent = True
+            return redirect("/admin")
+        return render_template_string(admin_login_html, hata="Yönetici adı veya şifre hatalı.")
+    return render_template_string(admin_login_html, hata="")
+
+@app.route("/admin/cikis")
+def admin_cikis():
+    session.pop("admin_giris", None)
+    return redirect("/admin")
+
+@app.route("/admin/islem", methods=["POST"])
+def admin_islem():
+    if not admin_giris_gerekli():
+        return redirect("/admin")
+    hedef = (request.form.get("hedef") or "").strip()
+    islem = request.form.get("islem") or ""
+    if not hedef or hedef == ADMIN_KULLANICI:
+        return redirect("/admin")
+    if hedef not in kullanici_db:
+        return redirect("/admin")
+    if islem == "ban":
+        kullanici_banla_ve_email(hedef); durumu_kaydet(); log_ekle(f"Admin '{hedef}' kullanıcısını banladı.")
+    elif islem == "unban":
+        kullanici_banini_ac(hedef); durumu_kaydet(); log_ekle(f"Admin '{hedef}' kullanıcısının banını kaldırdı.")
+    elif islem == "kick":
+        zorla_cikis.add(hedef); log_ekle(f"Admin '{hedef}' kullanıcısını kickledi.")
+    elif islem == "mute":
+        susturulanlar[hedef] = time.time() + 600; durumu_kaydet(); log_ekle(f"Admin '{hedef}' kullanıcısını 10 dakika susturdu.")
+    return redirect("/admin")
+
+
 def _ban_geri_bildirim_sayfasi(durum_mesaji="", gonderildi=False, status=200):
     return render_template_string(
         ban_html,
