@@ -74,6 +74,10 @@ app.secret_key = secrets.token_hex(32)
 # ==================== YÖNETİCİ PANELİ ====================
 ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
 ADMIN_SIFRE = os.getenv("QCHAT_ADMIN_PASS", "Berkay123321")
+REZERVE_KULLANICI_ADLARI = {ADMIN_KULLANICI.casefold(), "admin", "amin", "sistem"}
+
+def kullanici_adi_rezerve_mi(kullanici):
+    return (kullanici or "").strip().casefold() in REZERVE_KULLANICI_ADLARI
 
 def admin_giris_gerekli():
     return session.get("admin_giris") is True
@@ -157,7 +161,6 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 <button class="tab" onclick="tabAc('odalar',this)">🏠 Odalar</button>
 <button class="tab" onclick="tabAc('duyurular',this)">📢 Sistem</button>
 <button class="tab" onclick="tabAc('sikayetler',this)">⚠️ Şikayetler</button>
-<button class="tab" onclick="tabAc('loglar',this)">📋 Loglar</button>
 </div>
 
 <div id="kullanicilar" class="section active">
@@ -265,11 +268,6 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 {% else %}<div class="notice">Bekleyen veya kayıtlı şikayet bulunmuyor.</div>{% endif %}
 </div>
 </div>
-
-<div id="loglar" class="section">
-<div class="box"><h3>📋 Sistem Denetim Logları</h3><div class="log">{{ loglar }}</div></div>
-</div>
-
 </div></div>
 <script>
 function tabAc(id,btn){
@@ -314,7 +312,7 @@ def admin_panel():
             sikayet_gorunum.append(x)
 
     duzenlenen = (request.args.get("duzenle") or "").strip()
-    if duzenlenen == ADMIN_KULLANICI or duzenlenen not in kullanici_db:
+    if kullanici_adi_rezerve_mi(duzenlenen) or duzenlenen not in kullanici_db:
         duzenlenen = ""
 
     return render_template_string(
@@ -354,7 +352,7 @@ def admin_islem():
     try:
         with veri_kilidi:
             if islem in {"ban","unban","kick","mute","unmute","oda_izni","sil","duzenle"}:
-                if not hedef or hedef == ADMIN_KULLANICI or hedef not in kullanici_db:
+                if not hedef or kullanici_adi_rezerve_mi(hedef) or hedef not in kullanici_db:
                     return redirect("/admin")
 
             if islem == "ban":
@@ -415,7 +413,7 @@ def admin_islem():
                 if eski in kullanici_db and eski != ADMIN_KULLANICI:
                     hedef_isim = eski
                     if yeni_isim and yeni_isim != eski:
-                        if yeni_isim not in kullanici_db and yeni_isim != ADMIN_KULLANICI:
+                        if yeni_isim not in kullanici_db and not kullanici_adi_rezerve_mi(yeni_isim):
                             kullanici_db[yeni_isim] = kullanici_db.pop(eski)
                             if eski in kullanici_renames:
                                 kullanici_renames[yeni_isim] = kullanici_renames.pop(eski)
@@ -790,7 +788,7 @@ def kullanici_emailini_kaydet(kullanici, email):
     email_hesaplari[email] = kullanici
 
 def kullanici_banla_ve_email(kullanici):
-    if not kullanici:
+    if not kullanici or kullanici_adi_rezerve_mi(kullanici):
         return
     engellenenler.add(kullanici)
     email = kullanici_emaili_al(kullanici)
@@ -855,6 +853,7 @@ odalar_db = veriler.get("odalar_db", {"Genel": ""})
 kullanici_emailleri = veriler.get("kullanici_emailleri", {})
 email_hesaplari = veriler.get("email_hesaplari", {})
 banli_emailler = set(veriler.get("banli_emailler", []))
+engellenenler.difference_update({u for u in list(engellenenler) if str(u).strip().casefold() in REZERVE_KULLANICI_ADLARI})
 bekleyen_kayitlar = {}  # {token: {kullanici, email, sifre_hash, kod, olusturma_zamani}}
 bekleyen_sifre_sifirlama = {}  # {token: {kullanici, email, kimlik, kod, olusturma_zamani}}
 
@@ -2766,8 +2765,8 @@ def giris():
                 hata = "❌ Şifre çok uzun (en fazla 20 karakter)."
                 return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
-            if kullanici.lower() == "sistem" and kullanici not in kullanici_db:
-                hata = "❌ Bu kullanıcı adını kullanamazsınız!"
+            if kullanici_adi_rezerve_mi(kullanici):
+                hata = "❌ Bu kullanıcı adı kullanılamaz."
                 return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
             if kullanici in engellenenler:
@@ -4297,23 +4296,6 @@ def sistem_yonetim_penceresi():
         sohbet_gecmisi.clear()
         log_ekle("Sohbet geçmişi temizlendi.")
         guncelle_veriler(zorla=True)
-
-    def log_penceresi():
-        log_win = tk.Toplevel(panel)
-        log_win.title("📋 Sistem Logları")
-        log_win.attributes("-topmost", True)
-        log_win.configure(bg=bg_color)
-
-        ic = tk.Frame(log_win, bg=bg_color, padx=10, pady=10)
-        ic.pack(fill="both", expand=True)
-
-        tk.Label(ic, text="📋 Sistem Denetim Logları", font=("Arial", 10, "bold"), bg=bg_color).pack(anchor="w")
-        txt = tk.Text(ic, width=50, height=15, font=("Consolas", 9), bd=2, relief="sunken")
-        txt.pack(fill="both", expand=True, pady=5)
-
-        for l in sistem_loglari:
-            txt.insert(tk.END, l + "\n")
-        txt.see(tk.END)
 
     def sabit_duyuru_ayarla():
         global sabit_duyuru
