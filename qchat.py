@@ -90,16 +90,24 @@ def _admin_durumlari():
         if simdi >= bitis:
             susturulanlar.pop(k, None)
 
+    gecici_banlari_temizle()
+
     kullanicilar = []
     for isim in sorted(kullanici_db.keys(), key=str.lower):
         mute_veri = susturulanlar.get(isim)
         mute_bitis = mute_veri if isinstance(mute_veri, (int, float)) else (mute_veri or {}).get("bitis", 0)
+        ban_bitis = global_gecici_banlar.get(isim, 0)
+        if ban_bitis and ban_bitis <= simdi:
+            global_gecici_banlar.pop(isim, None)
+            engellenenler.discard(isim)
+            ban_bitis = 0
         kullanicilar.append({
             "isim": isim,
             "online": bool(son_aktiflik.get(isim) and simdi - son_aktiflik.get(isim, 0) < 10),
-            "banli": isim in engellenenler,
+            "banli": bool(isim in engellenenler or ban_bitis),
+            "ban_kalan_yazi": sureyi_yaziya_cevir(max(0, int(ban_bitis - simdi))) if ban_bitis else "",
             "muteli": bool(mute_bitis and mute_bitis > simdi),
-            "mute_kalan": max(0, int((mute_bitis - simdi) // 60) + 1) if mute_bitis and mute_bitis > simdi else 0,
+            "mute_kalan_yazi": sureyi_yaziya_cevir(max(0, int(mute_bitis - simdi))) if mute_bitis and mute_bitis > simdi else "",
             "mesaj_sayisi": sum(1 for m in sohbet_gecmisi if m.get("gonderen") == isim),
             "email": kullanici_emailleri.get(isim),
             "oda_izni": isim in oda_kurma_izni,
@@ -137,7 +145,7 @@ body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,
 .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-bottom:14px}.stat{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:10px}.stat b{display:block;margin-bottom:3px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tab{border:1px solid #8fa9c4;background:#eef4fb;padding:7px 10px;border-radius:5px;font-weight:700;cursor:pointer}.tab.active{background:#2d7fd6;color:#fff;border-color:#1c5fb0}
 .section{display:none}.section.active{display:block}.grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px}.box{background:#fff;border:1px solid #b9cfe4;border-radius:7px;padding:12px}.box h3{margin:0 0 9px;color:#1c3d5c;font-size:15px}
-.users{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:9px}.user{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:10px}.online{color:#15803d;font-weight:700}.offline{color:#64748b}.banned{color:#b91c1c;font-weight:700}.muted{color:#b45309;font-weight:700}.info{font-size:12px;color:#526b82;line-height:1.5}.actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.actions form{margin:0}.btn,.mini{border:1px solid #1c5fb0;background:#2d7fd6;color:#fff;border-radius:4px;padding:6px 8px;font-weight:700;cursor:pointer}.red{background:#c0392b;border-color:#8f241a}.green{background:#20833c;border-color:#17652d}.orange{background:#c77b11;border-color:#945d08}.dark{background:#46515d;border-color:#35404a}.purple{background:#6856bb;border-color:#4b3b91}
+.users{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:9px}.user{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:10px}.online{color:#15803d;font-weight:700}.offline{color:#64748b}.banned{color:#b91c1c;font-weight:700}.muted{color:#b45309;font-weight:700}.info{font-size:12px;color:#526b82;line-height:1.5}.actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.actions form{margin:0}.btn,.mini{border:1px solid #1c5fb0;background:#2d7fd6;color:#fff;border-radius:4px;padding:6px 8px;font-weight:700;cursor:pointer}.red{background:#c0392b;border-color:#8f241a}.green{background:#20833c;border-color:#17652d}.orange{background:#c77b11;border-color:#945d08}.dark{background:#46515d;border-color:#35404a}.purple{background:#6856bb;border-color:#4b3b91}.sure-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin:6px 0 4px}.sure-grid input{padding:4px 5px;font-size:10px;min-width:0}.sure-grid .lbl{font-size:9px;color:#55708b;line-height:1;display:block;margin-bottom:2px;text-align:center}
 input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-radius:4px;font:inherit}textarea{min-height:90px;resize:vertical}.field{margin-bottom:8px}.field label{display:block;font-size:12px;font-weight:700;color:#3a5a7a;margin-bottom:3px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.room{display:flex;justify-content:space-between;gap:8px;border:1px solid #d2deea;padding:8px;border-radius:5px;margin-bottom:5px}.room small{color:#64748b}.notice{background:#fff8db;border:1px solid #e0b400;padding:8px;border-radius:5px;font-size:12px;margin-bottom:10px}
 .table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:7px;border-bottom:1px solid #d9e4ef;text-align:left;vertical-align:top}.table th{background:#eef4fb}.log{max-height:340px;overflow:auto;font-family:Consolas,monospace;font-size:11px;white-space:pre-wrap;background:#0f1720;color:#dbeafe;border-radius:5px;padding:9px}
@@ -172,14 +180,32 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 <div class="user">
 <b>{{ u.isim }}</b><br>
 <span class="{{ 'online' if u.online else 'offline' }}">● {{ 'Online' if u.online else 'Çevrimdışı' }}</span>
-{% if u.banli %}<br><span class="banned">🚫 Banlı</span>{% endif %}
-{% if u.muteli %}<br><span class="muted">🔇 {{ u.mute_kalan }} dk susturulmuş</span>{% endif %}
+{% if u.banli %}<br><span class="banned">🚫 {{ u.ban_kalan_yazi and (u.ban_kalan_yazi + ' kaldı') or 'Banlı' }}</span>{% endif %}
+{% if u.muteli %}<br><span class="muted">🔇 {{ u.mute_kalan_yazi and (u.mute_kalan_yazi + ' kaldı') or 'Susturulmuş' }}</span>{% endif %}
 <div class="info">Mesaj: {{ u.mesaj_sayisi }}<br>E-posta: {{ u.email or 'Yok' }}<br>Oda kurma izni: {{ 'Var' if u.oda_izni else 'Yok' }}</div>
 {% if u.isim != admin %}
 <div class="actions">
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unban' if u.banli else 'ban' }}"><button class="btn {{ 'dark' if u.banli else 'red' }}">{{ '✅ Banı Kaldır' if u.banli else '🚫 Banla' }}</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unban' if u.banli else 'ban' }}">{% if not u.banli %}
+<div class="sure-grid">
+<div><span class="lbl">Yıl</span><input type="number" min="0" name="ban_yil" value="0"></div>
+<div><span class="lbl">Ay</span><input type="number" min="0" name="ban_ay" value="0"></div>
+<div><span class="lbl">Hafta</span><input type="number" min="0" name="ban_hafta" value="0"></div>
+<div><span class="lbl">Gün</span><input type="number" min="0" name="ban_gun" value="0"></div>
+<div><span class="lbl">Saat</span><input type="number" min="0" name="ban_saat" value="0"></div>
+<div><span class="lbl">Dakika</span><input type="number" min="0" name="ban_dakika" value="0"></div>
+<div><span class="lbl">Saniye</span><input type="number" min="0" name="ban_saniye" value="0"></div>
+</div>{% endif %}<button class="btn {{ 'dark' if u.banli else 'red' }}">{{ '✅ Banı Kaldır' if u.banli else '🚫 Banla' }}</button></form>
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">👢 Kick</button></form>
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}"><input type="hidden" name="dakika" value="10"><button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Mute Kaldır' if u.muteli else '🔇 10 dk Sustur' }}</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}">{% if not u.muteli %}
+<div class="sure-grid">
+<div><span class="lbl">Yıl</span><input type="number" min="0" name="mute_yil" value="0"></div>
+<div><span class="lbl">Ay</span><input type="number" min="0" name="mute_ay" value="0"></div>
+<div><span class="lbl">Hafta</span><input type="number" min="0" name="mute_hafta" value="0"></div>
+<div><span class="lbl">Gün</span><input type="number" min="0" name="mute_gun" value="0"></div>
+<div><span class="lbl">Saat</span><input type="number" min="0" name="mute_saat" value="0"></div>
+<div><span class="lbl">Dakika</span><input type="number" min="0" name="mute_dakika" value="10"></div>
+<div><span class="lbl">Saniye</span><input type="number" min="0" name="mute_saniye" value="0"></div>
+</div>{% endif %}<button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Mute Kaldır' if u.muteli else '🔇 Sustur' }}</button></form>
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="oda_izni"><button class="btn purple">{{ '🏷️ Oda İznini Al' if u.oda_izni else '🏷️ Oda İzni Ver' }}</button></form>
 <form method="get" action="/admin" style="margin:0"><input type="hidden" name="duzenle" value="{{ u.isim }}"><button class="btn">✏️ Düzenle</button></form>
 <form method="post" action="/admin/islem" onsubmit="return confirm('Bu hesabı tamamen silmek istediğine emin misin?');"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="sil"><button class="btn red">❌ Hesabı Sil</button></form>
@@ -356,8 +382,12 @@ def admin_islem():
                     return redirect("/admin")
 
             if islem == "ban":
-                kullanici_banla_ve_email(hedef)
-                log_ekle(f"Admin '{hedef}' kullanıcısını banladı.")
+                ban_suresi = sure_alanlarini_topla(request.form, "ban")
+                kullanici_banla_ve_email(hedef, ban_suresi if ban_suresi > 0 else None)
+                if ban_suresi > 0:
+                    log_ekle(f"Admin '{hedef}' kullanıcısını {sureyi_yaziya_cevir(ban_suresi)} süreyle banladı.")
+                else:
+                    log_ekle(f"Admin '{hedef}' kullanıcısını banladı.")
             elif islem == "unban":
                 kullanici_banini_ac(hedef)
                 log_ekle(f"Admin '{hedef}' kullanıcısının banını kaldırdı.")
@@ -365,12 +395,11 @@ def admin_islem():
                 zorla_cikis.add(hedef)
                 log_ekle(f"Admin '{hedef}' kullanıcısını kickledi.")
             elif islem == "mute":
-                try:
-                    dakika = max(1, min(10080, int(request.form.get("dakika", "10"))))
-                except ValueError:
-                    dakika = 10
-                susturulanlar[hedef] = {"bitis": time.time() + dakika * 60, "oda": "Hepsi"}
-                log_ekle(f"Admin '{hedef}' kullanıcısını {dakika} dakika susturdu.")
+                mute_suresi = sure_alanlarini_topla(request.form, "mute")
+                if mute_suresi <= 0:
+                    mute_suresi = 10 * 60
+                susturulanlar[hedef] = {"bitis": time.time() + mute_suresi, "oda": "Hepsi"}
+                log_ekle(f"Admin '{hedef}' kullanıcısını {sureyi_yaziya_cevir(mute_suresi)} süreyle susturdu.")
             elif islem == "unmute":
                 susturulanlar.pop(hedef, None)
                 log_ekle(f"Admin '{hedef}' kullanıcısının susturmasını kaldırdı.")
@@ -390,6 +419,7 @@ def admin_islem():
                     email_hesaplari.pop(email, None)
                 kullanici_emailleri.pop(hedef, None)
                 engellenenler.discard(hedef)
+                global_gecici_banlar.pop(hedef, None)
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
                 oda_kurma_izni.discard(hedef)
@@ -429,6 +459,8 @@ def admin_islem():
                                 kullanici_oturum_toplam_saniye[yeni_isim] = kullanici_oturum_toplam_saniye.pop(eski)
                             if eski in engellenenler:
                                 engellenenler.discard(eski); engellenenler.add(yeni_isim)
+                            if eski in global_gecici_banlar:
+                                global_gecici_banlar[yeni_isim] = global_gecici_banlar.pop(eski)
                             if eski in susturulanlar:
                                 susturulanlar[yeni_isim] = susturulanlar.pop(eski)
                             if eski in oda_kurma_izni:
@@ -799,9 +831,59 @@ def kullanici_banini_ac(kullanici):
     if not kullanici:
         return
     engellenenler.discard(kullanici)
+    global_gecici_banlar.pop(kullanici, None)
     email = kullanici_emaili_al(kullanici)
     if email:
         banli_emailler.discard(email)
+
+def sure_alanlarini_topla(form, prefix):
+    birimler = [
+        ("yil", 365 * 24 * 60 * 60),
+        ("ay", 30 * 24 * 60 * 60),
+        ("hafta", 7 * 24 * 60 * 60),
+        ("gun", 24 * 60 * 60),
+        ("saat", 60 * 60),
+        ("dakika", 60),
+        ("saniye", 1),
+    ]
+    toplam = 0
+    for alan, carpani in birimler:
+        try:
+            deger = int((form.get(f"{prefix}_{alan}") or "0").strip() or "0")
+        except ValueError:
+            deger = 0
+        if deger > 0:
+            toplam += deger * carpani
+    return toplam
+
+def sureyi_yaziya_cevir(saniye):
+    saniye = int(max(0, saniye))
+    birimler = [
+        ("yıl", 365 * 24 * 60 * 60),
+        ("ay", 30 * 24 * 60 * 60),
+        ("hafta", 7 * 24 * 60 * 60),
+        ("gün", 24 * 60 * 60),
+        ("saat", 60 * 60),
+        ("dakika", 60),
+        ("saniye", 1),
+    ]
+    parcalar = []
+    kalan = saniye
+    for ad, carpani in birimler:
+        adet, kalan = divmod(kalan, carpani)
+        if adet:
+            parcalar.append(f"{adet} {ad}")
+    return " ".join(parcalar) if parcalar else "0 saniye"
+
+def gecici_banlari_temizle():
+    simdi = time.time()
+    for kullanici, bitis in list(global_gecici_banlar.items()):
+        if simdi >= bitis:
+            global_gecici_banlar.pop(kullanici, None)
+            engellenenler.discard(kullanici)
+            email = kullanici_emaili_al(kullanici)
+            if email:
+                banli_emailler.discard(email)
 
 def eposta_kodu_gonder(hedef_email, konu, icerik):
     smtp_host = os.getenv("QCHAT_SMTP_HOST", "").strip()
@@ -853,6 +935,7 @@ odalar_db = veriler.get("odalar_db", {"Genel": ""})
 kullanici_emailleri = veriler.get("kullanici_emailleri", {})
 email_hesaplari = veriler.get("email_hesaplari", {})
 banli_emailler = set(veriler.get("banli_emailler", []))
+global_gecici_banlar = veriler.get("global_gecici_banlar", {})  # {kullanici: bitis_zamani}
 engellenenler.difference_update({u for u in list(engellenenler) if str(u).strip().casefold() in REZERVE_KULLANICI_ADLARI})
 bekleyen_kayitlar = {}  # {token: {kullanici, email, sifre_hash, kod, olusturma_zamani}}
 bekleyen_sifre_sifirlama = {}  # {token: {kullanici, email, kimlik, kod, olusturma_zamani}}
@@ -993,6 +1076,7 @@ def durumu_kaydet():
             "kullanici_emailleri": dict(kullanici_emailleri),
             "email_hesaplari": dict(email_hesaplari),
             "banli_emailler": list(banli_emailler),
+            "global_gecici_banlar": dict(global_gecici_banlar),
             "odalar_db": dict(odalar_db),
             "oda_liderleri": dict(oda_liderleri),
             "oda_roller": {k: dict(v) for k, v in oda_roller.items()},
@@ -1063,6 +1147,8 @@ def guvenlik_kontrolu():
 
     if kullanici:
         oturum_suresini_guncelle(kullanici)
+
+    gecici_banlari_temizle()
 
     if kullanici and kullanici in engellenenler:
         if request.path == "/ban-geri-bildirim":
