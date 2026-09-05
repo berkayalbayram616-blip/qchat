@@ -74,7 +74,7 @@ app.secret_key = secrets.token_hex(32)
 # ==================== YÖNETİCİ PANELİ ====================
 ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
 ADMIN_SIFRE = os.getenv("QCHAT_ADMIN_PASS", "Berkay123321")
-REZERVE_KULLANICI_ADLARI = {ADMIN_KULLANICI.casefold(), "admin", "amin", "sistem"}
+REZERVE_KULLANICI_ADLARI = {ADMIN_KULLANICI.casefold(), "admin", "/admin", "amin", "sistem"}
 
 def kullanici_adi_rezerve_mi(kullanici):
     return (kullanici or "").strip().casefold() in REZERVE_KULLANICI_ADLARI
@@ -90,16 +90,24 @@ def _admin_durumlari():
         if simdi >= bitis:
             susturulanlar.pop(k, None)
 
+    gecici_banlari_temizle()
+
     kullanicilar = []
     for isim in sorted(kullanici_db.keys(), key=str.lower):
         mute_veri = susturulanlar.get(isim)
         mute_bitis = mute_veri if isinstance(mute_veri, (int, float)) else (mute_veri or {}).get("bitis", 0)
+        ban_bitis = global_gecici_banlar.get(isim, 0)
+        if ban_bitis and ban_bitis <= simdi:
+            global_gecici_banlar.pop(isim, None)
+            engellenenler.discard(isim)
+            ban_bitis = 0
         kullanicilar.append({
             "isim": isim,
             "online": bool(son_aktiflik.get(isim) and simdi - son_aktiflik.get(isim, 0) < 10),
-            "banli": isim in engellenenler,
+            "banli": bool(isim in engellenenler or ban_bitis),
+            "ban_kalan_yazi": sureyi_yaziya_cevir(max(0, int(ban_bitis - simdi))) if ban_bitis else "",
             "muteli": bool(mute_bitis and mute_bitis > simdi),
-            "mute_kalan": max(0, int((mute_bitis - simdi) // 60) + 1) if mute_bitis and mute_bitis > simdi else 0,
+            "mute_kalan_yazi": sureyi_yaziya_cevir(max(0, int(mute_bitis - simdi))) if mute_bitis and mute_bitis > simdi else "",
             "mesaj_sayisi": sum(1 for m in sohbet_gecmisi if m.get("gonderen") == isim),
             "email": kullanici_emailleri.get(isim),
             "oda_izni": isim in oda_kurma_izni,
@@ -161,27 +169,43 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 <button class="tab" onclick="tabAc('odalar',this)">🏠 Odalar</button>
 <button class="tab" onclick="tabAc('duyurular',this)">📢 Sistem</button>
 <button class="tab" onclick="tabAc('sikayetler',this)">⚠️ Şikayetler</button>
-<button class="tab" onclick="tabAc('geri_bildirimler',this)">📝 Geri Bildirimler</button>
-<button class="tab" onclick="tabAc('admin_sohbeti',this)">🗒️ Admin Sohbeti</button>
 </div>
 
 <div id="kullanicilar" class="section active">
 <div class="box">
 <h3>Kullanıcı Yönetimi</h3>
-<div class="notice">İşlem yaptıktan sonra istersen sayfayı yenileyebilirsin. <b>Admin</b> hesabı korunur ve panel üzerinden değiştirilemez.</div>
+<div class="notice">Bir işlem yaptıktan sonra sayfa otomatik olarak güncellenir. <b>Admin</b> hesabı korunur ve panel üzerinden değiştirilemez.</div>
 <div class="users">
 {% for u in kullanicilar %}
 <div class="user">
 <b>{{ u.isim }}</b><br>
 <span class="{{ 'online' if u.online else 'offline' }}">● {{ 'Online' if u.online else 'Çevrimdışı' }}</span>
-{% if u.banli %}<br><span class="banned">🚫 Banlı</span>{% endif %}
-{% if u.muteli %}<br><span class="muted">🔇 {{ u.mute_kalan }} dk susturulmuş</span>{% endif %}
+{% if u.banli %}<br><span class="banned">🚫 {{ u.ban_kalan_yazi and (u.ban_kalan_yazi + ' kaldı') or 'Banlı' }}</span>{% endif %}
+{% if u.muteli %}<br><span class="muted">🔇 {{ u.mute_kalan_yazi and (u.mute_kalan_yazi + ' kaldı') or 'Susturulmuş' }}</span>{% endif %}
 <div class="info">Mesaj: {{ u.mesaj_sayisi }}<br>E-posta: {{ u.email or 'Yok' }}<br>Oda kurma izni: {{ 'Var' if u.oda_izni else 'Yok' }}</div>
 {% if u.isim != admin %}
 <div class="actions">
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unban' if u.banli else 'ban' }}"><button class="btn {{ 'dark' if u.banli else 'red' }}">{{ '✅ Banı Kaldır' if u.banli else '🚫 Banla' }}</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unban' if u.banli else 'ban' }}">{% if not u.banli %}
+<div class="sure-grid">
+<div><span class="lbl">Yıl</span><input type="number" min="0" name="ban_yil" value="0"></div>
+<div><span class="lbl">Ay</span><input type="number" min="0" name="ban_ay" value="0"></div>
+<div><span class="lbl">Hafta</span><input type="number" min="0" name="ban_hafta" value="0"></div>
+<div><span class="lbl">Gün</span><input type="number" min="0" name="ban_gun" value="0"></div>
+<div><span class="lbl">Saat</span><input type="number" min="0" name="ban_saat" value="0"></div>
+<div><span class="lbl">Dakika</span><input type="number" min="0" name="ban_dakika" value="0"></div>
+<div><span class="lbl">Saniye</span><input type="number" min="0" name="ban_saniye" value="0"></div>
+</div>{% endif %}<button class="btn {{ 'dark' if u.banli else 'red' }}">{{ '✅ Banı Kaldır' if u.banli else '🚫 Banla' }}</button></form>
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">👢 Kick</button></form>
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}"><input type="hidden" name="dakika" value="10"><button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Mute Kaldır' if u.muteli else '🔇 Sustur' }}</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}">{% if not u.muteli %}
+<div class="sure-grid">
+<div><span class="lbl">Yıl</span><input type="number" min="0" name="mute_yil" value="0"></div>
+<div><span class="lbl">Ay</span><input type="number" min="0" name="mute_ay" value="0"></div>
+<div><span class="lbl">Hafta</span><input type="number" min="0" name="mute_hafta" value="0"></div>
+<div><span class="lbl">Gün</span><input type="number" min="0" name="mute_gun" value="0"></div>
+<div><span class="lbl">Saat</span><input type="number" min="0" name="mute_saat" value="0"></div>
+<div><span class="lbl">Dakika</span><input type="number" min="0" name="mute_dakika" value="10"></div>
+<div><span class="lbl">Saniye</span><input type="number" min="0" name="mute_saniye" value="0"></div>
+</div>{% endif %}<button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Mute Kaldır' if u.muteli else '🔇 Sustur' }}</button></form>
 <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="oda_izni"><button class="btn purple">{{ '🏷️ Oda İznini Al' if u.oda_izni else '🏷️ Oda İzni Ver' }}</button></form>
 <form method="get" action="/admin" style="margin:0"><input type="hidden" name="duzenle" value="{{ u.isim }}"><button class="btn">✏️ Düzenle</button></form>
 <form method="post" action="/admin/islem" onsubmit="return confirm('Bu hesabı tamamen silmek istediğine emin misin?');"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="sil"><button class="btn red">❌ Hesabı Sil</button></form>
@@ -271,66 +295,13 @@ input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-rad
 </div>
 </div>
 </div></div>
-
-<div id="geri_bildirimler" class="section">
-<div class="box">
-<h3>📝 Geri Bildirimler</h3>
-{% if geri_bildirimler %}
-<table class="table">
-<tr><th>Zaman</th><th>Kullanıcı</th><th>Mesaj</th><th>İşlem</th></tr>
-{% for g in geri_bildirimler %}
-<tr>
-<td>{{ g.zaman }}</td>
-<td>{{ g.kullanici }}</td>
-<td style="white-space:pre-wrap">{{ g.mesaj }}</td>
-<td>
-<form method="post" action="/admin/islem" style="display:inline">
-<input type="hidden" name="islem" value="geri_bildirim_sil">
-<input type="hidden" name="geri_idx" value="{{ g.idx }}">
-<button class="mini red">Sil</button>
-</form>
-</td>
-</tr>
-{% endfor %}
-</table>
-{% else %}<div class="notice">Henüz geri bildirim yok.</div>{% endif %}
-</div>
-</div>
-
-<div id="admin_sohbeti" class="section">
-<div class="grid">
-<div class="box">
-<h3>🗒️ Admin Sohbeti</h3>
-<form method="post" action="/admin/islem">
-<input type="hidden" name="islem" value="admin_mesaj_ekle">
-<div class="field"><label>Not / mesaj</label><textarea name="admin_mesaj" maxlength="500" required></textarea></div>
-<button class="btn green">Gönder</button>
-</form>
-</div>
-<div class="box">
-<h3>📒 Kayıtlar</h3>
-{% if admin_sohbeti %}
-{% for n in admin_sohbeti %}
-<div class="room">
-<div><b>{{ n.kim }}</b> <small>{{ n.zaman }}</small><br><small style="white-space:pre-wrap">{{ n.metin }}</small></div>
-<form method="post" action="/admin/islem">
-<input type="hidden" name="islem" value="admin_mesaj_sil">
-<input type="hidden" name="admin_idx" value="{{ n.idx }}">
-<button class="btn red">Sil</button>
-</form>
-</div>
-{% endfor %}
-{% else %}<div class="notice">Henüz not yok.</div>{% endif %}
-</div>
-</div>
-</div>
-
 <script>
 function tabAc(id,btn){
  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
  document.getElementById(id).classList.add('active'); btn.classList.add('active');
 }
+setInterval(()=>location.reload(),15000);
 </script>
 </body></html>
 """
@@ -382,8 +353,6 @@ def admin_panel():
         odalar=odalar,
         duzenlenen=duzenlenen,
         sikayetler=sikayet_gorunum,
-        geri_bildirimler=[{**g, "idx": i, "zaman": time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(g.get("zaman", 0)))} for i, g in enumerate(reversed(geri_bildirimler))],
-        admin_sohbeti=[{**n, "idx": i, "zaman": time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(n.get("zaman", 0)))} for i, n in enumerate(reversed(admin_sohbeti))],
         loglar="\n".join(sistem_loglari[-100:]) if sistem_loglari else "Henüz log yok.",
         bakim_modu=bakim_modu,
         yavas_mod_saniye=yavas_mod_saniye,
@@ -413,8 +382,12 @@ def admin_islem():
                     return redirect("/admin")
 
             if islem == "ban":
-                kullanici_banla_ve_email(hedef)
-                log_ekle(f"Admin '{hedef}' kullanıcısını banladı.")
+                ban_suresi = sure_alanlarini_topla(request.form, "ban")
+                kullanici_banla_ve_email(hedef, ban_suresi if ban_suresi > 0 else None)
+                if ban_suresi > 0:
+                    log_ekle(f"Admin '{hedef}' kullanıcısını {sureyi_yaziya_cevir(ban_suresi)} süreyle banladı.")
+                else:
+                    log_ekle(f"Admin '{hedef}' kullanıcısını banladı.")
             elif islem == "unban":
                 kullanici_banini_ac(hedef)
                 log_ekle(f"Admin '{hedef}' kullanıcısının banını kaldırdı.")
@@ -422,12 +395,11 @@ def admin_islem():
                 zorla_cikis.add(hedef)
                 log_ekle(f"Admin '{hedef}' kullanıcısını kickledi.")
             elif islem == "mute":
-                try:
-                    dakika = max(1, min(10080, int(request.form.get("dakika", "10"))))
-                except ValueError:
-                    dakika = 10
-                susturulanlar[hedef] = {"bitis": time.time() + dakika * 60, "oda": "Hepsi"}
-                log_ekle(f"Admin '{hedef}' kullanıcısını {dakika} dakika susturdu.")
+                mute_suresi = sure_alanlarini_topla(request.form, "mute")
+                if mute_suresi <= 0:
+                    mute_suresi = 10 * 60
+                susturulanlar[hedef] = {"bitis": time.time() + mute_suresi, "oda": "Hepsi"}
+                log_ekle(f"Admin '{hedef}' kullanıcısını {sureyi_yaziya_cevir(mute_suresi)} süreyle susturdu.")
             elif islem == "unmute":
                 susturulanlar.pop(hedef, None)
                 log_ekle(f"Admin '{hedef}' kullanıcısının susturmasını kaldırdı.")
@@ -439,6 +411,7 @@ def admin_islem():
                     oda_kurma_izni.add(hedef)
                     log_ekle(f"'{hedef}' kullanıcısına oda kurma izni verildi.")
             elif islem == "sil":
+                # Sohbet ve oda yetkileri içindeki kullanıcı bağlarını da temizle.
                 kullanici_db.pop(hedef, None)
                 email = kullanici_emaili_al(hedef)
                 if email:
@@ -446,6 +419,7 @@ def admin_islem():
                     email_hesaplari.pop(email, None)
                 kullanici_emailleri.pop(hedef, None)
                 engellenenler.discard(hedef)
+                global_gecici_banlar.pop(hedef, None)
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
                 oda_kurma_izni.discard(hedef)
@@ -485,6 +459,8 @@ def admin_islem():
                                 kullanici_oturum_toplam_saniye[yeni_isim] = kullanici_oturum_toplam_saniye.pop(eski)
                             if eski in engellenenler:
                                 engellenenler.discard(eski); engellenenler.add(yeni_isim)
+                            if eski in global_gecici_banlar:
+                                global_gecici_banlar[yeni_isim] = global_gecici_banlar.pop(eski)
                             if eski in susturulanlar:
                                 susturulanlar[yeni_isim] = susturulanlar.pop(eski)
                             if eski in oda_kurma_izni:
@@ -582,33 +558,13 @@ def admin_islem():
                     sikayetler[idx]["durum"] = durum
                     sikayetleri_kaydet(sikayetler)
                     log_ekle(f"Şikayet #{idx} durumu '{durum}' yapıldı.")
-            elif islem == "geri_bildirim_sil":
-                try:
-                    idx = int(request.form.get("geri_idx", "-1"))
-                except ValueError:
-                    idx = -1
-                if 0 <= idx < len(geri_bildirimler):
-                    geri_bildirimler.pop(idx)
-                    log_ekle(f"Geri bildirim #{idx} silindi.")
-            elif islem == "admin_mesaj_ekle":
-                metin = (request.form.get("admin_mesaj") or "").strip()
-                if metin:
-                    admin_sohbeti.append({"kim": ADMIN_KULLANICI, "metin": metin, "zaman": time.time()})
-                    log_ekle("Admin sohbetine yeni not eklendi.")
-            elif islem == "admin_mesaj_sil":
-                try:
-                    idx = int(request.form.get("admin_idx", "-1"))
-                except ValueError:
-                    idx = -1
-                if 0 <= idx < len(admin_sohbeti):
-                    admin_sohbeti.pop(idx)
-                    log_ekle(f"Admin sohbeti kaydı #{idx} silindi.")
 
             durumu_kaydet()
     except Exception as e:
         log_ekle(f"Admin işlemi sırasında hata: {e}")
 
     return redirect("/admin")
+
 def _ban_geri_bildirim_sayfasi(durum_mesaji="", gonderildi=False, status=200):
     return render_template_string(
         ban_html,
@@ -649,8 +605,7 @@ son_aktiflik = {}
 son_mesaj_zamani = {}
 kullanici_renames = {}
 sistem_loglari = []
-geri_bildirimler = veriler.get("geri_bildirimler", [])
-admin_sohbeti = veriler.get("admin_sohbeti", [])
+geri_bildirimler = []
 kullanici_kayit_zamani = veriler.get("kullanici_kayit_zamani", {})
 kullanici_oturum_toplam_saniye = veriler.get("kullanici_oturum_toplam_saniye", {})
 kullanici_oturum_son_kayit = {}
@@ -864,9 +819,13 @@ def kullanici_emailini_kaydet(kullanici, email):
     kullanici_emailleri[kullanici] = email
     email_hesaplari[email] = kullanici
 
-def kullanici_banla_ve_email(kullanici):
+def kullanici_banla_ve_email(kullanici, ban_suresi=None):
     if not kullanici or kullanici_adi_rezerve_mi(kullanici):
         return
+    if isinstance(ban_suresi, (int, float)) and ban_suresi and ban_suresi > 0:
+        global_gecici_banlar[kullanici] = time.time() + float(ban_suresi)
+    else:
+        global_gecici_banlar.pop(kullanici, None)
     engellenenler.add(kullanici)
     email = kullanici_emaili_al(kullanici)
     if email:
@@ -876,6 +835,7 @@ def kullanici_banini_ac(kullanici):
     if not kullanici:
         return
     engellenenler.discard(kullanici)
+    global_gecici_banlar.pop(kullanici, None)
     email = kullanici_emaili_al(kullanici)
     if email:
         banli_emailler.discard(email)
@@ -1128,7 +1088,6 @@ def durumu_kaydet():
             "oda_gecici_banlar": {k: dict(v) for k, v in oda_gecici_banlar.items()},
             "oda_kurma_izni": list(oda_kurma_izni),
             "geri_bildirimler": list(geri_bildirimler),
-            "admin_sohbeti": list(admin_sohbeti),
             "kullanici_kayit_zamani": dict(kullanici_kayit_zamani),
             "kullanici_oturum_toplam_saniye": dict(kullanici_oturum_toplam_saniye)
         }
@@ -1193,7 +1152,11 @@ def guvenlik_kontrolu():
     if kullanici:
         oturum_suresini_guncelle(kullanici)
 
-    if kullanici and kullanici in engellenenler:
+    gecici_banlari_temizle()
+
+    admin_yolu_mu = request.path == "/admin" or request.path.startswith("/admin/")
+
+    if kullanici and kullanici in engellenenler and not admin_yolu_mu:
         if request.path == "/ban-geri-bildirim":
             return None
         return render_template_string(ban_html, durum_mesaji=""), 403
