@@ -13,7 +13,6 @@ import time
 import subprocess
 import shutil
 import json
-import sqlite3
 import os
 import sys
 import logging
@@ -71,7 +70,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_COOKIE_SECURE', '0') == '1'
 app.permanent_session_lifetime = timedelta(days=30)
 
-app.secret_key = os.getenv('QCHAT_SECRET_KEY') or 'qchat-dev-secret-change-me'
+app.secret_key = secrets.token_hex(32)
 
 # ==================== YÖNETİCİ PANELİ ====================
 ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
@@ -335,11 +334,11 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
       <div class="empty">Henüz mesaj yok. Görüşmeyi siz başlatabilirsiniz.</div>
     {% endif %}
   </div>
-  <form class="compose" method="post" action="/admin/islem">
+  <form class="compose" id="adminSorguForm" method="post" action="/admin/islem">
     <input type="hidden" name="islem" value="sorgu_mesaj">
-    <input type="hidden" name="hedef" value="{{ sorgu_secili }}">
-    <input name="mesaj" maxlength="500" placeholder="{{ sorgu_secili }} kullanıcısına yazın…" required autocomplete="off">
-    <button class="btn">📤 Gönder</button>
+    <input type="hidden" name="hedef" id="adminSorguHedef" value="{{ sorgu_secili }}">
+    <input id="adminSorguInput" name="mesaj" maxlength="500" placeholder="{{ sorgu_secili }} kullanıcısına yazın…" required autocomplete="off">
+    <button class="btn" type="submit">📤 Gönder</button>
   </form>
 </div>
 {% endif %}
@@ -424,6 +423,41 @@ function filtreRapor(){const q=(document.getElementById('reportSearch').value||'
 function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearch')?.value||'').toLowerCase();document.querySelectorAll('.room-request-row').forEach(r=>{r.style.display=!q||r.dataset.search.includes(q)?'':'none';});}
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
+async function adminSorguGuncelle(){
+  const hedef=document.getElementById('adminSorguHedef')?.value;
+  const box=document.getElementById('sorguChatStream');
+  if(!hedef||!box)return;
+  try{
+    const r=await fetch('/api/sorgu/admin_durum?hedef='+encodeURIComponent(hedef),{cache:'no-store'});
+    const d=await r.json();
+    if(!d.aktif){location.replace('/admin');return;}
+    const msgs=d.mesajlar||[];
+    if(!msgs.length){box.innerHTML='<div class="empty">Henüz mesaj yok. Görüşmeyi siz başlatabilirsiniz.</div>';return;}
+    box.innerHTML=msgs.map(m=>'<div class="chat-item"><div class="chat-head"><b>'+escapeHtml(m.gonderen)+'</b> • '+escapeHtml(m.zaman||'')+'</div><div class="chat-body">'+escapeHtml(m.mesaj||'')+'</div></div>').join('');
+    box.scrollTop=box.scrollHeight;
+  }catch(e){}
+}
+const adminSorguForm=document.getElementById('adminSorguForm');
+if(adminSorguForm){
+  adminSorguForm.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const hedef=document.getElementById('adminSorguHedef').value;
+    const inp=document.getElementById('adminSorguInput');
+    const btn=adminSorguForm.querySelector('button');
+    const mesaj=inp.value.trim(); if(!mesaj||!hedef)return;
+    btn.disabled=true;
+    try{
+      const r=await fetch('/api/sorgu/admin_gonder',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams({hedef,mesaj})});
+      const d=await r.json();
+      if(d.basarili){inp.value='';await adminSorguGuncelle();inp.focus();}
+      else alert('⚠️ '+(d.hata||'Mesaj gönderilemedi.'));
+    }catch(e){alert('⚠️ Mesaj gönderilirken bağlantı hatası oluştu.');}
+    finally{btn.disabled=false;}
+  });
+  adminSorguGuncelle();
+  setInterval(adminSorguGuncelle,1000);
+}
+
 function modalKapat(){const m=document.getElementById('userModal');if(m)m.classList.remove('open');}function modalDis(e){if(e.target.id==='userModal')modalKapat();if(e.target.id==='muteModal')muteKapat();}document.addEventListener('keydown',e=>{if(e.key==='Escape'){modalKapat();muteKapat();}});
 </script>
 </body></html>
@@ -519,7 +553,7 @@ def admin_panel():
 
     aktif_sorgular_gorunum = []
     with veri_kilidi:
-        for k, v in sorted(aktif_sorgular_db().items(), key=lambda item: item[1].get("baslangic", 0)):
+        for k, v in sorted(aktif_sorgular.items(), key=lambda item: item[1].get("baslangic", 0) if isinstance(item[1], dict) else 0):
             if k not in kullanici_db:
                 continue
             aktif_sorgular_gorunum.append({
@@ -529,12 +563,12 @@ def admin_panel():
             })
 
     sorgu_secili = (request.args.get("sorgu") or "").strip()
-    if not sorgu_aktif_mi(sorgu_secili):
+    if sorgu_secili not in aktif_sorgular:
         sorgu_secili = ""
     sorgu_mesajlar_gorunum = []
     if sorgu_secili:
         with veri_kilidi:
-            for m in [{"gonderen":g,"mesaj":msg,"zaman":z} for g,msg,z in sorgu_mesajlarini_getir_db(sorgu_secili, 200)]:
+            for m in sorgu_mesajlari.get(sorgu_secili, [])[-200:]:
                 if not isinstance(m, dict):
                     continue
                 sorgu_mesajlar_gorunum.append({
@@ -696,8 +730,6 @@ def admin_islem():
                 engellenenler.discard(hedef)
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
-                sorgu_bitir_db(hedef)
-                with sqlite3.connect(SORGU_DB, timeout=10) as db: db.execute('DELETE FROM sorgu_mesajlari WHERE kullanici=?',(hedef,))
                 aktif_sorgular.pop(hedef, None)
                 sorgu_mesajlari.pop(hedef, None)
                 oda_kurma_izni.discard(hedef)
@@ -765,19 +797,16 @@ def admin_islem():
             elif islem == "sorgu_baslat":
                 if not hedef or hedef == ADMIN_KULLANICI or kullanici_adi_rezerve_mi(hedef) or hedef not in kullanici_db:
                     return redirect("/admin")
-                sorgu_baslat_db(hedef, ADMIN_KULLANICI)
                 aktif_sorgular[hedef] = {"baslatan": ADMIN_KULLANICI, "baslangic": time.time()}
                 sorgu_mesajlari.setdefault(hedef, [])
                 log_ekle(f"Admin '{hedef}' kullanıcısı için zorunlu görüşme başlattı.")
             elif islem == "sorgu_bitir":
-                if sorgu_aktif_mi(hedef):
-                    sorgu_bitir_db(hedef)
+                if hedef in aktif_sorgular:
                     aktif_sorgular.pop(hedef, None)
                     log_ekle(f"Admin '{hedef}' kullanıcısı için zorunlu görüşmeyi bitirdi.")
             elif islem == "sorgu_mesaj":
                 mesaj = (request.form.get("mesaj") or "").strip()[:500]
-                if sorgu_aktif_mi(hedef) and mesaj:
-                    sorgu_mesaj_ekle_db(hedef, ADMIN_KULLANICI, mesaj)
+                if hedef in aktif_sorgular and mesaj:
                     sorgu_mesajlari.setdefault(hedef, []).append({
                         "gonderen": ADMIN_KULLANICI,
                         "mesaj": mesaj,
@@ -1004,56 +1033,6 @@ if not isinstance(aktif_sorgular, dict):
     aktif_sorgular = {}
 if not isinstance(sorgu_mesajlari, dict):
     sorgu_mesajlari = {}
-
-# ==================== ORTAK SORGU VERİTABANI ====================
-SORGU_DB = 'sorgu.db'
-
-def sorgu_db_init():
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        db.execute('PRAGMA journal_mode=WAL')
-        db.execute('''CREATE TABLE IF NOT EXISTS sorgular (
-            kullanici TEXT PRIMARY KEY, baslatan TEXT NOT NULL, baslangic REAL NOT NULL
-        )''')
-        db.execute('''CREATE TABLE IF NOT EXISTS sorgu_mesajlari (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, kullanici TEXT NOT NULL,
-            gonderen TEXT NOT NULL, mesaj TEXT NOT NULL, zaman REAL NOT NULL
-        )''')
-        db.execute('CREATE INDEX IF NOT EXISTS idx_sorgu_mesaj_kullanici ON sorgu_mesajlari(kullanici, id)')
-
-def sorgu_aktif_mi(kullanici):
-    if not kullanici:
-        return False
-    sorgu_db_init()
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        return db.execute('SELECT 1 FROM sorgular WHERE kullanici=?', (kullanici,)).fetchone() is not None
-
-def sorgu_baslat_db(kullanici, admin_adi):
-    sorgu_db_init()
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        db.execute('INSERT OR REPLACE INTO sorgular(kullanici,baslatan,baslangic) VALUES(?,?,?)', (kullanici, admin_adi, time.time()))
-
-def sorgu_bitir_db(kullanici):
-    sorgu_db_init()
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        db.execute('DELETE FROM sorgular WHERE kullanici=?', (kullanici,))
-
-def sorgu_mesaj_ekle_db(kullanici, gonderen, mesaj):
-    sorgu_db_init()
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        db.execute('INSERT INTO sorgu_mesajlari(kullanici,gonderen,mesaj,zaman) VALUES(?,?,?,?)', (kullanici,gonderen,mesaj,time.time()))
-
-def sorgu_mesajlarini_getir_db(kullanici, limit=500):
-    sorgu_db_init()
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        rows=db.execute('SELECT gonderen,mesaj,zaman FROM sorgu_mesajlari WHERE kullanici=? ORDER BY id DESC LIMIT ?', (kullanici,limit)).fetchall()
-    return list(reversed(rows))
-
-def aktif_sorgular_db():
-    sorgu_db_init()
-    with sqlite3.connect(SORGU_DB, timeout=10) as db:
-        return {k:{'baslatan':b,'baslangic':t} for k,b,t in db.execute('SELECT kullanici,baslatan,baslangic FROM sorgular ORDER BY baslangic ASC').fetchall()}
-
-sorgu_db_init()
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
 GIRIS_MAKS_DENEME = 5          # Aynı giriş yapan kişi 5 hatalı denemeden sonra kilitlenir.
@@ -3270,9 +3249,9 @@ zorunlu_sorgu_html = """
 .wrap{width:min(900px,100%);background:#fff;border:1px solid #7fa7cb;border-radius:12px;box-shadow:0 18px 50px rgba(39,76,112,.2);overflow:hidden}
 .head{background:linear-gradient(180deg,#79bdf7 0%,#3184dc 48%,#1c5fb0 100%);color:#fff;padding:16px 18px}.head h1{margin:0;font-size:19px}.head p{margin:5px 0 0;font-size:12px;opacity:.92}
 .notice{margin:12px 14px 0;padding:11px 12px;border-radius:8px;background:#fff8dc;border:1px solid #e2bf45;font-size:12px;line-height:1.45}
-.chat{height:480px;overflow:auto;padding:12px;background:#0e1721;margin:12px 14px;border-radius:9px;color:#dce9f6}
-.msg{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08)}.msg:last-child{border-bottom:0}.mh{color:#86bdea;font-size:11px;margin-bottom:3px}.mh b{color:#fff}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px}
-.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#93a4b5;font-size:13px}
+.chat{height:480px;overflow:auto;padding:10px 12px;background:#fff;border:1px solid #b9cfe4;margin:12px 14px;border-radius:6px;color:#1c2b3a;display:flex;flex-direction:column;gap:3px}
+.msg{padding:5px 7px;border-radius:4px;border-bottom:1px solid #edf2f7;line-height:1.4}.msg:hover{background:#f2f7fc}.mh{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;color:#6f8295;font-size:10.5px;margin-bottom:2px}.mh b{color:#24527c;font-size:12px}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px;color:#1c2b3a}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#708499;font-size:13px}
 .compose{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 14px 14px}.compose input{width:100%;padding:11px;border:1px solid #9fb9d1;border-radius:8px;outline:none}.compose button{min-width:120px;border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer}
 .foot{padding:0 14px 14px;text-align:center;color:#6b7d90;font-size:11px}@media(max-width:600px){.chat{height:55vh}.compose{grid-template-columns:1fr}.compose button{width:100%}}
 </style>
@@ -3310,22 +3289,25 @@ function guncelle(){
       box.scrollTop=box.scrollHeight;
     }).catch(()=>{});
 }
-document.getElementById('sorguForm').addEventListener('submit',e=>{
+document.getElementById('sorguForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const inp=document.getElementById('sorguInput');
+  const btn=document.querySelector('#sorguForm button');
   const mesaj=inp.value.trim();
   if(!mesaj)return;
-  fetch('/api/sorgu/gonder',{
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:'mesaj='+encodeURIComponent(mesaj)
-  }).then(r=>{
-    if(r.status===409){location.replace('/');return null;}
-    return r.json();
-  }).then(d=>{
-    if(d&&d.basarili){inp.value='';guncelle();}
-    else if(d&&d.hata){alert('⚠️ '+d.hata);}
-  }).catch(()=>alert('⚠️ Mesaj gönderilemedi.'));
+  btn.disabled=true;
+  try{
+    const r=await fetch('/api/sorgu/gonder',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
+      body:new URLSearchParams({mesaj})
+    });
+    if(r.status===409){location.replace('/');return;}
+    const d=await r.json();
+    if(d.basarili){inp.value='';await guncelle();inp.focus();}
+    else alert('⚠️ '+(d.hata||'Mesaj gönderilemedi.'));
+  }catch(err){alert('⚠️ Mesaj gönderilirken bağlantı hatası oluştu.');}
+  finally{btn.disabled=false;}
 });
 guncelle();setInterval(guncelle,1000);
 window.addEventListener('pageshow',guncelle);
@@ -3339,7 +3321,7 @@ def zorunlu_sorgu_sayfasi():
     kullanici = session.get("kullanici")
     if not kullanici:
         return redirect("/giris")
-    if not sorgu_aktif_mi(kullanici):
+    if kullanici not in aktif_sorgular:
         return redirect("/")
     return render_template_string(zorunlu_sorgu_html, kullanici=kullanici)
 
@@ -3348,15 +3330,17 @@ def sorgu_durum_api():
     kullanici = session.get("kullanici")
     if not kullanici:
         return jsonify({"aktif": False}), 403
-    if not sorgu_aktif_mi(kullanici):
+    if kullanici not in aktif_sorgular:
         return jsonify({"aktif": False, "mesajlar": []})
     with veri_kilidi:
         mesajlar = []
-        for gonderen, mesaj, zaman in sorgu_mesajlarini_getir_db(kullanici, 500):
+        for m in sorgu_mesajlari.get(kullanici, [])[-500:]:
+            if not isinstance(m, dict):
+                continue
             mesajlar.append({
-                "gonderen": gonderen,
-                "mesaj": mesaj,
-                "zaman": _admin_guvenli_zaman(zaman),
+                "gonderen": m.get("gonderen", ""),
+                "mesaj": m.get("mesaj", ""),
+                "zaman": _admin_guvenli_zaman(m.get("zaman")),
             })
     son_aktiflik[kullanici] = time.time()
     return jsonify({"aktif": True, "mesajlar": mesajlar})
@@ -3366,12 +3350,11 @@ def sorgu_mesaj_gonder():
     kullanici = session.get("kullanici")
     if not kullanici:
         return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-    if not sorgu_aktif_mi(kullanici):
+    if kullanici not in aktif_sorgular:
         return jsonify({"basarili": False, "aktif": False}), 409
     mesaj = (request.form.get("mesaj") or "").strip()[:500]
     if not mesaj:
         return jsonify({"basarili": False, "hata": "Mesaj boş olamaz."}), 400
-    sorgu_mesaj_ekle_db(kullanici, kullanici, mesaj)
     with veri_kilidi:
         sorgu_mesajlari.setdefault(kullanici, []).append({
             "gonderen": kullanici,
@@ -3381,13 +3364,46 @@ def sorgu_mesaj_gonder():
         if len(sorgu_mesajlari[kullanici]) > 500:
             sorgu_mesajlari[kullanici] = sorgu_mesajlari[kullanici][-500:]
         son_aktiflik[kullanici] = time.time()
+    durumu_kaydet()
+    return jsonify({"basarili": True})
+
+@app.route("/api/sorgu/admin_durum", methods=["GET"])
+def sorgu_admin_durum_api():
+    if not admin_giris_gerekli():
+        return jsonify({"basarili": False, "hata": "Yetkisiz."}), 403
+    hedef = (request.args.get("hedef") or "").strip()
+    if not hedef or hedef not in aktif_sorgular:
+        return jsonify({"basarili": False, "aktif": False, "mesajlar": []})
+    with veri_kilidi:
+        mesajlar = []
+        for m in sorgu_mesajlari.get(hedef, [])[-500:]:
+            if not isinstance(m, dict):
+                continue
+            mesajlar.append({"gonderen": m.get("gonderen", ""), "mesaj": m.get("mesaj", ""), "zaman": _admin_guvenli_zaman(m.get("zaman"))})
+    return jsonify({"basarili": True, "aktif": True, "mesajlar": mesajlar})
+
+@app.route("/api/sorgu/admin_gonder", methods=["POST"])
+def sorgu_admin_mesaj_gonder():
+    if not admin_giris_gerekli():
+        return jsonify({"basarili": False, "hata": "Yetkisiz."}), 403
+    hedef = (request.form.get("hedef") or "").strip()
+    mesaj = (request.form.get("mesaj") or "").strip()[:500]
+    if not hedef or hedef not in aktif_sorgular:
+        return jsonify({"basarili": False, "hata": "Bu kullanıcıyla aktif sorgu bulunmuyor."}), 409
+    if not mesaj:
+        return jsonify({"basarili": False, "hata": "Mesaj boş olamaz."}), 400
+    with veri_kilidi:
+        sorgu_mesajlari.setdefault(hedef, []).append({"gonderen": ADMIN_KULLANICI, "mesaj": mesaj, "zaman": time.time()})
+        if len(sorgu_mesajlari[hedef]) > 500:
+            sorgu_mesajlari[hedef] = sorgu_mesajlari[hedef][-500:]
+    durumu_kaydet()
     return jsonify({"basarili": True})
 
 @app.route("/", methods=["GET"])
 def ana_sayfa():
     if "kullanici" not in session:
         return redirect("/giris")
-    if sorgu_aktif_mi(session["kullanici"]):
+    if session["kullanici"] in aktif_sorgular:
         return redirect("/sorgu")
     return render_template_string(mesaj_html, kullanici=session["kullanici"])
 
