@@ -256,7 +256,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
     <td class="row-actions">{% if u.isim != admin %}<div class="actions"><button type="button" class="btn light" onclick="kullaniciDetay('{{ u.isim|e }}')">👁 Detay</button>
       <form method="post" action="/admin/islem">{% if u.banli %}<input type="hidden" name="islem" value="unban"><input type="hidden" name="hedef" value="{{ u.isim }}"><button class="btn dark">✅ Unban</button>{% else %}<input type="hidden" name="islem" value="ban"><input type="hidden" name="hedef" value="{{ u.isim }}"><button class="btn red" onclick="return confirm('{{ u.isim }} kullanıcısını banlamak istiyor musun?')">🚫 Ban</button>{% endif %}</form>
       <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">👢 Kick</button></form>
-      <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}"><input type="hidden" name="dakika" value="10"><button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Unmute' if u.muteli else '🔇 10 dk' }}</button></form>
+      {% if u.muteli %}<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="unmute"><button class="btn green">🔊 Unmute</button></form>{% else %}<button type="button" class="btn dark" onclick="muteAc('{{ u.isim|e }}')">🔇 Mute</button>{% endif %}
       <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="oda_izni"><button class="btn purple">🏷️ {{ 'İzni Al' if u.oda_izni else 'İzin Ver' }}</button></form>
       <form method="get" action="/admin"><input type="hidden" name="duzenle" value="{{ u.isim }}"><button class="btn light">✏️ Düzenle</button></form>
       <form method="post" action="/admin/islem" onsubmit="return confirm('{{ u.isim }} hesabını tamamen silmek istediğine emin misin?')"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="sil"><button class="btn red">❌ Sil</button></form>
@@ -267,13 +267,35 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 {% if duzenlenen %}<div class="box" style="margin-top:12px"><h3>✏️ Hesap Düzenle — {{ duzenlenen }}</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duzenle"><input type="hidden" name="eski_isim" value="{{ duzenlenen }}"><input type="hidden" name="hedef" value="{{ duzenlenen }}"><div class="form-grid"><div class="field"><label>Yeni kullanıcı adı</label><input name="yeni_isim" value="{{ duzenlenen }}"></div><div class="field"><label>Yeni şifre (boş = değiştirme)</label><input type="password" name="yeni_sifre"></div></div><button class="btn green">💾 Kaydet</button></form></div>{% endif %}
 </section>
 
-<section id="chat" class="section"><div class="grid"><div class="box"><h2>💬 Canlı Sohbet Akışı</h2><div class="toolbar"><div class="grow"><input id="chatSearch" placeholder="Mesaj veya kullanıcı ara…" oninput="filtreChat()"></div><select id="chatRoom" onchange="filtreChat()"><option value="all">Tüm odalar</option>{% for oda in odalar %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="chat-stream" id="chatStream">{% if son_mesajlar %}{% for m in son_mesajlar %}<div class="chat-item" data-search="{{ (m.gonderen ~ ' ' ~ m.mesaj ~ ' ' ~ m.oda)|lower }}" data-room="{{ m.oda }}"><div class="chat-head"><b>{{ m.gonderen }}</b> • {{ m.oda }} • {{ m.zaman }}</div><div class="chat-body">{{ m.mesaj }}</div>{% if m.idx is defined %}<div class="actions" style="margin-top:5px"><form method="post" action="/admin/mesaj_sil"><input type="hidden" name="idx" value="{{ m.idx }}"><button class="btn red" onclick="return confirm('Bu mesajı silmek istediğine emin misin?')">🗑 Sil</button></form></div>{% endif %}</div>{% endfor %}{% else %}<div class="empty">Henüz mesaj bulunmuyor.</div>{% endif %}</div></div>
+<section id="chat" class="section"><div class="grid"><div class="box"><h2>💬 Canlı Sohbet Akışı</h2><div class="toolbar"><div class="grow"><input id="chatSearch" placeholder="Mesaj veya kullanıcı ara…" oninput="filtreChat()"></div><select id="chatRoom" onchange="filtreChat()"><option value="all">Tüm odalar</option>{% for oda in odalar %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="chat-stream" id="chatStream">{% if son_mesajlar %}{% for m in son_mesajlar %}<div class="chat-item{% if m.tur == 'duyuru' %} notice{% endif %}" data-search="{{ (m.gonderen ~ ' ' ~ m.mesaj ~ ' ' ~ m.oda)|lower }}" data-room="{{ m.oda }}"><div class="chat-head"><b>{{ '📢 DUYURU' if m.tur == 'duyuru' else m.gonderen }}</b> • {{ m.oda }} • {{ m.zaman }}</div><div class="chat-body">{{ m.mesaj }}</div>{% if m.idx is defined %}<div class="actions" style="margin-top:5px"><form method="post" action="/admin/mesaj_sil"><input type="hidden" name="idx" value="{{ m.idx }}"><button class="btn red" onclick="return confirm('Bu mesajı silmek istediğine emin misin?')">🗑 Sil</button></form></div>{% endif %}</div>{% endfor %}{% else %}<div class="empty">Henüz mesaj bulunmuyor.</div>{% endif %}</div></div>
 <div class="box"><h2>✍️ Admin olarak yaz</h2><p class="muted">Gönderilen mesaj mevcut sohbet akışına <b>Admin</b> kimliğiyle eklenir ve mesaj kuyruğuna iletilir.</p><form class="compose" method="post" action="/admin/admin_mesaj_form"><input name="mesaj" maxlength="500" placeholder="Kullanıcılara gönderilecek mesaj…" required><button class="btn">📤 Gönder</button></form><div class="notice" style="margin-top:10px">Bu alan ayrı bir veritabanı kullanmaz; mevcut <b>sohbet_gecmisi</b> üzerinde çalışır.</div></div></div></section>
 
 <section id="rooms" class="section"><div class="grid"><div class="box"><h2>🏠 Odalar</h2><div class="room-grid">{% for oda in odalar %}<div class="room"><div class="room-top"><strong>{{ oda.ad }}</strong><span class="pill">{{ '🔒 Şifreli' if oda.sifre else '🔓 Açık' }}</span></div><div class="sub">Lider: <b>{{ oda.lider }}</b><br>Mesaj: {{ oda.mesaj_sayisi }}</div>{% if oda.ad != 'Genel' %}<form method="post" action="/admin/islem" onsubmit="return confirm('{{ oda.ad }} odasını silmek istiyor musun?')"><input type="hidden" name="hedef_oda" value="{{ oda.ad }}"><input type="hidden" name="islem" value="oda_sil"><button class="btn red">🗑️ Odayı Sil</button></form>{% else %}<div class="notice" style="margin-top:8px">Genel oda sistem tarafından korunur.</div>{% endif %}</div>{% endfor %}</div></div>
 <div class="box"><h2>➕ Oda Oluştur / Düzenle</h2><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_kur"><div class="field"><label>Oda adı</label><input name="oda_adi" maxlength="15" required></div><div class="field"><label>Şifre (boş = açık)</label><input name="oda_sifre" maxlength="15"></div><button class="btn green">➕ Oda Oluştur</button></form><hr style="border:0;border-top:1px solid #dce7f0;margin:14px 0"><h3>✏️ Oda düzenle</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_duzenle"><div class="field"><label>Mevcut oda</label><select name="eski_oda">{% for oda in odalar if oda.ad != 'Genel' %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="field"><label>Yeni ad (boş = aynı)</label><input name="yeni_oda" maxlength="15"></div><div class="field"><label>Yeni şifre</label><input name="yeni_oda_sifre" maxlength="15"></div><button class="btn">💾 Güncelle</button></form></div></div></section>
 
-<section id="reports" class="section"><div class="box"><h2>⚠️ Şikâyet Merkezi</h2><div class="toolbar"><div class="grow"><input id="reportSearch" placeholder="Bildiren, hedef, neden veya açıklama ara…" oninput="filtreRapor()"></div><select id="reportFilter" onchange="filtreRapor()"><option value="all">Tüm durumlar</option><option value="Yeni">Yeni</option><option value="İnceleniyor">İnceleniyor</option><option value="Çözüldü">Çözüldü</option></select></div>{% if sikayetler %}<div class="table-wrap"><table class="table" id="reportTable"><thead><tr><th>Zaman</th><th>Bildiren</th><th>Hedef</th><th>Neden</th><th>Oda</th><th>Açıklama / Mesaj</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{% for s in sikayetler %}<tr class="report-row" data-status="{{ s.durum }}" data-search="{{ (s.bildiren ~ ' ' ~ s.sikayet_edilen ~ ' ' ~ s.neden ~ ' ' ~ s.aciklama ~ ' ' ~ s.ilgili_mesaj)|lower }}"><td>{{ s.zaman }}</td><td>{{ s.bildiren }}</td><td><b>{{ s.sikayet_edilen }}</b></td><td>{{ s.neden }}</td><td>{{ s.oda }}</td><td><div>{{ s.aciklama }}</div>{% if s.ilgili_mesaj %}<div class="notice" style="margin-top:5px"><b>İlgili mesaj:</b> {{ s.ilgili_mesaj }}</div>{% endif %}</td><td><span class="status {{ 'ban' if s.durum=='Yeni' else ('mute' if s.durum=='İnceleniyor' else 'online') }}">{{ s.durum }}</span></td><td><div class="actions"><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sikayet_durum"><input type="hidden" name="sikayet_idx" value="{{ s.idx }}"><select name="durum" onchange="this.form.submit()"><option {{ 'selected' if s.durum=='Yeni' else '' }}>Yeni</option><option {{ 'selected' if s.durum=='İnceleniyor' else '' }}>İnceleniyor</option><option {{ 'selected' if s.durum=='Çözüldü' else '' }}>Çözüldü</option></select></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="ban"><button class="btn red">Ban</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">Kick</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="mute"><input type="hidden" name="dakika" value="10"><button class="btn dark">10 dk mute</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty">Kayıtlı şikâyet bulunmuyor.</div>{% endif %}</div></section>
+
+<section id="roomrequests" class="section">
+<div class="box"><h2>📨 Oda İstekleri</h2>
+<div class="toolbar"><div class="grow"><input id="roomRequestSearch" placeholder="Kullanıcı veya oda ara…" oninput="filtreOdaIstekleri()"></div>
+<button class="btn light" type="button" onclick="document.getElementById('roomRequestSearch').value='';filtreOdaIstekleri()">Temizle</button></div>
+<p class="muted" style="font-size:12px">Kullanıcılar oda adı ve şifresiyle istek gönderir. Onay verdiğinde oda doğrudan o kullanıcı adına oluşturulur; reddedersen istek iptal edilir.</p>
+<div class="table-wrap">
+<table class="table" id="roomRequestTable"><thead><tr><th>Kullanıcı</th><th>Oda</th><th>Oda şifresi</th><th>İstek zamanı</th><th>İşlem</th></tr></thead><tbody>
+{% if oda_istekleri %}
+{% for r in oda_istekleri %}
+<tr class="room-request-row" data-search="{{ (r.kullanici ~ ' ' ~ r.oda)|lower }}">
+<td><b>{{ r.kullanici }}</b></td><td><b>{{ r.oda }}</b></td>
+<td>{{ r.sifre if r.sifre else 'Şifresiz' }}</td><td>{{ r.zaman_gorunum }}</td>
+<td><div class="actions">
+<form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_istek_cevap"><input type="hidden" name="hedef" value="{{ r.kullanici }}"><input type="hidden" name="cevap" value="onay"><button class="btn green">✅ İzin Ver</button></form>
+<form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_istek_cevap"><input type="hidden" name="hedef" value="{{ r.kullanici }}"><input type="hidden" name="cevap" value="red"><button class="btn red">❌ Reddet</button></form>
+</div></td></tr>
+{% endfor %}
+{% else %}<tr><td colspan="5"><div class="empty">Bekleyen oda isteği yok.</div></td></tr>{% endif %}
+</tbody></table></div></div></section>
+
+
+<section id="reports" class="section"><div class="box"><h2>⚠️ Şikâyet Merkezi</h2><div class="toolbar"><div class="grow"><input id="reportSearch" placeholder="Bildiren, hedef, neden veya açıklama ara…" oninput="filtreRapor()"></div><select id="reportFilter" onchange="filtreRapor()"><option value="all">Tüm durumlar</option><option value="Yeni">Yeni</option><option value="İnceleniyor">İnceleniyor</option><option value="Çözüldü">Çözüldü</option></select></div>{% if sikayetler %}<div class="table-wrap"><table class="table" id="reportTable"><thead><tr><th>Zaman</th><th>Bildiren</th><th>Hedef</th><th>Neden</th><th>Oda</th><th>Açıklama / Mesaj</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{% for s in sikayetler %}<tr class="report-row" data-status="{{ s.durum }}" data-search="{{ (s.bildiren ~ ' ' ~ s.sikayet_edilen ~ ' ' ~ s.neden ~ ' ' ~ s.aciklama ~ ' ' ~ s.ilgili_mesaj)|lower }}"><td>{{ s.zaman }}</td><td>{{ s.bildiren }}</td><td><b>{{ s.sikayet_edilen }}</b></td><td>{{ s.neden }}</td><td>{{ s.oda }}</td><td><div>{{ s.aciklama }}</div>{% if s.ilgili_mesaj %}<div class="notice" style="margin-top:5px"><b>İlgili mesaj:</b> {{ s.ilgili_mesaj }}</div>{% endif %}</td><td><span class="status {{ 'ban' if s.durum=='Yeni' else ('mute' if s.durum=='İnceleniyor' else 'online') }}">{{ s.durum }}</span></td><td><div class="actions"><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sikayet_durum"><input type="hidden" name="sikayet_idx" value="{{ s.idx }}"><select name="durum" onchange="this.form.submit()"><option {{ 'selected' if s.durum=='Yeni' else '' }}>Yeni</option><option {{ 'selected' if s.durum=='İnceleniyor' else '' }}>İnceleniyor</option><option {{ 'selected' if s.durum=='Çözüldü' else '' }}>Çözüldü</option></select></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="ban"><button class="btn red">Ban</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">Kick</button></form><button type="button" class="btn dark" onclick="muteAc('{{ s.sikayet_edilen|e }}')">🔇 Mute</button></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty">Kayıtlı şikâyet bulunmuyor.</div>{% endif %}</div></section>
 
 <section id="system" class="section"><div class="grid3">
 <div class="box"><h3>📢 Duyuru</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duyuru"><div class="field"><label>Genel sohbete duyuru</label><textarea name="metin" maxlength="500" required></textarea></div><button class="btn">📢 Yayınla</button></form></div>
@@ -283,7 +305,6 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 <div class="box"><h3>🔞 Küfür filtresi</h3><div class="metric"><span>Durum</span><b>{{ 'AÇIK' if kufur_filtresi else 'KAPALI' }}</b></div><form method="post" action="/admin/islem" style="margin-top:8px"><input type="hidden" name="islem" value="kufur"><button class="btn {{ 'green' if kufur_filtresi else 'dark' }}">{{ '🔴 Kapat' if kufur_filtresi else '✅ Aç' }}</button></form></div>
 <div class="box"><h3>⏱️ Geri sayım</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sayac"><div class="field"><label>Dakika</label><input type="number" name="dakika" min="0.1" max="10080" step="0.1" value="5" required></div><button class="btn red">⏱️ Başlat</button></form></div>
 <div class="box"><h3>🚨 Siren / alarm</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="alarm"><div class="field"><label>Mesaj</label><input name="metin" maxlength="300" value="TÜM KULLANICILARIN DİKKATİNE! YÖNETİCİ UYARISI!" required></div><button class="btn red">🚨 Gönder</button></form></div>
-<div class="box"><h3>👻 Ghost / sistem</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="ghost"><button class="btn purple">👻 Tetikle</button></form><p class="muted" style="font-size:11px">Mevcut yönetici sistem akışını tetikler.</p></div>
 <div class="box"><h3>🗑️ Sohbeti temizle</h3><p class="muted" style="font-size:11px">Tüm sohbet geçmişini kalıcı kayıttan da temizler.</p><form method="post" action="/admin/islem" onsubmit="return confirm('Tüm sohbet geçmişi silinecek. Devam edilsin mi?')"><input type="hidden" name="islem" value="temizle"><button class="btn red">🗑️ Chati Temizle</button></form></div>
 </div></section>
 
@@ -293,6 +314,17 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 
 </div></main></div></div>
 
+<div class="modal" id="muteModal" onclick="modalDis(event)">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-head"><h3>🔇 Kullanıcıyı Sustur</h3><button class="modal-close" type="button" onclick="modalKapat()">✕</button></div>
+    <div class="modal-body">
+      <div class="notice">Seçilen kullanıcı ne kadar süre susturulsun?</div>
+      <div class="field" style="margin-top:10px"><label>Kullanıcı</label><input id="muteTarget" readonly></div>
+      <div class="field"><label>Süre (dakika)</label><input id="muteMinutes" type="number" min="1" max="10080" value="10"></div>
+      <div class="actions"><button type="button" class="btn dark" onclick="muteUygula()">🔇 Mute Uygula</button><button type="button" class="btn light" onclick="modalKapat()">Vazgeç</button></div>
+    </div>
+  </div>
+</div>
 <div class="modal" id="userModal" onclick="modalDis(event)"><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">Kullanıcı</h3><button class="modal-close" onclick="modalKapat()">✕</button></div><div class="modal-body" id="modalBody">Yükleniyor…</div></div></div>
 <script>
 let auto=true, timer=null;
@@ -300,13 +332,17 @@ const users={{ kullanicilar|tojson }};
 function sekmeAc(id){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));localStorage.setItem('qchatAdminTab',id);window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>sekmeAc(b.dataset.tab)));
 (function(){const saved=localStorage.getItem('qchatAdminTab');if(saved&&document.getElementById(saved))sekmeAc(saved);baslatOtomatik();})();
-function yenile(){document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');location.reload();}
-function baslatOtomatik(){clearInterval(timer);if(auto)timer=setInterval(()=>location.reload(),20000);document.getElementById('autoState').textContent=auto?'Açık':'Kapalı';document.getElementById('autoBtn').textContent='⏱ Otomatik: '+(auto?'Açık':'Kapalı');}
+function yenile(){document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');window.location.reload();}
+function baslatOtomatik(){clearInterval(timer);if(auto)timer=setInterval(()=>{canliChatYenile();document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');},3000);document.getElementById('autoState').textContent=auto?'Açık':'Kapalı';document.getElementById('autoBtn').textContent='⏱ Otomatik: '+(auto?'Açık':'Kapalı');}
+function muteAc(isim){document.getElementById('muteTarget').value=isim;document.getElementById('muteMinutes').value=10;document.getElementById('muteModal').classList.add('open');setTimeout(()=>document.getElementById('muteMinutes').focus(),50);}
+function muteUygula(){const hedef=document.getElementById('muteTarget').value;const dakika=document.getElementById('muteMinutes').value;const fd=new URLSearchParams();fd.set('islem','mute');fd.set('hedef',hedef);fd.set('dakika',dakika);fetch('/admin/islem',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()}).then(()=>{modalKapat();window.location.reload();}).catch(()=>alert('Mute işlemi uygulanamadı.'));}
+function canliChatYenile(){const stream=document.getElementById('chatStream');if(!stream)return;fetch('/admin/admin_chat').then(r=>r.json()).then(data=>{const oldSearch=document.getElementById('chatSearch')?.value||'';const oldRoom=document.getElementById('chatRoom')?.value||'all';stream.innerHTML='';(data.mesajlar||[]).forEach(m=>{const item=document.createElement('div');item.className='chat-item';item.dataset.search=((m.gonderen||'')+' '+(m.mesaj||'')+' '+(m.oda||'')).toLowerCase();item.dataset.room=m.oda||'Genel';item.innerHTML='<div class="chat-head"><b>'+escapeHtml(m.gonderen||'')+'</b> • '+escapeHtml(m.oda||'Genel')+' • '+(m.zaman?new Date(m.zaman*1000).toLocaleTimeString('tr-TR'):'')+'</div><div class="chat-body">'+escapeHtml(m.mesaj||'')+'</div><div class="mini-meta">Canlı akış</div>';stream.appendChild(item);});if(!stream.children.length)stream.innerHTML='<div class="empty">Henüz mesaj bulunmuyor.</div>';filtreChat();}).catch(()=>{});}
 function otomatikToggle(){auto=!auto;sessionStorage.setItem('qchatAdminAuto',auto?'1':'0');baslatOtomatik();}
 (function(){const s=sessionStorage.getItem('qchatAdminAuto');if(s==='0')auto=false;})();
 function filtreKullanicilar(){const q=(document.getElementById('userSearch').value||'').toLowerCase();const f=document.getElementById('userFilter').value;document.querySelectorAll('.user-row').forEach(r=>{const okQ=!q||r.dataset.name.includes(q);let okF=true;if(f==='online')okF=r.dataset.online==='1';if(f==='offline')okF=r.dataset.online==='0';if(f==='ban')okF=r.dataset.ban==='1';if(f==='mute')okF=r.dataset.mute==='1';if(f==='room')okF=r.dataset.room==='1';r.style.display=(okQ&&okF)?'':'none';});}
 function filtreChat(){const q=(document.getElementById('chatSearch').value||'').toLowerCase();const room=document.getElementById('chatRoom').value;document.querySelectorAll('.chat-item').forEach(r=>{r.style.display=(!q||r.dataset.search.includes(q))&&(room==='all'||r.dataset.room===room)?'':'none';});}
 function filtreRapor(){const q=(document.getElementById('reportSearch').value||'').toLowerCase();const f=document.getElementById('reportFilter').value;document.querySelectorAll('.report-row').forEach(r=>{r.style.display=(!q||r.dataset.search.includes(q))&&(f==='all'||r.dataset.status===f)?'':'none';});}
+function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearch')?.value||'').toLowerCase();document.querySelectorAll('.room-request-row').forEach(r=>{r.style.display=!q||r.dataset.search.includes(q)?'':'none';});}
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
 function modalKapat(){document.getElementById('userModal').classList.remove('open')}function modalDis(e){if(e.target.id==='userModal')modalKapat()}document.addEventListener('keydown',e=>{if(e.key==='Escape')modalKapat()});
@@ -382,6 +418,11 @@ def admin_panel():
             "zaman": _admin_guvenli_zaman(fb.get("zaman"))
         })
 
+    oda_istekleri_gorunum = []
+    with veri_kilidi:
+        for k, v in sorted(oda_izin_istekleri.items(), key=lambda item: item[1].get("zaman", 0) if isinstance(item[1], dict) else item[1]):
+            oda_istekleri_gorunum.append(oda_istegi_gorunumu(k, v))
+
     sikayet_gorunum = []
     with sikayet_kilidi:
         for idx, s in enumerate(reversed(sikayetler)):
@@ -423,6 +464,8 @@ def admin_panel():
         ozel_oda=max(0, len(odalar) - 1),
         maks_oda=MAKS_OZEL_ODA,
         oda_izinli=len(oda_kurma_izni),
+        oda_istekleri=oda_istekleri_gorunum,
+        oda_istek_sayisi=len(oda_istekleri_gorunum),
         geri_sayisi=len(geri_bildirimler),
         top_kullanicilar=top_kullanicilar,
         top_odalar=top_odalar,
@@ -460,6 +503,7 @@ def admin_mesaj_form():
             "id": secrets.token_hex(8),
             "gonderen": ADMIN_KULLANICI,
             "mesaj": mesaj,
+            "tur": "duyuru",
             "alici": "Genel",
             "oda": "Genel",
             "zaman": time.time(),
@@ -485,6 +529,7 @@ def admin_chat_api():
                 "gonderen": m.get("gonderen", ""),
                 "mesaj": m.get("mesaj", ""),
                 "zaman": m.get("zaman", 0),
+                "tur": m.get("tur", ""),
             })
     return jsonify({"mesajlar": mesajlar[:100]})
 
@@ -599,15 +644,45 @@ def admin_islem():
                     if yeni_sifre and hedef_isim in kullanici_db:
                         kullanici_db[hedef_isim] = sifre_hashle(yeni_sifre)
                     log_ekle(f"Admin '{eski}' hesabını düzenledi.")
+            elif islem == "oda_istek_cevap":
+                hedef = (request.form.get("hedef") or "").strip()
+                cevap = request.form.get("cevap", "red").strip()
+                istek = oda_izin_istekleri.get(hedef)
+                if istek:
+                    veri_istek = oda_istegi_gorunumu(hedef, istek)
+                    oda_adi = veri_istek["oda"].strip()
+                    oda_sifre = veri_istek["sifre"].strip()
+                    if cevap == "onay":
+                        ozel_sayi = kullanicinin_oda_sayisi(hedef)
+                        if hedef not in kullanici_db or hedef == "Sistem":
+                            oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Kullanıcı bulunamadı."}
+                            log_ekle(f"'{hedef}' oda isteği onaylanamadı: kullanıcı bulunamadı.")
+                        elif ozel_sayi >= MAKS_OZEL_ODA:
+                            oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":f"Kullanıcı zaten {MAKS_OZEL_ODA} oda oluşturmuş."}
+                            log_ekle(f"'{hedef}' oda isteği reddedildi: kullanıcı oda limitine ulaştı.")
+                        elif not oda_adi or oda_adi == "Genel" or oda_adi in odalar_db:
+                            oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Oda adı artık kullanılamıyor."}
+                            log_ekle(f"'{hedef}' oda isteği reddedildi: oda adı geçersiz/mevcut.")
+                        else:
+                            odalar_db[oda_adi] = oda_sifre
+                            oda_olustur_kaydi(oda_adi, hedef)
+                            oda_izin_sonuclari[hedef] = {"durum":"onay","oda":oda_adi,"mesaj":f"'{oda_adi}' odası oluşturuldu."}
+                            log_ekle(f"'{hedef}' oda isteği onaylandı; '{oda_adi}' odası oluşturuldu.")
+                            durumu_kaydet()
+                    else:
+                        oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Oda kurma isteğiniz reddedildi."}
+                        log_ekle(f"'{hedef}' oda isteği reddedildi.")
+                    oda_izin_istekleri.pop(hedef, None)
             elif islem == "oda_kur":
                 oda_adi = (request.form.get("oda_adi") or "").strip()
                 oda_sifre = (request.form.get("oda_sifre") or "").strip()
                 if oda_adi and oda_adi not in odalar_db and len(oda_adi) <= 15:
-                    ozel_sayi = len([o for o in odalar_db if o != "Genel"])
-                    if ozel_sayi < MAKS_OZEL_ODA:
+                    if kullanicinin_oda_sayisi(ADMIN_KULLANICI) < MAKS_OZEL_ODA or ADMIN_KULLANICI == "Sistem":
                         odalar_db[oda_adi] = oda_sifre
                         oda_olustur_kaydi(oda_adi, ADMIN_KULLANICI)
                         log_ekle(f"Admin oda kurdu: '{oda_adi}'")
+                    else:
+                        log_ekle(f"Admin oda kuramadı: {MAKS_OZEL_ODA} oda limitine ulaştı.")
             elif islem == "oda_duzenle":
                 eski_oda = (request.form.get("eski_oda") or "").strip()
                 yeni_oda = (request.form.get("yeni_oda") or "").strip()
@@ -660,8 +735,6 @@ def admin_islem():
                 if metin:
                     sohbet_gecmisi.append({"gonderen":"📢 ALARM","mesaj":metin,"alici":"Genel","oda":"Genel","zaman":time.time()})
                     log_ekle(f"🚨 Sitede sesli alarm tetiklendi: '{metin}'")
-            elif islem == "ghost":
-                log_ekle("Admin Ghost Mode işlemini tetikledi.")
             elif islem == "temizle":
                 sohbet_gecmisi.clear()
                 log_ekle("Sohbet geçmişi temizlendi.")
@@ -723,7 +796,8 @@ veri_kilidi = threading.RLock()  # sohbet_gecmisi / odalar_db / oda_* gibi payla
 
 mesaj_kuyrugu = queue.Queue()
 izin_istek_kuyrugu = queue.Queue()  # Sistem'e gönderilecek "oda kurma izni" istekleri
-oda_izin_istekleri = {}  # {kullanici_adi: istek_zamani} - cevap bekleyen istekler
+oda_izin_istekleri = {}  # {kullanici_adi: {zaman, oda, sifre}} - cevap bekleyen oda istekleri
+oda_izin_sonuclari = {}   # {kullanici_adi: {durum, oda, mesaj}} - son onay/red sonucu
 yaziyor_durumu = {}
 son_aktiflik = {}
 son_mesaj_zamani = {}
@@ -1020,7 +1094,7 @@ EMAIL_DOGRULAMA_SANIYE = 10 * 60
 SIFRE_SIFIRLAMA_SANIYE = 10 * 60
 
 # ==================== ODA LİDERLİK / ROL / YETKİ SİSTEMİ ====================
-MAKS_OZEL_ODA = 3  # "Genel" dışında toplamda oluşturulabilecek maksimum oda sayısı
+MAKS_OZEL_ODA = 3  # Her kullanıcı için oluşturulabilecek özel oda sayısı
 
 oda_liderleri = veriler.get("oda_liderleri", {})          # {oda_adi: lider_kullanici_adi}
 oda_roller = veriler.get("oda_roller", {})                # {oda_adi: {kullanici_adi: "yonetici"}}
@@ -1078,6 +1152,26 @@ def oda_olustur_kaydi(oda_adi, kurucu):
     oda_roller[oda_adi] = {}
     oda_yasaklari[oda_adi] = []
     oda_gecici_banlar[oda_adi] = {}
+
+def kullanicinin_oda_sayisi(kullanici):
+    """Kullanıcının lideri olduğu özel oda sayısı."""
+    if not kullanici or kullanici == "Sistem":
+        return 0
+    return sum(1 for oda, lider in oda_liderleri.items() if oda != "Genel" and lider == kullanici)
+
+def oda_istegi_gorunumu(kullanici, veri):
+    """Eski/yeni istek kayıtlarını panel için güvenli biçimde normalleştirir."""
+    if isinstance(veri, dict):
+        zaman = veri.get("zaman", 0)
+        return {
+            "kullanici": kullanici,
+            "zaman": zaman,
+            "zaman_gorunum": _admin_guvenli_zaman(zaman),
+            "oda": str(veri.get("oda", "") or ""),
+            "sifre": str(veri.get("sifre", "") or "")
+        }
+    zaman = veri or 0
+    return {"kullanici": kullanici, "zaman": zaman, "zaman_gorunum": _admin_guvenli_zaman(zaman), "oda": "", "sifre": ""}
 
 def oda_kaydini_sil(oda_adi):
     oda_liderleri.pop(oda_adi, None)
@@ -1794,7 +1888,7 @@ mesaj_html = """
                     Mekan:
                     <select id="odaSec" onchange="odaDegistir()"><option value="Genel">Genel</option></select>
                 </div>
-                <button type="button" class="small-btn" onclick="document.getElementById('odaKurPanel').style.display='flex';">➕ Oda Kur</button>
+                <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
                 <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
             </div>
 
@@ -1803,8 +1897,9 @@ mesaj_html = """
                 <input type="text" id="yeniOdaAdi" placeholder="Örn: Oyun Odası" maxlength="15">
                 <span class="field-label">Şifre (İsteğe Bağlı)</span>
                 <input type="text" id="yeniOdaSifre" placeholder="Boş bırakılırsa şifresiz olur" maxlength="15">
+                <div id="odaIstekBilgi" style="font-size:11px;color:#556b7f;margin:4px 0;"></div>
                 <div class="room-create-btn-row">
-                    <button type="button" class="btn-ok" onclick="yeniOdaKur()">Kur</button>
+                    <button type="button" class="btn-ok" id="odaKurActionBtn" onclick="yeniOdaKur()">Odayı Kur</button>
                     <button type="button" class="btn-cancel" onclick="document.getElementById('odaKurPanel').style.display='none';">İptal</button>
                 </div>
             </div>
@@ -2369,40 +2464,103 @@ mesaj_html = """
         }
         // ============================================================================
 
+        function odaKurAc() {
+            const panel = document.getElementById('odaKurPanel');
+            panel.style.display = 'flex';
+            fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda))
+                .then(r => r.json()).then(data => {
+                    const btn = document.getElementById('odaKurActionBtn');
+                    const bilgi = document.getElementById('odaIstekBilgi');
+                    if (data.oda_istegi_bekliyor) {
+                        btn.textContent = '⏳ İstek Bekliyor';
+                        bilgi.textContent = 'Admin cevabı bekleniyor. Aynı anda yeni istek gönderemezsiniz.';
+                        btn.disabled = true;
+                    } else if (data.oda_sayisi >= data.oda_limiti && !data.oda_kurma_izni_var_mi) {
+                        btn.textContent = '🚫 Limit Dolu';
+                        bilgi.textContent = 'Kullanıcı başına ' + data.oda_limiti + ' oda sınırına ulaştınız.';
+                        btn.disabled = true;
+                    } else if (data.oda_kurma_izni_var_mi) {
+                        btn.textContent = '✅ Odayı Kur';
+                        bilgi.textContent = 'Admin tarafından oda kurma izniniz var.';
+                        btn.disabled = false;
+                    } else {
+                        btn.textContent = '📨 Admin'den İzin İste';
+                        bilgi.textContent = 'Oda adı ve şifreyi girin; isteğiniz Admin paneline düşecek.';
+                        btn.disabled = false;
+                    }
+                }).catch(() => {});
+        }
+
         function yeniOdaKur() {
             const adInput = document.getElementById('yeniOdaAdi');
             const sifreInput = document.getElementById('yeniOdaSifre');
             const ad = adInput.value.trim();
             const sifre = sifreInput.value.trim();
-            
+            const btn = document.getElementById('odaKurActionBtn');
+
             if (!ad) {
                 alert("Lütfen bir oda adı girin.");
                 return;
             }
-            
-            fetch('/api/oda_olustur', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'oda=' + encodeURIComponent(ad) + '&sifre=' + encodeURIComponent(sifre)
-            })
-            .then(r => r.json())
-            .then(res => {
-                if (res.basarili) {
-                    alert("Oda '" + ad + "' başarıyla kuruldu!");
-                    adInput.value = '';
-                    sifreInput.value = '';
-                    document.getElementById('odaKurPanel').style.display = 'none';
-                    aktifOda = ad;
-                    document.getElementById('aktifOdaBaslik').textContent = "📢 " + ad + " Odası";
-                    odalariGuncelle();
-                    mesajlariGuncelle(true);
-                    odaYetkiYukle();
-                } else {
-                    alert("⚠️ " + (res.hata || "Oda kurulamadı."));
-                }
-            })
-            .catch(err => alert("Oda kurulurken hata oluştu: " + err));
+
+            fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda))
+                .then(r => r.json())
+                .then(izin => {
+                    if (!izin.oda_kurma_izni_var_mi) {
+                        return fetch('/api/oda_izin_iste', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: 'oda=' + encodeURIComponent(ad) + '&sifre=' + encodeURIComponent(sifre)
+                        });
+                    }
+                    return fetch('/api/oda_olustur', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'oda=' + encodeURIComponent(ad) + '&sifre=' + encodeURIComponent(sifre)
+                    });
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.bekliyor) {
+                        alert("📨 Oda isteğiniz Admin'e gönderildi. Onay geldiğinde oda otomatik oluşturulacak.");
+                        btn.textContent = '⏳ İstek Bekliyor';
+                        btn.disabled = true;
+                        document.getElementById('odaIstekBilgi').textContent = 'Admin cevabı bekleniyor…';
+                        return;
+                    }
+                    if (res.basarili) {
+                        alert("Oda '" + ad + "' başarıyla kuruldu!");
+                        adInput.value = '';
+                        sifreInput.value = '';
+                        document.getElementById('odaKurPanel').style.display = 'none';
+                        aktifOda = ad;
+                        document.getElementById('aktifOdaBaslik').textContent = "📢 " + ad + " Odası";
+                        odalariGuncelle();
+                        mesajlariGuncelle(true);
+                        odaYetkiYukle();
+                    } else {
+                        alert("⚠️ " + (res.hata || "İşlem başarısız."));
+                        odaKurAc();
+                    }
+                })
+                .catch(err => alert("İşlem sırasında hata oluştu: " + err));
         }
+
+        function odaIzinDurumuKontrol() {
+            fetch('/api/oda_izin_durumu').then(r => r.json()).then(data => {
+                if (data.bekliyor) return;
+                if (data.sonuc) {
+                    const s = data.sonuc;
+                    if (s.durum === 'onay') {
+                        alert("✅ Admin oda isteğinizi onayladı. " + s.mesaj);
+                        odalariGuncelle();
+                    } else if (s.durum === 'red') {
+                        alert("❌ Oda isteğiniz reddedildi. " + (s.mesaj || ''));
+                    }
+                }
+            }).catch(() => {});
+        }
+
 function kullanicilariGuncelle() {
             fetch('/api/kullanicilar')
                 .then(res => {
@@ -2552,7 +2710,7 @@ function kullanicilariGuncelle() {
                     msgs.slice().reverse().forEach(m => {
                         const div = document.createElement('div');
                         const isPrivate = m.alici && m.alici !== "Genel";
-                        const isDuyuru = m.gonderen === '📢 DUYURU' || m.gonderen === '📢 ALARM';
+                        const isDuyuru = m.gonderen === '📢 DUYURU' || m.gonderen === '📢 ALARM' || m.tur === 'duyuru';
                         const isSayac = m.gonderen === '📢 SAYAÇ';
                         
                         if (isSayac) {
@@ -3138,10 +3296,11 @@ def post_oda_olustur():
         return jsonify({"basarili": False, "hata": "Oda şifresi çok uzun."})
 
     with veri_kilidi:
-        # Sayım da kilit içinde yapılıyor ki aynı anda gelen iki istek limiti aşamasın
-        ozel_oda_sayisi = len([o for o in odalar_db.keys() if o != "Genel"])
-        if ozel_oda_sayisi >= MAKS_OZEL_ODA:
-            return jsonify({"basarili": False, "hata": f"En fazla {MAKS_OZEL_ODA} oda oluşturulabilir."})
+        if kullanici != "Sistem" and not oda_kurma_yetkisi_var_mi(kullanici):
+            return jsonify({"basarili": False, "hata": "Oda kurma izniniz yok. Önce Admin'den izin isteyin.", "izin_gerekli": True})
+
+        if kullanici != "Sistem" and kullanicinin_oda_sayisi(kullanici) >= MAKS_OZEL_ODA:
+            return jsonify({"basarili": False, "hata": f"Bir kullanıcı en fazla {MAKS_OZEL_ODA} özel oda oluşturabilir.", "limit_doldu": True})
 
         if oda in odalar_db:
             return jsonify({"basarili": False, "hata": "Bu isimde bir oda zaten var."})
@@ -3159,18 +3318,47 @@ def post_oda_izin_iste():
         return jsonify({"basarili": False, "hata": "Önce giriş yapmalısınız."})
 
     kullanici = session["kullanici"]
+    oda = request.form.get("oda", "").strip()
+    sifre = request.form.get("sifre", "").strip()
 
-    if oda_kurma_yetkisi_var_mi(kullanici):
-        return jsonify({"basarili": False, "hata": "Zaten oda kurma izniniz var."})
+    if kullanici == "Sistem":
+        return jsonify({"basarili": False, "hata": "Sistem hesabı için izin isteği gerekmez."})
+    if not oda or oda == "Genel":
+        return jsonify({"basarili": False, "hata": "Geçerli bir oda adı girin."})
+    if len(oda) > 15:
+        return jsonify({"basarili": False, "hata": "Oda adı çok uzun."})
+    if len(sifre) > 15:
+        return jsonify({"basarili": False, "hata": "Oda şifresi çok uzun."})
 
     with veri_kilidi:
+        if oda_kurma_yetkisi_var_mi(kullanici):
+            return jsonify({"basarili": False, "hata": "Zaten oda kurma izniniz var. Odayı doğrudan oluşturabilirsiniz."})
+        if kullanicinin_oda_sayisi(kullanici) >= MAKS_OZEL_ODA:
+            return jsonify({"basarili": False, "hata": f"Zaten {MAKS_OZEL_ODA} özel oda oluşturmuşsunuz."})
+        if oda in odalar_db:
+            return jsonify({"basarili": False, "hata": "Bu isimde bir oda zaten var."})
         if kullanici in oda_izin_istekleri:
-            return jsonify({"basarili": False, "hata": "Zaten bekleyen bir isteğiniz var, Sistem'in cevabını bekleyin."})
-        oda_izin_istekleri[kullanici] = time.time()
+            return jsonify({"basarili": False, "hata": "Zaten bekleyen bir oda isteğiniz var."})
 
-    log_ekle(f"'{kullanici}' oda kurma izni istedi.")
-    izin_istek_kuyrugu.put(kullanici)
-    return jsonify({"basarili": True})
+        oda_izin_istekleri[kullanici] = {"zaman": time.time(), "oda": oda, "sifre": sifre}
+        oda_izin_sonuclari.pop(kullanici, None)
+
+    log_ekle(f"'{kullanici}' oda isteği gönderdi: '{oda}'.")
+    izin_istek_kuyrugu.put({"kullanici": kullanici, "oda": oda, "sifre": sifre})
+    return jsonify({"basarili": True, "bekliyor": True, "mesaj": "İsteğiniz Admin paneline gönderildi."})
+
+@app.route("/api/oda_izin_durumu", methods=["GET"])
+def get_oda_izin_durumu():
+    kullanici = session.get("kullanici")
+    if not kullanici:
+        return jsonify({"bekliyor": False, "sonuc": None})
+    with veri_kilidi:
+        bekleyen = kullanici in oda_izin_istekleri
+        sonuc = oda_izin_sonuclari.get(kullanici)
+        if sonuc:
+            sonuc = dict(sonuc)
+            oda_izin_sonuclari.pop(kullanici, None)
+    return jsonify({"bekliyor": bekleyen, "sonuc": sonuc})
 
 @app.route("/api/oda_kontrol", methods=["GET"])
 def get_oda_kontrol():
@@ -3272,6 +3460,9 @@ def get_oda_yetki():
         "lider_mi": oda_lideri_mi(oda, kullanici),
         "yonetebilir_mi": oda_yonetebilir_mi(oda, kullanici),
         "oda_kurma_izni_var_mi": oda_kurma_yetkisi_var_mi(kullanici),
+        "oda_sayisi": kullanicinin_oda_sayisi(kullanici),
+        "oda_limiti": MAKS_OZEL_ODA,
+        "oda_istegi_bekliyor": kullanici in oda_izin_istekleri,
         "uyeler": uyeler
     })
 
@@ -3468,7 +3659,7 @@ def get_mesajlar():
         alici = m.get("alici", "Genel")
         oda = m.get("oda", "Genel")
         
-        is_global = m.get("gonderen") in ["📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"]
+        is_global = m.get("gonderen") in ["📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"] or m.get("tur") == "duyuru"
         is_dm = (alici == kullanici or m.get("gonderen") == kullanici) and alici != "Genel"
         
         if is_global or is_dm or (oda == aktif_oda and alici == "Genel"):
@@ -3501,7 +3692,7 @@ def post_mesaj_sil():
             return jsonify({"basarili": False, "hata": "Sadece kendi mesajınızı silebilirsiniz."}), 403
 
         # Duyuru/sistem mesajları normal kullanıcı mesajı olarak silinemez.
-        if bulunan.get("gonderen") in ["Sistem", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"]:
+        if bulunan.get("gonderen") in ["Sistem", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"] or bulunan.get("tur") == "duyuru":
             return jsonify({"basarili": False, "hata": "Bu mesaj silinemez."}), 403
 
         sohbet_gecmisi.remove(bulunan)
@@ -3793,168 +3984,6 @@ def sistem_yazma_penceresi():
     
     sistem_win.geometry(f"{pencere_genislik}x{pencere_yukseklik}+{x}+{y}")
     cevap_giris.focus_set()
-
-def ghost_mode_chat(ilk_isim):
-    chat_win = tk.Toplevel(root)
-    chat_win.title("Ghost Mode")
-    chat_win.attributes("-topmost", True)
-    chat_win.overrideredirect(True)
-    bg_color = "#F3F7FB"
-    chat_win.configure(bg=bg_color)
-
-    c_dis = tk.Frame(chat_win, bg="black", bd=0)
-    c_dis.pack(fill="both", expand=True)
-
-    c_ic = tk.Frame(c_dis, bg=bg_color, bd=2, relief="flat")
-    c_ic.pack(fill="both", expand=True, padx=2, pady=2)
-
-    baslik = tk.Frame(c_ic, bg="black", height=22)
-    baslik.pack(fill="x", side="top")
-    tk.Label(baslik, text="👻 System 7 - Ghost Control Center", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=6)
-    
-    tk.Button(baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=chat_win.destroy).pack(side="right", padx=4, pady=2)
-    
-    def pencereyi_tasi(event):
-        chat_win.geometry(f"+{event.x_root - chat_win._offset_x}+{event.y_root - chat_win._offset_y}")
-
-    def pozisyon_al(event):
-        chat_win._offset_x = event.x
-        chat_win._offset_y = event.y
-
-    baslik.bind("<Button-1>", pozisyon_al)
-    baslik.bind("<B1-Motion>", pencereyi_tasi)
-
-    top_ctrl = tk.Frame(c_ic, bg=bg_color)
-    top_ctrl.pack(fill="x", padx=8, pady=(6, 2))
-
-    tk.Label(top_ctrl, text="👻 Kimlik:", bg=bg_color, font=("Arial", 9, "bold")).pack(side="left")
-    isim_entry = tk.Entry(top_ctrl, font=("Arial", 9, "bold"), bd=2, relief="sunken", width=12)
-    isim_entry.insert(0, ilk_isim)
-    isim_entry.pack(side="left", padx=(3, 8))
-
-    tk.Label(top_ctrl, text="🏠 Oda:", bg=bg_color, font=("Arial", 9, "bold")).pack(side="left")
-    oda_entry = tk.Entry(top_ctrl, font=("Arial", 9, "bold"), bd=2, relief="sunken", width=12)
-    oda_entry.insert(0, "Genel")
-    oda_entry.pack(side="left", padx=(3, 0))
-
-    chat_container = tk.Frame(c_ic, bg=bg_color)
-    chat_container.pack(fill="both", expand=True, padx=8, pady=4)
-    
-    chat_scroll = tk.Scrollbar(chat_container)
-    chat_scroll.pack(side="right", fill="y")
-    
-    chat_text = tk.Text(chat_container, width=52, height=14, font=("Consolas", 9), bd=2, relief="sunken", yscrollcommand=chat_scroll.set, state="disabled", bg="#FFFFFF")
-    chat_text.pack(side="left", fill="both", expand=True)
-    chat_scroll.config(command=chat_text.yview)
-
-    preset_frame = tk.Frame(c_ic, bg=bg_color)
-    preset_frame.pack(fill="x", padx=8, pady=2)
-
-    def preset_at(metin):
-        msg_giris.delete(0, tk.END)
-        msg_giris.insert(0, metin)
-        mesaj_yolla()
-
-    tk.Button(preset_frame, text="👋 Selam", font=("Arial", 8, "bold"), bg="#BBB", command=lambda: preset_at("Selam millet!")).pack(side="left", padx=2)
-    tk.Button(preset_frame, text="⚠️ Dikkat", font=("Arial", 8, "bold"), bg="#BBB", command=lambda: preset_at("⚠️ Kurallara uyalım lütfen.")).pack(side="left", padx=2)
-    tk.Button(preset_frame, text="🤖 Bot Mesajı", font=("Arial", 8, "bold"), bg="#BBB", command=lambda: preset_at("🤖 Sistem otomatik mesajıdır.")).pack(side="left", padx=2)
-
-    alt_panel = tk.Frame(c_ic, bg=bg_color)
-    alt_panel.pack(fill="x", side="bottom", padx=8, pady=(4, 8))
-
-    msg_giris = tk.Entry(alt_panel, font=("Arial", 10), bd=2, relief="sunken")
-    msg_giris.pack(side="left", fill="x", expand=True, padx=(0, 6))
-    
-    def mesaj_yolla(event=None):
-        metin = msg_giris.get().strip()
-        secilen_isim = isim_entry.get().strip() or "Ghost"
-        secilen_oda = oda_entry.get().strip() or "Genel"
-        if metin:
-            sohbet_gecmisi.append({"gonderen": secilen_isim, "mesaj": metin, "alici": "Genel", "oda": secilen_oda, "zaman": time.time()})
-            msg_giris.delete(0, tk.END)
-            guncelle(zorla=True)
-
-    msg_giris.bind("<Return>", mesaj_yolla)
-    tk.Button(alt_panel, text="Gönder 👻", font=("Arial", 9, "bold"), bg="#444", fg="white", bd=2, relief="raised", command=mesaj_yolla).pack(side="right")
-    
-    son_mesaj_sayisi = [0]
-    
-    def guncelle(zorla=False):
-        if not chat_win.winfo_exists(): return
-        
-        if zorla or len(sohbet_gecmisi) != son_mesaj_sayisi[0]:
-            chat_text.config(state="normal")
-            chat_text.delete("1.0", tk.END)
-            simdi = time.time()
-            for m in sohbet_gecmisi:
-                gonderen = m.get("gonderen", "Bilinmeyen")
-                alici = m.get("alici", "Genel")
-                oda = m.get("oda", "Genel")
-                hedef = f"➔{alici}" if alici != "Genel" else ""
-                
-                if gonderen == "📢 SAYAÇ":
-                    kalan = max(0, int(m.get("bitis_zamani", 0) - simdi))
-                    dk, sn = kalan // 60, kalan % 60
-                    mesaj = f"⏱️ {dk:02d}:{sn:02d}" + (" (Bitti)" if kalan == 0 else "")
-                    chat_text.insert(tk.END, f"[{oda}] {mesaj}\n")
-                else:
-                    mesaj = m.get("mesaj", "")
-                    chat_text.insert(tk.END, f"[{oda}] [{gonderen}{hedef}]: {mesaj}\n")
-            
-            chat_text.see(tk.END)
-            chat_text.config(state="disabled")
-            son_mesaj_sayisi[0] = len(sohbet_gecmisi)
-            
-        chat_win.after(800, guncelle)
-
-    guncelle(zorla=True)
-    
-    chat_win.update_idletasks()
-    cw, ch = 520, 380
-    eg, ey = root.winfo_screenwidth(), root.winfo_screenheight()
-    chat_win.geometry(f"{cw}x{ch}+{(eg//2)-(cw//2)}+{(ey//2)-(ch//2)}")
-    msg_giris.focus_set()
-
-def ghost_mode_isteme():
-    prompt = tk.Toplevel(root)
-    prompt.title("Ghost Mode Login")
-    prompt.attributes("-topmost", True)
-    prompt.overrideredirect(True)
-    bg_color = "#F3F7FB"
-    prompt.configure(bg=bg_color)
-
-    p_dis = tk.Frame(prompt, bg="black", bd=0)
-    p_dis.pack(fill="both", expand=True)
-    
-    p_ic = tk.Frame(p_dis, bg=bg_color, bd=2, relief="flat")
-    p_ic.pack(fill="both", expand=True, padx=2, pady=2)
-
-    baslik = tk.Frame(p_ic, bg="black", height=20)
-    baslik.pack(fill="x", side="top")
-    tk.Label(baslik, text="👻 Ghost Mode Giriş", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-    tk.Button(baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=prompt.destroy).pack(side="right", padx=4, pady=2)
-
-    icerik = tk.Frame(p_ic, bg=bg_color)
-    icerik.pack(fill="both", expand=True, padx=10, pady=10)
-
-    tk.Label(icerik, text="Hangi İsimle Takılacaksın?:", bg=bg_color, font=("Arial", 10, "bold"), fg="black").pack(anchor="w", pady=(0, 5))
-    isim_giris = tk.Entry(icerik, font=("Arial", 11), bd=2, relief="sunken")
-    isim_giris.insert(0, "GhostUser")
-    isim_giris.pack(fill="x", pady=(0, 10))
-    isim_giris.focus_set()
-
-    def giris_yap(event=None):
-        isim = isim_giris.get().strip() or "GhostUser"
-        prompt.destroy()
-        ghost_mode_chat(isim)
-
-    isim_giris.bind("<Return>", giris_yap)
-    tk.Button(icerik, text="Ghost Ekranını Aç 🚀", font=("Arial", 10, "bold"), bg="#333", fg="white", bd=2, relief="raised", command=giris_yap).pack(fill="x")
-    
-    prompt.update_idletasks()
-    pw, ph = 300, 140
-    eg, ey = root.winfo_screenwidth(), root.winfo_screenheight()
-    prompt.geometry(f"{pw}x{ph}+{(eg//2)-(pw//2)}+{(ey//2)-(ph//2)}")
 
 def sistem_sikayetler_penceresi(parent):
     if hasattr(root, "sikayet_penceresi") and root.sikayet_penceresi.winfo_exists():
@@ -4564,7 +4593,7 @@ def sistem_yonetim_penceresi():
 
         def istekleri_al():
             with veri_kilidi:
-                return sorted(oda_izin_istekleri.items(), key=lambda item: item[1])
+                return sorted(oda_izin_istekleri.items(), key=lambda item: item[1].get("zaman", 0) if isinstance(item[1], dict) else item[1])
 
         def detay_yaz(metin):
             detay.config(state="normal")
@@ -4582,7 +4611,8 @@ def sistem_yonetim_penceresi():
                 return
             for k, t in istekler:
                 zaman = time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(t))
-                liste.insert(tk.END, f"{k}  |  {zaman}")
+                veri_istek = oda_istegi_gorunumu(k, t)
+                liste.insert(tk.END, f"{k} → {veri_istek['oda'] or '(oda adı yok)'} | {zaman}")
             liste.selection_clear(0, tk.END)
             detay_yaz("Soldan bir isteği seçerek onaylayabilir veya reddedebilirsin.")
 
@@ -4598,12 +4628,16 @@ def sistem_yonetim_penceresi():
                 return
             k, t = istekler[i]
             secili["kullanici"] = k
-            zaman = time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(t))
+            veri_istek = oda_istegi_gorunumu(k, t)
+            zaman = time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(veri_istek.get("zaman", 0)))
+            sifre_goster = veri_istek.get("sifre") or "Şifresiz"
             detay_yaz(
                 f"Kullanıcı: {k}\n"
+                f"Oda adı: {veri_istek.get('oda') or '(eski istek)'}\n"
+                f"Oda şifresi: {sifre_goster}\n"
                 f"İstek zamanı: {zaman}\n"
                 f"Durum: Bekliyor\n\n"
-                f"Bu kullanıcıya oda kurma izni vermek için 'İzin Ver', reddetmek için 'Reddet' kullan."
+                f"İzin verirseniz bu oda doğrudan {k} liderliğinde oluşturulacak."
             )
 
         def istek_cevapla(izin_ver):
@@ -4612,15 +4646,24 @@ def sistem_yonetim_penceresi():
                 return
             with veri_kilidi:
                 if hedef not in oda_izin_istekleri:
-                    pass
+                    return
+                veri_istek = oda_istegi_gorunumu(hedef, oda_izin_istekleri.get(hedef))
+                oda_adi = veri_istek.get("oda", "").strip()
+                oda_sifre = veri_istek.get("sifre", "").strip()
+                if izin_ver:
+                    if hedef not in kullanici_db or kullanicinin_oda_sayisi(hedef) >= MAKS_OZEL_ODA or not oda_adi or oda_adi in odalar_db:
+                        oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Oda oluşturulamadı; limit, kullanıcı veya oda adı sorunu var."}
+                        log_ekle(f"'{hedef}' oda isteği onaylanamadı.")
+                    else:
+                        odalar_db[oda_adi] = oda_sifre
+                        oda_olustur_kaydi(oda_adi, hedef)
+                        oda_izin_sonuclari[hedef] = {"durum":"onay","oda":oda_adi,"mesaj":f"'{oda_adi}' odası oluşturuldu."}
+                        log_ekle(f"'{hedef}' oda isteği onaylandı; '{oda_adi}' oluşturuldu.")
                 else:
-                    oda_izin_istekleri.pop(hedef, None)
-                    if izin_ver and hedef in kullanici_db and hedef != "Sistem":
-                        oda_kurma_izni.add(hedef)
-                        log_ekle(f"'{hedef}' kullanıcısına oda kurma izni verildi (istekler panelinden onaylandı).")
-                    elif not izin_ver:
-                        log_ekle(f"'{hedef}' kullanıcısının oda kurma isteği reddedildi (istekler panelinden).")
-                    durumu_kaydet()
+                    oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Oda kurma isteği reddedildi."}
+                    log_ekle(f"'{hedef}' oda isteği reddedildi.")
+                oda_izin_istekleri.pop(hedef, None)
+                durumu_kaydet()
             yenile()
 
         btnler = tk.Frame(sag, bg=bg_color)
@@ -4831,7 +4874,7 @@ def sistem_yonetim_penceresi():
             isim = isim_giris.get().strip()
             sif = sifre_giris.get().strip()
             ozel_oda_sayisi = len([o for o in odalar_db.keys() if o != "Genel"])
-            if isim and isim not in odalar_db and ozel_oda_sayisi < MAKS_OZEL_ODA:
+            if isim and isim not in odalar_db:
                 odalar_db[isim] = sif
                 oda_olustur_kaydi(isim, "Sistem")
                 durumu_kaydet()
@@ -4937,7 +4980,6 @@ def sistem_yonetim_penceresi():
 
     panel_btn(btn_frame, text="🚨 Sesli Siren Gönder", bg="#dc2626", command=alarm_gonder).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🏷️ Oda İzin İstekleri", bg="#334155", command=oda_izin_istekleri_penceresi).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="👻 Ghost Mode", bg="#334155", command=ghost_mode_isteme).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🗑️ Chati Temizle", bg="#64748b", command=temizle).pack(fill="x", pady=1)
 
     _panel_onbellek = {"mesaj_sayisi": None, "kullanici_satirlari": None, "durumlar": None}
