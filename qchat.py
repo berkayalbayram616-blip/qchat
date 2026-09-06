@@ -70,7 +70,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_COOKIE_SECURE', '0') == '1'
 app.permanent_session_lifetime = timedelta(days=30)
 
-app.secret_key = os.getenv('QCHAT_SECRET_KEY', 'qchat-local-dev-secret-change-me')
+app.secret_key = secrets.token_hex(32)
 
 # ==================== YÖNETİCİ PANELİ ====================
 ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
@@ -334,11 +334,11 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
       <div class="empty">Henüz mesaj yok. Görüşmeyi siz başlatabilirsiniz.</div>
     {% endif %}
   </div>
-  <form class="compose" id="adminSorguForm" method="post" action="/admin/islem">
+  <form class="compose" method="post" action="/admin/islem">
     <input type="hidden" name="islem" value="sorgu_mesaj">
-    <input type="hidden" name="hedef" id="adminSorguHedef" value="{{ sorgu_secili }}">
-    <input id="adminSorguInput" name="mesaj" maxlength="500" placeholder="{{ sorgu_secili }} kullanıcısına yazın…" required autocomplete="off">
-    <button class="btn" type="submit">📤 Gönder</button>
+    <input type="hidden" name="hedef" value="{{ sorgu_secili }}">
+    <input name="mesaj" maxlength="500" placeholder="{{ sorgu_secili }} kullanıcısına yazın…" required autocomplete="off">
+    <button class="btn">📤 Gönder</button>
   </form>
 </div>
 {% endif %}
@@ -423,41 +423,6 @@ function filtreRapor(){const q=(document.getElementById('reportSearch').value||'
 function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearch')?.value||'').toLowerCase();document.querySelectorAll('.room-request-row').forEach(r=>{r.style.display=!q||r.dataset.search.includes(q)?'':'none';});}
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
-async function adminSorguGuncelle(){
-  const hedef=document.getElementById('adminSorguHedef')?.value;
-  const box=document.getElementById('sorguChatStream');
-  if(!hedef||!box)return;
-  try{
-    const r=await fetch('/api/sorgu/admin_durum?hedef='+encodeURIComponent(hedef),{cache:'no-store'});
-    const d=await r.json();
-    if(!d.aktif){location.replace('/admin');return;}
-    const msgs=d.mesajlar||[];
-    if(!msgs.length){box.innerHTML='<div class="empty">Henüz mesaj yok. Görüşmeyi siz başlatabilirsiniz.</div>';return;}
-    box.innerHTML=msgs.map(m=>'<div class="chat-item"><div class="chat-head"><b>'+escapeHtml(m.gonderen)+'</b> • '+escapeHtml(m.zaman||'')+'</div><div class="chat-body">'+escapeHtml(m.mesaj||'')+'</div></div>').join('');
-    box.scrollTop=box.scrollHeight;
-  }catch(e){}
-}
-const adminSorguForm=document.getElementById('adminSorguForm');
-if(adminSorguForm){
-  adminSorguForm.addEventListener('submit',async e=>{
-    e.preventDefault();
-    const hedef=document.getElementById('adminSorguHedef').value;
-    const inp=document.getElementById('adminSorguInput');
-    const btn=adminSorguForm.querySelector('button');
-    const mesaj=inp.value.trim(); if(!mesaj||!hedef)return;
-    btn.disabled=true;
-    try{
-      const r=await fetch('/api/sorgu/admin_gonder',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams({hedef,mesaj})});
-      const d=await r.json();
-      if(d.basarili){inp.value='';await adminSorguGuncelle();inp.focus();}
-      else alert('⚠️ '+(d.hata||'Mesaj gönderilemedi.'));
-    }catch(e){alert('⚠️ Mesaj gönderilirken bağlantı hatası oluştu.');}
-    finally{btn.disabled=false;}
-  });
-  adminSorguGuncelle();
-  setInterval(adminSorguGuncelle,1000);
-}
-
 function modalKapat(){const m=document.getElementById('userModal');if(m)m.classList.remove('open');}function modalDis(e){if(e.target.id==='userModal')modalKapat();if(e.target.id==='muteModal')muteKapat();}document.addEventListener('keydown',e=>{if(e.key==='Escape'){modalKapat();muteKapat();}});
 </script>
 </body></html>
@@ -686,9 +651,6 @@ def admin_islem():
 
     hedef = (request.form.get("hedef") or "").strip()
     islem = request.form.get("islem") or ""
-
-    if islem.startswith("sorgu_"):
-        sorgu_verilerini_tazele()
 
     try:
         with veri_kilidi:
@@ -1036,23 +998,6 @@ if not isinstance(aktif_sorgular, dict):
     aktif_sorgular = {}
 if not isinstance(sorgu_mesajlari, dict):
     sorgu_mesajlari = {}
-
-
-def sorgu_verilerini_tazele():
-    """Sorgu durumunu diskten tekrar okuyarak farklı Render worker'larının
-    aynı aktif görüşme ve mesajları görmesini sağlar."""
-    global aktif_sorgular, sorgu_mesajlari
-    try:
-        with open(DOSYA, "r", encoding="utf-8") as f:
-            kayit = json.load(f)
-        yeni_aktif = kayit.get("aktif_sorgular", {})
-        yeni_mesaj = kayit.get("sorgu_mesajlari", {})
-        if isinstance(yeni_aktif, dict):
-            aktif_sorgular = yeni_aktif
-        if isinstance(yeni_mesaj, dict):
-            sorgu_mesajlari = yeni_mesaj
-    except Exception:
-        pass
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
 GIRIS_MAKS_DENEME = 5          # Aynı giriş yapan kişi 5 hatalı denemeden sonra kilitlenir.
@@ -3269,9 +3214,9 @@ zorunlu_sorgu_html = """
 .wrap{width:min(900px,100%);background:#fff;border:1px solid #7fa7cb;border-radius:12px;box-shadow:0 18px 50px rgba(39,76,112,.2);overflow:hidden}
 .head{background:linear-gradient(180deg,#79bdf7 0%,#3184dc 48%,#1c5fb0 100%);color:#fff;padding:16px 18px}.head h1{margin:0;font-size:19px}.head p{margin:5px 0 0;font-size:12px;opacity:.92}
 .notice{margin:12px 14px 0;padding:11px 12px;border-radius:8px;background:#fff8dc;border:1px solid #e2bf45;font-size:12px;line-height:1.45}
-.chat{height:480px;overflow:auto;padding:10px 12px;background:#fff;border:1px solid #b9cfe4;margin:12px 14px;border-radius:6px;color:#1c2b3a;display:flex;flex-direction:column;gap:3px}
-.msg{padding:5px 7px;border-radius:4px;border-bottom:1px solid #edf2f7;line-height:1.4}.msg:hover{background:#f2f7fc}.mh{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;color:#6f8295;font-size:10.5px;margin-bottom:2px}.mh b{color:#24527c;font-size:12px}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px;color:#1c2b3a}
-.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#708499;font-size:13px}
+.chat{height:480px;overflow:auto;padding:12px;background:#0e1721;margin:12px 14px;border-radius:9px;color:#dce9f6}
+.msg{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08)}.msg:last-child{border-bottom:0}.mh{color:#86bdea;font-size:11px;margin-bottom:3px}.mh b{color:#fff}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#93a4b5;font-size:13px}
 .compose{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 14px 14px}.compose input{width:100%;padding:11px;border:1px solid #9fb9d1;border-radius:8px;outline:none}.compose button{min-width:120px;border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer}
 .foot{padding:0 14px 14px;text-align:center;color:#6b7d90;font-size:11px}@media(max-width:600px){.chat{height:55vh}.compose{grid-template-columns:1fr}.compose button{width:100%}}
 </style>
@@ -3309,25 +3254,22 @@ function guncelle(){
       box.scrollTop=box.scrollHeight;
     }).catch(()=>{});
 }
-document.getElementById('sorguForm').addEventListener('submit',async e=>{
+document.getElementById('sorguForm').addEventListener('submit',e=>{
   e.preventDefault();
   const inp=document.getElementById('sorguInput');
-  const btn=document.querySelector('#sorguForm button');
   const mesaj=inp.value.trim();
   if(!mesaj)return;
-  btn.disabled=true;
-  try{
-    const r=await fetch('/api/sorgu/gonder',{
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},
-      body:new URLSearchParams({mesaj})
-    });
-    if(r.status===409){location.replace('/');return;}
-    const d=await r.json();
-    if(d.basarili){inp.value='';await guncelle();inp.focus();}
-    else alert('⚠️ '+(d.hata||'Mesaj gönderilemedi.'));
-  }catch(err){alert('⚠️ Mesaj gönderilirken bağlantı hatası oluştu.');}
-  finally{btn.disabled=false;}
+  fetch('/api/sorgu/gonder',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'mesaj='+encodeURIComponent(mesaj)
+  }).then(r=>{
+    if(r.status===409){location.replace('/');return null;}
+    return r.json();
+  }).then(d=>{
+    if(d&&d.basarili){inp.value='';guncelle();}
+    else if(d&&d.hata){alert('⚠️ '+d.hata);}
+  }).catch(()=>alert('⚠️ Mesaj gönderilemedi.'));
 });
 guncelle();setInterval(guncelle,1000);
 window.addEventListener('pageshow',guncelle);
@@ -3384,38 +3326,6 @@ def sorgu_mesaj_gonder():
         if len(sorgu_mesajlari[kullanici]) > 500:
             sorgu_mesajlari[kullanici] = sorgu_mesajlari[kullanici][-500:]
         son_aktiflik[kullanici] = time.time()
-    durumu_kaydet()
-    return jsonify({"basarili": True})
-
-@app.route("/api/sorgu/admin_durum", methods=["GET"])
-def sorgu_admin_durum_api():
-    if not admin_giris_gerekli():
-        return jsonify({"basarili": False, "hata": "Yetkisiz."}), 403
-    hedef = (request.args.get("hedef") or "").strip()
-    if not hedef or hedef not in aktif_sorgular:
-        return jsonify({"basarili": False, "aktif": False, "mesajlar": []})
-    with veri_kilidi:
-        mesajlar = []
-        for m in sorgu_mesajlari.get(hedef, [])[-500:]:
-            if not isinstance(m, dict):
-                continue
-            mesajlar.append({"gonderen": m.get("gonderen", ""), "mesaj": m.get("mesaj", ""), "zaman": _admin_guvenli_zaman(m.get("zaman"))})
-    return jsonify({"basarili": True, "aktif": True, "mesajlar": mesajlar})
-
-@app.route("/api/sorgu/admin_gonder", methods=["POST"])
-def sorgu_admin_mesaj_gonder():
-    if not admin_giris_gerekli():
-        return jsonify({"basarili": False, "hata": "Yetkisiz."}), 403
-    hedef = (request.form.get("hedef") or "").strip()
-    mesaj = (request.form.get("mesaj") or "").strip()[:500]
-    if not hedef or hedef not in aktif_sorgular:
-        return jsonify({"basarili": False, "hata": "Bu kullanıcıyla aktif sorgu bulunmuyor."}), 409
-    if not mesaj:
-        return jsonify({"basarili": False, "hata": "Mesaj boş olamaz."}), 400
-    with veri_kilidi:
-        sorgu_mesajlari.setdefault(hedef, []).append({"gonderen": ADMIN_KULLANICI, "mesaj": mesaj, "zaman": time.time()})
-        if len(sorgu_mesajlari[hedef]) > 500:
-            sorgu_mesajlari[hedef] = sorgu_mesajlari[hedef][-500:]
     durumu_kaydet()
     return jsonify({"basarili": True})
 
