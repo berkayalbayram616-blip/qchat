@@ -348,7 +348,6 @@ function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearc
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
 function modalKapat(){const m=document.getElementById('userModal');if(m)m.classList.remove('open');}function modalDis(e){if(e.target.id==='userModal')modalKapat();if(e.target.id==='muteModal')muteKapat();}document.addEventListener('keydown',e=>{if(e.key==='Escape'){modalKapat();muteKapat();}});
-<div id="mesajContextMenu" class="msg-context-menu"></div>
 </script>
 </body></html>
 """
@@ -590,10 +589,6 @@ def admin_islem():
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
                 oda_kurma_izni.discard(hedef)
-                for sabit_liste in sabit_mesajlar.values():
-                    for sabit in sabit_liste:
-                        if sabit.get("gonderen") == hedef: sabit["gonderen"] = "Silinen Kullanıcı"
-                        if sabit.get("alici") == hedef: sabit["alici"] = "Silinen Kullanıcı"
                 kullanici_kayit_zamani.pop(hedef, None)
                 kullanici_oturum_toplam_saniye.pop(hedef, None)
                 for rollers in oda_roller.values():
@@ -646,10 +641,6 @@ def admin_islem():
                             for msg in sohbet_gecmisi:
                                 if msg.get("gonderen") == eski: msg["gonderen"] = yeni_isim
                                 if msg.get("alici") == eski: msg["alici"] = yeni_isim
-                            for sabit_liste in sabit_mesajlar.values():
-                                for sabit in sabit_liste:
-                                    if sabit.get("gonderen") == eski: sabit["gonderen"] = yeni_isim
-                                    if sabit.get("alici") == eski: sabit["alici"] = yeni_isim
                             zorla_cikis.add(eski)
                             hedef_isim = yeni_isim
                     if yeni_sifre and hedef_isim in kullanici_db:
@@ -861,7 +852,6 @@ bakim_modu = bool(veriler.get("bakim_modu", False))
 yavas_mod_saniye = int(veriler.get("yavas_mod_saniye", 0) or 0)
 kufur_filtresi = bool(veriler.get("kufur_filtresi", False))
 sabit_duyuru = veriler.get("sabit_duyuru", "") or ""
-sabit_mesajlar = veriler.get("sabit_mesajlar", {})
 zorla_cikis = set()
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
@@ -1300,7 +1290,6 @@ def durumu_kaydet():
             "yavas_mod_saniye": yavas_mod_saniye,
             "kufur_filtresi": kufur_filtresi,
             "sabit_duyuru": sabit_duyuru,
-            "sabit_mesajlar": {k: list(v) for k, v in sabit_mesajlar.items()},
         }
     verileri_kaydet(guncel_veriler)
 
@@ -1819,11 +1808,6 @@ mesaj_html = """
 
         .typing-indicator { height: 18px; font-size: 11px; font-style: italic; color: #4a6580; font-weight: 600; margin-bottom: 6px; padding-left: 2px; }
 
-        .msg-item.pinned-msg, .msg-private.pinned-msg { border: 1px solid #e0b400; background: #fff3a6; box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
-        .msg-context-menu { display:none; position:fixed; min-width:190px; background:#fff; border:1px solid #7393b0; border-radius:6px; box-shadow:0 12px 30px rgba(20,60,110,.28); z-index:12000; padding:4px; }
-        .msg-context-menu button { display:block; width:100%; text-align:left; border:0; background:#fff; color:#24465f; padding:7px 9px; border-radius:4px; font:700 12px Segoe UI,Tahoma,sans-serif; cursor:pointer; }
-        .msg-context-menu button:hover { background:#eaf4ff; }
-        .msg-context-menu .danger { color:#b91c1c; }
         .msg-item, .msg-private {
             margin-bottom: 5px; word-break: break-word; padding: 3px 5px; border-radius: 3px; line-height: 1.4;
         }
@@ -2720,63 +2704,6 @@ function kullanicilariGuncelle() {
             div.addEventListener('pointerleave', temizle);
         }
 
-        let sabitMesajIds = new Set();
-        let sabitMesajVerileri = [];
-
-        document.addEventListener('click', (event) => {
-            const menu = document.getElementById('mesajContextMenu');
-            if (menu && menu.style.display === 'block' && !menu.contains(event.target)) menu.style.display = 'none';
-        });
-
-        function mesajContextMenusuAc(event, mesaj) {
-            event.preventDefault();
-            event.stopPropagation();
-            const menu = document.getElementById('mesajContextMenu');
-            if (!menu || !mesaj || !mesaj.id) return;
-            menu.innerHTML = '';
-            const maddeler = [
-                ['↩️ Yanıtla', () => yanitHazirla(mesaj)],
-                ['📋 Kopyala', () => {
-                    const txt = String(mesaj.mesaj || '');
-                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(() => {});
-                    menu.style.display = 'none';
-                }],
-                ['👤 Kullanıcı Bilgisi', () => { menu.style.display = 'none'; kullaniciBilgiAc(mesaj.gonderen); }],
-                [sabitMesajIds.has(String(mesaj.id)) ? '📌 Sabitlemeyi Kaldır' : '📌 Sabitle', () => mesajSabitleToggle(mesaj)],
-                ['⚠️ Şikayet Et', () => { menu.style.display = 'none'; sikayetPenceresiAc(mesaj.gonderen, mesaj); }]
-            ];
-            if (mesaj.gonderen === "{{ kullanici }}") maddeler.push(['🗑️ Sil', () => { menu.style.display = 'none'; mesajSil(mesaj.id); }]);
-            maddeler.forEach(([baslik, fn]) => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.textContent = baslik;
-                if (baslik.includes('Sil')) b.className = 'danger';
-                b.onclick = (e) => { e.stopPropagation(); fn(); };
-                menu.appendChild(b);
-            });
-            const left = Math.min(event.clientX, window.innerWidth - 205);
-            const top = Math.min(event.clientY, window.innerHeight - 230);
-            menu.style.left = Math.max(6, left) + 'px';
-            menu.style.top = Math.max(6, top) + 'px';
-            menu.style.display = 'block';
-        }
-
-        function mesajSabitleToggle(mesaj) {
-            const yeni = sabitMesajIds.has(String(mesaj.id)) ? '0' : '1';
-            fetch('/api/mesaj_sabitle', {
-                method:'POST',
-                headers:{'Content-Type':'application/x-www-form-urlencoded'},
-                body:'mesaj_id=' + encodeURIComponent(mesaj.id) + '&oda=' + encodeURIComponent(aktifOda) + '&sabitle=' + yeni
-            }).then(r => r.json()).then(res => {
-                if (!res.basarili) { alert('⚠️ ' + (res.hata || 'Mesaj sabitlenemedi.')); return; }
-                sabitMesajVerileri = Array.isArray(res.sabit_mesajlar) ? res.sabit_mesajlar : [];
-                sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
-                const menu = document.getElementById('mesajContextMenu');
-                if (menu) menu.style.display = 'none';
-                mesajlariGuncelle(true);
-            }).catch(() => alert('⚠️ Sabitleme sırasında bağlantı hatası oluştu.'));
-        }
-
         function mesajlariGuncelle(zorla = false) {
             if (zorla) { sonMesajSayisi = 0; ilkYukleme = true; }
             fetch('/api/mesajlar?oda=' + encodeURIComponent(aktifOda))
@@ -2802,9 +2729,6 @@ function kullanicilariGuncelle() {
                     } else {
                         document.getElementById('pinnedBanner').style.display = 'none';
                     }
-
-                    sabitMesajVerileri = Array.isArray(data.sabit_mesajlar) ? data.sabit_mesajlar : [];
-                    sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
 
                     const msgs = data.mesajlar || [];
 
@@ -2927,12 +2851,10 @@ function kullanicilariGuncelle() {
                             mesajMetniRenderEt(govde, m.mesaj);
                             div.appendChild(govde);
 
-                            if (m.id && sabitMesajIds.has(String(m.id))) div.classList.add('pinned-msg');
                             if (!isDuyuru && m.gonderen) {
                                 div.style.cursor = 'pointer';
                                 div.title = 'Kullanıcı bilgilerini aç';
                                 div.onclick = () => kullaniciBilgiAc(m.gonderen);
-                                div.oncontextmenu = (event) => mesajContextMenusuAc(event, m);
                             }
                             mesajSwipeKur(div, m);
                         }
@@ -3252,7 +3174,7 @@ def giris():
                     if kilitlendi:
                         hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
-                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme.get(_giris_koruma_anahtari(), {"sayi": 0})["sayi"]
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[_giris_koruma_anahtari()]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -3270,7 +3192,7 @@ def giris():
                     if kilitlendi:
                         hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
-                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme.get(_giris_koruma_anahtari(), {"sayi": 0})["sayi"]
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[_giris_koruma_anahtari()]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -3797,42 +3719,7 @@ def get_mesajlar():
             filtrelenmis.append(m)
 
     oda_banli = oda_banli_mi(aktif_oda, kullanici) if kullanici else False
-    sabitler = sabit_mesajlar.get(aktif_oda, [])
-    mevcut_ids = {str(m.get("id", "")) for m in sohbet_gecmisi}
-    sabitler = [m for m in sabitler if str(m.get("id", "")) in mevcut_ids]
-    return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "sabit_mesajlar": sabitler, "oda_banli": oda_banli})
-
-@app.route("/api/mesaj_sabitle", methods=["POST"])
-def post_mesaj_sabitle():
-    kullanici = session.get("kullanici")
-    if not kullanici:
-        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-    mesaj_id = (request.form.get("mesaj_id") or "").strip()
-    oda = (request.form.get("oda") or "Genel").strip()
-    sabitle = request.form.get("sabitle", "1") == "1"
-    if not mesaj_id or oda not in odalar_db:
-        return jsonify({"basarili": False, "hata": "Geçersiz mesaj veya oda."}), 400
-    with veri_kilidi:
-        bulunan = next((m for m in sohbet_gecmisi if str(m.get("id", "")) == mesaj_id), None)
-        if not bulunan:
-            return jsonify({"basarili": False, "hata": "Mesaj bulunamadı."}), 404
-        if bulunan.get("oda", "Genel") != oda or bulunan.get("gonderen") in ["📢 SAYAÇ", "📢 ALARM"] or bulunan.get("tur") == "duyuru":
-            return jsonify({"basarili": False, "hata": "Bu mesaj bu odada sabitlenemez."}), 400
-        # Sabitleme yetkisi yalnızca oda lideri ve Sistem'de.
-        if kullanici != "Sistem" and not oda_lideri_mi(oda, kullanici):
-            return jsonify({"basarili": False, "hata": "Bu odada mesaj sabitleme yetkiniz yok."}), 403
-        mevcut = [m for m in sabit_mesajlar.get(oda, []) if str(m.get("id", "")) != mesaj_id]
-        if sabitle:
-            if len(mevcut) >= 10:
-                return jsonify({"basarili": False, "hata": "Bir odada en fazla 10 sabit mesaj olabilir."}), 400
-            mevcut.insert(0, {"id": bulunan.get("id"), "gonderen": bulunan.get("gonderen"), "mesaj": bulunan.get("mesaj", ""), "zaman": bulunan.get("zaman", 0), "alici": bulunan.get("alici", "Genel"), "oda": oda})
-        if mevcut:
-            sabit_mesajlar[oda] = mevcut[:10]
-        else:
-            sabit_mesajlar.pop(oda, None)
-    durumu_kaydet()
-    log_ekle(f"'{kullanici}' '{oda}' odasında mesaj {'sabitledi' if sabitle else 'sabitlemesini kaldırdı'}: {mesaj_id}")
-    return jsonify({"basarili": True, "sabit_mesajlar": sabit_mesajlar.get(oda, [])})
+    return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "oda_banli": oda_banli})
 
 @app.route("/api/mesaj_sil", methods=["POST"])
 def post_mesaj_sil():
