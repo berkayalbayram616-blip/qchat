@@ -192,6 +192,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
     <button data-tab="users">👥 Kullanıcılar <span class="pill">{{ toplam_kullanici }}</span></button>
     <button data-tab="chat">💬 Canlı Sohbet</button>
     <button data-tab="rooms">🏠 Odalar</button>
+    <button data-tab="roomrequests">📨 Oda İstekleri {% if oda_istek_sayisi %}<span class="pill">{{ oda_istek_sayisi }}</span>{% endif %}</button>
     <button data-tab="reports">⚠️ Şikâyetler <span class="pill">{{ yeni_sikayet }}</span></button>
     <button data-tab="system">📢 Sistem</button>
     <button data-tab="logs">📋 Denetim</button>
@@ -316,12 +317,12 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 
 <div class="modal" id="muteModal" onclick="modalDis(event)">
   <div class="modal-card" style="max-width:420px">
-    <div class="modal-head"><h3>🔇 Kullanıcıyı Sustur</h3><button class="modal-close" type="button" onclick="modalKapat()">✕</button></div>
+    <div class="modal-head"><h3>🔇 Kullanıcıyı Sustur</h3><button class="modal-close" type="button" onclick="muteKapat()">✕</button></div>
     <div class="modal-body">
       <div class="notice">Seçilen kullanıcı ne kadar süre susturulsun?</div>
       <div class="field" style="margin-top:10px"><label>Kullanıcı</label><input id="muteTarget" readonly></div>
       <div class="field"><label>Süre (dakika)</label><input id="muteMinutes" type="number" min="1" max="10080" value="10"></div>
-      <div class="actions"><button type="button" class="btn dark" onclick="muteUygula()">🔇 Mute Uygula</button><button type="button" class="btn light" onclick="modalKapat()">Vazgeç</button></div>
+      <div class="actions"><button type="button" class="btn dark" onclick="muteUygula()">🔇 Mute Uygula</button><button type="button" class="btn light" onclick="muteKapat()">Vazgeç</button></div>
     </div>
   </div>
 </div>
@@ -334,8 +335,9 @@ document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',(
 (function(){const saved=localStorage.getItem('qchatAdminTab');if(saved&&document.getElementById(saved))sekmeAc(saved);baslatOtomatik();})();
 function yenile(){document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');window.location.reload();}
 function baslatOtomatik(){clearInterval(timer);if(auto)timer=setInterval(()=>{document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');},20000);document.getElementById('autoState').textContent=auto?'Açık':'Kapalı';document.getElementById('autoBtn').textContent='⏱ Otomatik: '+(auto?'Açık':'Kapalı');}
-function muteAc(isim){document.getElementById('muteTarget').value=isim;document.getElementById('muteMinutes').value=10;document.getElementById('muteModal').classList.add('open');setTimeout(()=>document.getElementById('muteMinutes').focus(),50);}
-function muteUygula(){const hedef=document.getElementById('muteTarget').value;const dakika=document.getElementById('muteMinutes').value;const fd=new URLSearchParams();fd.set('islem','mute');fd.set('hedef',hedef);fd.set('dakika',dakika);fetch('/admin/islem',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()}).then(()=>{modalKapat();window.location.reload();}).catch(()=>alert('Mute işlemi uygulanamadı.'));}
+function muteAc(isim){const modal=document.getElementById('muteModal');if(!modal)return;document.getElementById('muteTarget').value=isim;document.getElementById('muteMinutes').value=10;modal.classList.add('open');setTimeout(()=>document.getElementById('muteMinutes').focus(),50);}
+function muteKapat(){const modal=document.getElementById('muteModal');if(modal)modal.classList.remove('open');}
+function muteUygula(){const hedef=document.getElementById('muteTarget').value;const dakika=document.getElementById('muteMinutes').value;const fd=new URLSearchParams();fd.set('islem','mute');fd.set('hedef',hedef);fd.set('dakika',dakika);fetch('/admin/islem',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()}).then(()=>{muteKapat();window.location.reload();}).catch(()=>alert('Mute işlemi uygulanamadı.'));}
 function canliChatYenile(){}
 function otomatikToggle(){auto=!auto;sessionStorage.setItem('qchatAdminAuto',auto?'1':'0');baslatOtomatik();}
 (function(){const s=sessionStorage.getItem('qchatAdminAuto');if(s==='0')auto=false;})();
@@ -345,7 +347,7 @@ function filtreRapor(){const q=(document.getElementById('reportSearch').value||'
 function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearch')?.value||'').toLowerCase();document.querySelectorAll('.room-request-row').forEach(r=>{r.style.display=!q||r.dataset.search.includes(q)?'':'none';});}
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
-function modalKapat(){document.getElementById('userModal').classList.remove('open')}function modalDis(e){if(e.target.id==='userModal')modalKapat()}document.addEventListener('keydown',e=>{if(e.key==='Escape')modalKapat()});
+function modalKapat(){const m=document.getElementById('userModal');if(m)m.classList.remove('open');}function modalDis(e){if(e.target.id==='userModal')modalKapat();if(e.target.id==='muteModal')muteKapat();}document.addEventListener('keydown',e=>{if(e.key==='Escape'){modalKapat();muteKapat();}});
 </script>
 </body></html>
 """
