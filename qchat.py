@@ -3270,7 +3270,7 @@ zorunlu_sorgu_html = """
 <script>
 let sonSayac=-1;
 function esc(v){
-  return String(v).replace(/[&<>'"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[m]));
+  return String(v).replace(/[&<>'"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[m]));
 }
 function guncelle(){
   fetch('/api/sorgu/durum',{cache:'no-store'})
