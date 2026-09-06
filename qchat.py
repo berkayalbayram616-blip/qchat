@@ -1136,6 +1136,7 @@ MAKS_OZEL_ODA = 3  # Her kullanıcı için oluşturulabilecek özel oda sayısı
 
 oda_liderleri = veriler.get("oda_liderleri", {})          # {oda_adi: lider_kullanici_adi}
 oda_roller = veriler.get("oda_roller", {})                # {oda_adi: {kullanici_adi: "yonetici"}}
+oda_ozel_yetkileri = veriler.get("oda_ozel_yetkileri", {})  # {oda_adi: {kullanici: {mesaj_sil, mesaj_sabitle, kullanici_at, rol_ver}}}
 oda_yasaklari = veriler.get("oda_yasaklari", {})           # {oda_adi: [kullanici_adi, ...]}  (kalıcı banlar)
 oda_gecici_banlar = veriler.get("oda_gecici_banlar", {})   # {oda_adi: {kullanici_adi: bitis_zamani}}  (süreli banlar)
 oda_kurma_izni = set(veriler.get("oda_kurma_izni", []))    # oda kurma yetkisi verilmiş kullanıcılar
@@ -1157,6 +1158,17 @@ def oda_yonetebilir_mi(oda, kullanici):
     if kullanici == "Sistem":
         return True
     return oda_rolunu_al(oda, kullanici) in ("lider", "yonetici")
+
+def oda_yetkisi_var_mi(oda, kullanici, yetki):
+    """Odaya özel ince yetki kontrolü. Lider/Sistem her yetkiye sahiptir.
+    Özel kayıt yoksa yönetici rolü mevcut eski davranışı korur; üyeler yetkisizdir.
+    """
+    if kullanici == "Sistem" or oda_lideri_mi(oda, kullanici):
+        return True
+    ozel = oda_ozel_yetkileri.get(oda, {}).get(kullanici)
+    if ozel is None:
+        return oda_rolunu_al(oda, kullanici) == "yonetici"
+    return bool(ozel.get(yetki, False))
 
 def oda_lideri_mi(oda, kullanici):
     return kullanici == "Sistem" or oda_liderleri.get(oda) == kullanici
@@ -1215,6 +1227,7 @@ def oda_istegi_gorunumu(kullanici, veri):
 def oda_kaydini_sil(oda_adi):
     oda_liderleri.pop(oda_adi, None)
     oda_roller.pop(oda_adi, None)
+    oda_ozel_yetkileri.pop(oda_adi, None)
     oda_yasaklari.pop(oda_adi, None)
     oda_gecici_banlar.pop(oda_adi, None)
 
@@ -1223,6 +1236,8 @@ def oda_kaydini_tasi(eski_oda, yeni_oda):
         oda_liderleri[yeni_oda] = oda_liderleri.pop(eski_oda)
     if eski_oda in oda_roller:
         oda_roller[yeni_oda] = oda_roller.pop(eski_oda)
+    if eski_oda in oda_ozel_yetkileri:
+        oda_ozel_yetkileri[yeni_oda] = oda_ozel_yetkileri.pop(eski_oda)
     if eski_oda in oda_yasaklari:
         oda_yasaklari[yeni_oda] = oda_yasaklari.pop(eski_oda)
     if eski_oda in oda_gecici_banlar:
@@ -1288,6 +1303,7 @@ def durumu_kaydet():
             "odalar_db": dict(odalar_db),
             "oda_liderleri": dict(oda_liderleri),
             "oda_roller": {k: dict(v) for k, v in oda_roller.items()},
+            "oda_ozel_yetkileri": {k: {u: dict(y) for u, y in v.items()} for k, v in oda_ozel_yetkileri.items()},
             "oda_yasaklari": {k: list(v) for k, v in oda_yasaklari.items()},
             "oda_gecici_banlar": {k: dict(v) for k, v in oda_gecici_banlar.items()},
             "oda_kurma_izni": list(oda_kurma_izni),
@@ -1863,28 +1879,8 @@ mesaj_html = """
         }
         .msg-action-btn:hover { filter: brightness(1.05); }
         .msg-action-btn:active { filter: brightness(0.9); }
-        .msg-item.pinned-msg, .msg-private.pinned-msg { border-left: 3px solid #d69e2e; background: #fffaf0; }
-        .pinned-messages { display:none; margin:0 0 7px; border:1px solid #d6b25e; border-radius:6px; background:#fffaf0; padding:6px 8px; }
-        .pinned-messages-title { font-size:11px; font-weight:800; color:#6b5200; margin-bottom:4px; }
-        .pinned-message-item { display:flex; gap:7px; align-items:flex-start; padding:4px 3px; border-top:1px solid #efe1bb; font-size:11.5px; color:#5b4a24; cursor:pointer; }
-        .pinned-message-item:first-of-type { border-top:0; }
-        .pinned-message-item:hover { background:#fff4d6; }
-        .pinned-message-from { font-weight:800; white-space:nowrap; }
-        .pinned-message-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .notify-wrap { position:relative; flex:0 0 auto; }
-        .notify-btn { position:relative; padding:6px 9px; border:1px solid #7d9fbd; border-radius:4px; background:linear-gradient(180deg,#fff,#dfeaf4); color:#24465f; cursor:pointer; font-weight:800; }
-        .notify-count { position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; line-height:18px; padding:0 4px; border-radius:10px; background:#c62828; color:#fff; font-size:10px; text-align:center; display:none; border:1px solid #fff; }
-        .notification-panel { display:none; position:absolute; right:0; top:calc(100% + 6px); width:min(360px, calc(100vw - 24px)); max-height:360px; overflow-y:auto; background:#fff; border:1px solid #7999b8; border-radius:7px; box-shadow:0 12px 30px rgba(20,60,110,.25); z-index:8000; }
-        .notification-head { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:linear-gradient(180deg,#79bdf7 0%,#3a8ee6 45%,#1c5fb0 55%,#2d7fd6 100%); color:#fff; font-weight:800; position:sticky; top:0; }
-        .notification-list { padding:4px; }
-        .notification-item { padding:8px; border-radius:5px; cursor:pointer; border-bottom:1px solid #edf2f7; }
-        .notification-item:hover { background:#f2f7fc; }
-        .notification-item.unread { background:#fff8d9; }
-        .notification-title { font-size:12px; font-weight:800; color:#24465f; }
-        .notification-body { margin-top:2px; font-size:11.5px; color:#536b82; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .notification-time { margin-top:3px; font-size:10px; color:#91a4b8; }
-        .notification-empty { padding:14px 10px; text-align:center; color:#718399; font-size:12px; }
-        .msg-context-menu { display:none; position:fixed; min-width:190px; background:#fff; border:1px solid #7393b0; border-radius:6px; box-shadow:0 12px 30px rgba(20,60,110,.28); z-index:12000; padding:4px; }
+        .msg-item.pinned-msg, .msg-private.pinned-msg { border: 1px solid #e0b400; background: #fff3a6; box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
+                                                                                                                                                                        .msg-context-menu { display:none; position:fixed; min-width:190px; background:#fff; border:1px solid #7393b0; border-radius:6px; box-shadow:0 12px 30px rgba(20,60,110,.28); z-index:12000; padding:4px; }
         .msg-context-menu button { display:block; width:100%; text-align:left; border:0; background:#fff; color:#24465f; padding:7px 9px; border-radius:4px; font:700 12px Segoe UI,Tahoma,sans-serif; cursor:pointer; }
         .msg-context-menu button:hover { background:#eaf4ff; }
         .msg-context-menu .danger { color:#b91c1c; }
@@ -1933,13 +1929,6 @@ mesaj_html = """
             <div class="topbar">
                 <div class="user-info">👤 {{ kullanici }}</div>
                 <div style="display:flex; gap:6px; align-items:center;">
-                    <div class="notify-wrap">
-                        <button type="button" class="notify-btn" id="bildirimBtn" onclick="bildirimPaneliAcKapat();">🔔 Bildirimler <span id="bildirimSayac" class="notify-count">0</span></button>
-                        <div id="bildirimPaneli" class="notification-panel">
-                            <div class="notification-head"><span>🔔 Bildirim Merkezi</span><button type="button" onclick="bildirimleriTemizle();" style="border:0;background:transparent;color:#fff;font-weight:800;cursor:pointer;">Temizle</button></div>
-                            <div id="bildirimListesi" class="notification-list"></div>
-                        </div>
-                    </div>
                     <button type="button" class="logout-btn settings-btn" onclick="ayarlarPenceresiAc()">⚙️ Ayarlar</button>
                     <a href="/cikis" class="logout-btn">Çıkış Yap</a>
                 </div>
@@ -1998,6 +1987,14 @@ mesaj_html = """
                         <option value="yonetici">Yönetici / Moderatör</option>
                         <option value="uye">Sıradan Üye</option>
                     </select>
+                    <div id="odaOzelYetkiBlok" style="display:none; background:#f7fbff; border:1px solid #b9cfe4; border-radius:6px; padding:7px 8px;">
+                        <span class="field-label">Özel Yetkiler</span>
+                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiMesajSil"> 🗑️ Başkalarının mesajını sil</label>
+                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiMesajSabitle"> 📌 Mesaj sabitle</label>
+                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiKullaniciAt"> 🚫 Kullanıcı at / banla</label>
+                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiRolVer"> 🛡️ Rol / yetki ver</label>
+                        <button type="button" class="btn-ok" onclick="odaOzelYetkileriKaydet()" style="margin-top:4px;">Yetkileri Kaydet</button>
+                    </div>
                     <div class="room-create-btn-row">
                         <button type="button" class="btn-ok" onclick="odaRolVer()">Rol Ver</button>
                     </div>
@@ -2025,7 +2022,6 @@ mesaj_html = """
             </select>
 
             <div class="chat-title" id="aktifOdaBaslik">📢 Genel Odası</div>
-            <div id="sabitMesajlarKutusu" class="pinned-messages"><div class="pinned-messages-title">📌 Sabitlenen Mesajlar</div><div id="sabitMesajlarListesi"></div></div>
             <div class="chat-box" id="chatBox"></div>
 
             <div class="chat-title">🔒 DM'lerim</div>
@@ -2065,10 +2061,6 @@ mesaj_html = """
         let mentionAcik = false;
         let sabitMesajIds = new Set();
         let sabitMesajVerileri = [];
-        let bilinenMesajIdleri = new Set();
-        let bildirimBaslatildi = false;
-        const BILDIRIM_KEY = "qchat_bildirimler_{{ kullanici }}";
-        let bildirimler = [];
 
         function ayarlarYukle() {
             try {
@@ -2286,89 +2278,7 @@ mesaj_html = """
             kullaniciBilgiTimer = setInterval(yukle, 5000);
         }
 
-        function bildirimleriYukle() {
-            try {
-                const ham = localStorage.getItem(BILDIRIM_KEY);
-                bildirimler = ham ? JSON.parse(ham) : [];
-                if (!Array.isArray(bildirimler)) bildirimler = [];
-            } catch (_) { bildirimler = []; }
-            bildirimleriRenderEt();
-        }
-
-        function bildirimleriKaydet() {
-            try { localStorage.setItem(BILDIRIM_KEY, JSON.stringify(bildirimler.slice(0, 40))); } catch (_) {}
-        }
-
-        function okunmamisBildirimSayisi() { return bildirimler.filter(b => !b.okundu).length; }
-
-        function bildirimleriRenderEt() {
-            const liste = document.getElementById('bildirimListesi');
-            const sayac = document.getElementById('bildirimSayac');
-            if (!liste || !sayac) return;
-            const okunmamis = okunmamisBildirimSayisi();
-            sayac.textContent = okunmamis > 99 ? '99+' : String(okunmamis);
-            sayac.style.display = okunmamis ? 'block' : 'none';
-            if (!bildirimler.length) {
-                liste.innerHTML = '<div class="notification-empty">Henüz bildiriminiz yok.</div>';
-                return;
-            }
-            liste.innerHTML = '';
-            bildirimler.slice(0, 30).forEach(b => {
-                const item = document.createElement('div');
-                item.className = 'notification-item' + (!b.okundu ? ' unread' : '');
-                const baslik = document.createElement('div');
-                baslik.className = 'notification-title';
-                baslik.textContent = b.baslik || 'Bildirim';
-                const govde = document.createElement('div');
-                govde.className = 'notification-body';
-                govde.textContent = b.mesaj || '';
-                const zaman = document.createElement('div');
-                zaman.className = 'notification-time';
-                zaman.textContent = b.zaman ? tarihFormatlaUnix(b.zaman) : '';
-                item.appendChild(baslik); item.appendChild(govde); item.appendChild(zaman);
-                item.onclick = () => {
-                    b.okundu = true;
-                    bildirimleriKaydet();
-                    bildirimleriRenderEt();
-                    if (b.oda && b.oda !== aktifOda) {
-                        const sec = document.getElementById('odaSec');
-                        if (sec && Array.from(sec.options).some(o => o.value === b.oda)) {
-                            sec.value = b.oda; odaDegistir();
-                        }
-                    }
-                    bildirimPaneliAcKapat(true);
-                };
-                liste.appendChild(item);
-            });
-        }
-
-        function bildirimEkle(baslik, mesaj, oda, tur='genel') {
-            bildirimler.unshift({id: Date.now().toString() + Math.random(), baslik, mesaj, oda, tur, zaman: Date.now()/1000, okundu:false});
-            bildirimler = bildirimler.slice(0, 40);
-            bildirimleriKaydet();
-            bildirimleriRenderEt();
-            if (kullaniciAyarlar.sesler) almaSesiCal();
-        }
-
-        function bildirimPaneliAcKapat(forceClose=false) {
-            const panel = document.getElementById('bildirimPaneli');
-            if (!panel) return;
-            if (forceClose) { panel.style.display = 'none'; return; }
-            const ac = panel.style.display !== 'block';
-            panel.style.display = ac ? 'block' : 'none';
-            if (ac) { bildirimler.forEach(b => b.okundu = true); bildirimleriKaydet(); bildirimleriRenderEt(); }
-        }
-
-        function bildirimleriTemizle() {
-            bildirimler = [];
-            bildirimleriKaydet();
-            bildirimleriRenderEt();
-        }
-
         document.addEventListener('click', (event) => {
-            const panel = document.getElementById('bildirimPaneli');
-            const btn = document.getElementById('bildirimBtn');
-            if (panel && panel.style.display === 'block' && !panel.contains(event.target) && event.target !== btn) panel.style.display = 'none';
             const menu = document.getElementById('mesajContextMenu');
             if (menu && menu.style.display === 'block' && !menu.contains(event.target)) menu.style.display = 'none';
         });
@@ -2404,25 +2314,6 @@ mesaj_html = """
             menu.style.display = 'block';
         }
 
-        function sabitMesajlariRenderEt() {
-            const kutu = document.getElementById('sabitMesajlarKutusu');
-            const liste = document.getElementById('sabitMesajlarListesi');
-            if (!kutu || !liste) return;
-            liste.innerHTML = '';
-            if (!sabitMesajVerileri.length) { kutu.style.display = 'none'; return; }
-            kutu.style.display = 'block';
-            sabitMesajVerileri.slice(0, 10).forEach(m => {
-                const item = document.createElement('div');
-                item.className = 'pinned-message-item';
-                const from = document.createElement('span'); from.className = 'pinned-message-from'; from.textContent = '📌 ' + (m.gonderen || '');
-                const text = document.createElement('span'); text.className = 'pinned-message-text'; text.textContent = m.mesaj || '';
-                item.appendChild(from); item.appendChild(text);
-                item.title = 'Mesaja sağ tıkla: sabitlemeyi kaldır / diğer işlemler';
-                item.onclick = () => mesajlariGuncelle(true);
-                liste.appendChild(item);
-            });
-        }
-
         function mesajSabitleToggle(mesaj) {
             fetch('/api/mesaj_sabitle', {
                 method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -2431,7 +2322,6 @@ mesaj_html = """
                 if (!res.basarili) { alert('⚠️ ' + (res.hata || 'Mesaj sabitlenemedi.')); return; }
                 sabitMesajVerileri = Array.isArray(res.sabit_mesajlar) ? res.sabit_mesajlar : [];
                 sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
-                sabitMesajlariRenderEt();
                 const menu = document.getElementById('mesajContextMenu'); if (menu) menu.style.display = 'none';
                 mesajlariGuncelle(true);
             }).catch(() => alert('⚠️ Sabitleme sırasında bağlantı hatası oluştu.'));
@@ -2628,10 +2518,21 @@ mesaj_html = """
                             if (u.isim === secili) opt.selected = true;
                             hedefSec.appendChild(opt);
                         });
+                        hedefSec.onchange = () => odaYetkiYukle();
 
                         document.getElementById('odaLiderYapSatiri').style.display = data.lider_mi ? 'flex' : 'none';
                         document.getElementById('odaSifreDegistirBlok').style.display = data.lider_mi ? 'block' : 'none';
                         document.getElementById('odaKapatSatiri').style.display = (data.lider_mi && aktifOda !== 'Genel') ? 'flex' : 'none';
+                        const ozelBlok = document.getElementById('odaOzelYetkiBlok');
+                        if (ozelBlok) {
+                            ozelBlok.style.display = data.lider_mi ? 'block' : 'none';
+                            const seciliUye = (data.uyeler || []).find(u => u.isim === hedefSec.value);
+                            const yetkiler = (seciliUye && seciliUye.ozel_yetkiler) || {};
+                            document.getElementById('yetkiMesajSil').checked = !!yetkiler.mesaj_sil;
+                            document.getElementById('yetkiMesajSabitle').checked = !!yetkiler.mesaj_sabitle;
+                            document.getElementById('yetkiKullaniciAt').checked = !!yetkiler.kullanici_at;
+                            document.getElementById('yetkiRolVer').checked = !!yetkiler.rol_ver;
+                        }
                     } else {
                         yetkisizKutu.style.display = 'block';
                         icerikKutu.style.display = 'none';
@@ -2652,6 +2553,24 @@ mesaj_html = """
                 if (res.basarili) odaYetkiYukle();
                 else alert("⚠️ " + (res.hata || "İşlem başarısız."));
             });
+        }
+
+        function odaOzelYetkileriKaydet() {
+            const hedef = document.getElementById('odaYonetimHedef').value;
+            if (!hedef) return;
+            const veri = {
+                mesaj_sil: document.getElementById('yetkiMesajSil').checked,
+                mesaj_sabitle: document.getElementById('yetkiMesajSabitle').checked,
+                kullanici_at: document.getElementById('yetkiKullaniciAt').checked,
+                rol_ver: document.getElementById('yetkiRolVer').checked
+            };
+            fetch('/api/oda_ozel_yetki', {
+                method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef) + '&yetkiler=' + encodeURIComponent(JSON.stringify(veri))
+            }).then(r => r.json()).then(res => {
+                if (res.basarili) { alert('✅ Oda özel yetkileri kaydedildi.'); odaYetkiYukle(); }
+                else alert('⚠️ ' + (res.hata || 'Yetkiler kaydedilemedi.'));
+            }).catch(() => alert('⚠️ Yetkiler kaydedilirken bağlantı hatası oluştu.'));
         }
 
         function odaLiderYap() {
@@ -2934,30 +2853,6 @@ function kullanicilariGuncelle() {
                     const msgs = data.mesajlar || [];
                     sabitMesajVerileri = Array.isArray(data.sabit_mesajlar) ? data.sabit_mesajlar : [];
                     sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
-                    sabitMesajlariRenderEt();
-
-                    if (!bildirimBaslatildi) {
-                        msgs.forEach(m => { if (m.id) bilinenMesajIdleri.add(String(m.id)); });
-                        bildirimBaslatildi = true;
-                    } else {
-                        msgs.forEach(m => {
-                            const id = String(m.id || '');
-                            if (!id || bilinenMesajIdleri.has(id)) return;
-                            bilinenMesajIdleri.add(id);
-                            if (m.gonderen === "{{ kullanici }}") return;
-                            const metin = String(m.mesaj || '');
-                            const mention = new RegExp('(^|\\s)@{{ kullanici }}(\\s|$)', 'i').test(metin);
-                            const cevap = m.reply_to && m.reply_to.gonderen === "{{ kullanici }}";
-                            const dm = m.alici && m.alici === "{{ kullanici }}";
-                            const duyuru = m.gonderen === '📢 DUYURU' || m.gonderen === 'Sistem' || m.tur === 'duyuru';
-                            if (mention) bildirimEkle('💬 Senden bahsedildi', (m.gonderen || '') + ': ' + metin, m.oda || aktifOda, 'mention');
-                            else if (cevap) bildirimEkle('↩️ Mesajınıza yanıt', (m.gonderen || '') + ': ' + metin, m.oda || aktifOda, 'reply');
-                            else if (dm) bildirimEkle('✉️ Yeni özel mesaj', (m.gonderen || '') + ': ' + metin, m.oda || aktifOda, 'dm');
-                            else if (duyuru) bildirimEkle('📢 Yeni duyuru', metin, m.oda || 'Genel', 'announcement');
-                        });
-                        if (bilinenMesajIdleri.size > 1000) { bilinenMesajIdleri = new Set(Array.from(bilinenMesajIdleri).slice(-500)); }
-                    }
-
                     if (!ilkYukleme && msgs.length > sonMesajSayisi) {
                         const sonMesaj = msgs[msgs.length - 1];
                         if (sonMesaj.gonderen === '📢 ALARM') {
@@ -3031,7 +2926,7 @@ function kullanicilariGuncelle() {
                             if (isPrivate) {
                                 gosterim = m.gonderen + " ➔ " + m.alici;
                             }
-                            isim.textContent = (m.id && sabitMesajIds.has(String(m.id)) ? '📌 ' : '') + gosterim;
+                            isim.textContent = gosterim;
                             if (!isDuyuru && m.gonderen !== 'Sistem') {
                                 isim.style.color = kullaniciRengi(m.gonderen || '');
                             }
@@ -3256,8 +3151,6 @@ function kullanicilariGuncelle() {
             mesajInput.addEventListener('click', mentionIcerikGuncelle);
         }
         mentionKullanicilariniYukle();
-        bildirimleriYukle();
-
         setInterval(odalariGuncelle, 5000);
         setInterval(kullanicilariGuncelle, 5000);
         setInterval(mesajlariGuncelle, 1000);
@@ -3732,7 +3625,8 @@ def get_oda_yetki():
             "isim": isim,
             "rol": oda_rolunu_al(oda, isim),
             "banli": oda_banli_mi(oda, isim),
-            "ban_kalan_dk": oda_gecici_ban_kalan_dk(oda, isim)
+            "ban_kalan_dk": oda_gecici_ban_kalan_dk(oda, isim),
+            "ozel_yetkiler": dict(oda_ozel_yetkileri.get(oda, {}).get(isim, {}))
         })
 
     return jsonify({
@@ -3748,6 +3642,30 @@ def get_oda_yetki():
         "uyeler": uyeler
     })
 
+@app.route("/api/oda_ozel_yetki", methods=["POST"])
+def post_oda_ozel_yetki():
+    if "kullanici" not in session:
+        return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
+    kullanici = session["kullanici"]
+    oda = (request.form.get("oda") or "Genel").strip()
+    hedef = (request.form.get("hedef") or "").strip()
+    try:
+        yetkiler = json.loads(request.form.get("yetkiler", "{}"))
+    except Exception:
+        yetkiler = {}
+    if oda not in odalar_db:
+        return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
+    if not oda_lideri_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Özel yetkileri yalnızca oda lideri değiştirebilir."}), 403
+    if hedef not in kullanici_db or hedef == oda_liderleri.get(oda):
+        return jsonify({"basarili": False, "hata": "Bu kullanıcı için özel yetki ayarlanamaz."}), 400
+    izinler = {k: bool(yetkiler.get(k, False)) for k in ("mesaj_sil", "mesaj_sabitle", "kullanici_at", "rol_ver")}
+    with veri_kilidi:
+        oda_ozel_yetkileri.setdefault(oda, {})[hedef] = izinler
+    log_ekle(f"'{kullanici}', '{oda}' odasında '{hedef}' için özel yetkileri güncelledi.")
+    durumu_kaydet()
+    return jsonify({"basarili": True, "yetkiler": izinler})
+
 @app.route("/api/oda_rol_ver", methods=["POST"])
 def post_oda_rol_ver():
     if "kullanici" not in session:
@@ -3761,8 +3679,8 @@ def post_oda_rol_ver():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    # Rol atama yetkisi yalnızca odanın liderinde (veya sistem Sistem'inde) olsun
-    if not oda_lideri_mi(oda, kullanici):
+    # Rol verme yetkisi liderde veya oda özel yetkisi olan kişidedir.
+    if not oda_yetkisi_var_mi(oda, kullanici, "rol_ver"):
         return jsonify({"basarili": False, "hata": "Bu işlem için odanın lideri olmanız gerekir."})
 
     if hedef not in kullanici_db:
@@ -3797,8 +3715,8 @@ def post_oda_kick():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    if not oda_yonetebilir_mi(oda, kullanici):
-        return jsonify({"basarili": False, "hata": "Bu odayı yönetme yetkiniz yok."})
+    if not oda_yetkisi_var_mi(oda, kullanici, "kullanici_at"):
+        return jsonify({"basarili": False, "hata": "Bu işlem için bu odada yetkiniz yok."})
 
     if oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
@@ -3843,8 +3761,8 @@ def post_oda_ban():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    if not oda_yonetebilir_mi(oda, kullanici):
-        return jsonify({"basarili": False, "hata": "Bu odayı yönetme yetkiniz yok."})
+    if not oda_yetkisi_var_mi(oda, kullanici, "kullanici_at"):
+        return jsonify({"basarili": False, "hata": "Bu işlem için bu odada yetkiniz yok."})
 
     if oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
@@ -3977,8 +3895,8 @@ def post_mesaj_sil():
         if not bulunan:
             return jsonify({"basarili": False, "hata": "Mesaj bulunamadı."}), 404
 
-        if bulunan.get("gonderen") != kullanici:
-            return jsonify({"basarili": False, "hata": "Sadece kendi mesajınızı silebilirsiniz."}), 403
+        if bulunan.get("gonderen") != kullanici and not oda_yetkisi_var_mi(bulunan.get("oda", "Genel"), kullanici, "mesaj_sil"):
+            return jsonify({"basarili": False, "hata": "Bu mesajı silmek için oda yetkiniz yok."}), 403
 
         # Duyuru/sistem mesajları normal kullanıcı mesajı olarak silinemez.
         if bulunan.get("gonderen") in ["Sistem", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"] or bulunan.get("tur") == "duyuru":
@@ -3997,7 +3915,7 @@ def post_mesaj_sil():
             # Bellekten de silindi; kalıcı kayıt başarısızsa kullanıcıya bilgi ver.
             return jsonify({"basarili": False, "hata": f"Mesaj silindi ancak kayıt güncellenemedi: {e}"}), 500
 
-    log_ekle(f"'{kullanici}' kendi mesajını sildi: {mesaj_id}")
+    log_ekle(f"'{kullanici}' mesaj sildi: {mesaj_id}")
     return jsonify({"basarili": True})
 
 @app.route("/api/mesaj_sabitle", methods=["POST"])
@@ -4010,6 +3928,8 @@ def post_mesaj_sabitle():
     sabitle = request.form.get("sabitle", "1") == "1"
     if not mesaj_id or oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Geçersiz mesaj veya oda."}), 400
+    if not oda_yetkisi_var_mi(oda, kullanici, "mesaj_sabitle"):
+        return jsonify({"basarili": False, "hata": "Bu odada mesaj sabitleme yetkiniz yok."}), 403
     with veri_kilidi:
         bulunan = next((m for m in sohbet_gecmisi if str(m.get("id", "")) == mesaj_id), None)
         if not bulunan:
