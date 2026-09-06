@@ -3174,7 +3174,7 @@ def giris():
                     if kilitlendi:
                         hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
-                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[_giris_koruma_anahtari()]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -3192,7 +3192,7 @@ def giris():
                     if kilitlendi:
                         hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
-                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[_giris_koruma_anahtari()]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
