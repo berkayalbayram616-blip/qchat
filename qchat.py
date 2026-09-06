@@ -296,7 +296,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 <div class="modal" id="userModal" onclick="modalDis(event)"><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">Kullanıcı</h3><button class="modal-close" onclick="modalKapat()">✕</button></div><div class="modal-body" id="modalBody">Yükleniyor…</div></div></div>
 <script>
 let auto=true, timer=null;
-const users={{ kullanici_json|safe }};
+const users={{ kullanicilar|tojson }};
 function sekmeAc(id){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));localStorage.setItem('qchatAdminTab',id);window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>sekmeAc(b.dataset.tab)));
 (function(){const saved=localStorage.getItem('qchatAdminTab');if(saved&&document.getElementById(saved))sekmeAc(saved);baslatOtomatik();})();
@@ -428,7 +428,6 @@ def admin_panel():
         top_odalar=top_odalar,
         son_mesajlar=son_mesajlar,
         geri_bildirimler=geri_bildirim_gorunum,
-        kullanici_json=json.dumps(kullanicilar, ensure_ascii=False),
     )
 
 @app.route("/admin/cikis")
@@ -770,10 +769,13 @@ sikayetler = sikayetleri_yukle()
 sikayet_kilidi = threading.Lock()
 
 _son_sistem_acilis = 0
-bakim_modu = False
-yavas_mod_saniye = 0
-kufur_filtresi = False
-sabit_duyuru = ""
+# NOT: Bu ayarlar admin panelinden değiştirilebiliyor ve durumu_kaydet() ile
+# veriler.json'a yazılıyor; sunucu yeniden başladığında sıfırlanmaması için
+# burada kayıtlı değerden geri yükleniyor.
+bakim_modu = bool(veriler.get("bakim_modu", False))
+yavas_mod_saniye = int(veriler.get("yavas_mod_saniye", 0) or 0)
+kufur_filtresi = bool(veriler.get("kufur_filtresi", False))
+sabit_duyuru = veriler.get("sabit_duyuru", "") or ""
 zorla_cikis = set()
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
@@ -1158,7 +1160,11 @@ def durumu_kaydet():
             "oda_kurma_izni": list(oda_kurma_izni),
             "geri_bildirimler": list(geri_bildirimler),
             "kullanici_kayit_zamani": dict(kullanici_kayit_zamani),
-            "kullanici_oturum_toplam_saniye": dict(kullanici_oturum_toplam_saniye)
+            "kullanici_oturum_toplam_saniye": dict(kullanici_oturum_toplam_saniye),
+            "bakim_modu": bakim_modu,
+            "yavas_mod_saniye": yavas_mod_saniye,
+            "kufur_filtresi": kufur_filtresi,
+            "sabit_duyuru": sabit_duyuru,
         }
     verileri_kaydet(guncel_veriler)
 
