@@ -1218,6 +1218,14 @@ bakim_html = """
 @app.before_request
 def guvenlik_kontrolu():
     global bakim_modu
+    # Yönetim paneli kendi oturum/izin kontrolünü (admin_giris_gerekli) kullanır.
+    # Bu genel kontrol normal kullanıcı oturumuna (session["kullanici"]) bakar;
+    # aynı tarayıcıda hem bir sohbet hesabına hem admin hesabına giriş yapılmışsa
+    # sohbet hesabı banlandığında/kicklendiğinde admin paneli de kilitleniyordu.
+    # Bu yüzden /admin altındaki rotaları bu kontrolün tamamen dışında tutuyoruz.
+    if request.path.startswith("/admin"):
+        return None
+
     kullanici = session.get("kullanici")
 
     if kullanici and kullanici in kullanici_renames:
