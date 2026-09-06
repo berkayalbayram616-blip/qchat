@@ -2484,7 +2484,7 @@ mesaj_html = """
                         bilgi.textContent = 'Admin tarafından oda kurma izniniz var.';
                         btn.disabled = false;
                     } else {
-                        btn.textContent = '📨 Admin'den İzin İste';
+                        btn.textContent = "📨 Admin'den İzin İste";
                         bilgi.textContent = 'Oda adı ve şifreyi girin; isteğiniz Admin paneline düşecek.';
                         btn.disabled = false;
                     }
