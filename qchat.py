@@ -5030,8 +5030,9 @@ def kisayol_dinle():
 def mesaj_kontrol():
     try:
         while True:
-            veri = mesaj_kuyrugu.get_nowait()
-            mesaj_goster(veri)
+            _ = mesaj_kuyrugu.get_nowait()
+            # Gelen mesajlar sohbet geçmişine zaten ekleniyor.
+            # Yönetim panelinin otomatik açılmasını engelliyoruz.
     except queue.Empty:
         pass
 
