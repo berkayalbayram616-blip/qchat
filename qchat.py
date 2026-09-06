@@ -348,6 +348,7 @@ function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearc
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
 function modalKapat(){const m=document.getElementById('userModal');if(m)m.classList.remove('open');}function modalDis(e){if(e.target.id==='userModal')modalKapat();if(e.target.id==='muteModal')muteKapat();}document.addEventListener('keydown',e=>{if(e.key==='Escape'){modalKapat();muteKapat();}});
+<div id="mesajContextMenu" class="msg-context-menu"></div>
 </script>
 </body></html>
 """
@@ -589,6 +590,10 @@ def admin_islem():
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
                 oda_kurma_izni.discard(hedef)
+                for sabit_liste in sabit_mesajlar.values():
+                    for sabit in sabit_liste:
+                        if sabit.get("gonderen") == hedef: sabit["gonderen"] = "Silinen Kullanıcı"
+                        if sabit.get("alici") == hedef: sabit["alici"] = "Silinen Kullanıcı"
                 kullanici_kayit_zamani.pop(hedef, None)
                 kullanici_oturum_toplam_saniye.pop(hedef, None)
                 for rollers in oda_roller.values():
@@ -701,8 +706,6 @@ def admin_islem():
                             odalar_db[yeni_oda] = yeni_sifre
                             del odalar_db[eski_oda]
                             oda_kaydini_tasi(eski_oda, yeni_oda)
-                            if eski_oda in sabit_mesajlar:
-                                sabit_mesajlar[yeni_oda] = sabit_mesajlar.pop(eski_oda)
                             for msg in sohbet_gecmisi:
                                 if msg.get("oda") == eski_oda: msg["oda"] = yeni_oda
                     else:
@@ -712,7 +715,6 @@ def admin_islem():
                 oda_adi = (request.form.get("hedef_oda") or "").strip()
                 if oda_adi in odalar_db and oda_adi != "Genel":
                     odalar_db.pop(oda_adi, None)
-                    sabit_mesajlar.pop(oda_adi, None)
                     oda_kaydini_sil(oda_adi)
                     for msg in sohbet_gecmisi:
                         if msg.get("oda") == oda_adi: msg["oda"] = "Genel"
@@ -859,6 +861,7 @@ bakim_modu = bool(veriler.get("bakim_modu", False))
 yavas_mod_saniye = int(veriler.get("yavas_mod_saniye", 0) or 0)
 kufur_filtresi = bool(veriler.get("kufur_filtresi", False))
 sabit_duyuru = veriler.get("sabit_duyuru", "") or ""
+sabit_mesajlar = veriler.get("sabit_mesajlar", {})
 zorla_cikis = set()
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
@@ -1136,11 +1139,9 @@ MAKS_OZEL_ODA = 3  # Her kullanıcı için oluşturulabilecek özel oda sayısı
 
 oda_liderleri = veriler.get("oda_liderleri", {})          # {oda_adi: lider_kullanici_adi}
 oda_roller = veriler.get("oda_roller", {})                # {oda_adi: {kullanici_adi: "yonetici"}}
-oda_ozel_yetkileri = veriler.get("oda_ozel_yetkileri", {})  # {oda_adi: {kullanici: {mesaj_sil, mesaj_sabitle, kullanici_at, rol_ver}}}
 oda_yasaklari = veriler.get("oda_yasaklari", {})           # {oda_adi: [kullanici_adi, ...]}  (kalıcı banlar)
 oda_gecici_banlar = veriler.get("oda_gecici_banlar", {})   # {oda_adi: {kullanici_adi: bitis_zamani}}  (süreli banlar)
 oda_kurma_izni = set(veriler.get("oda_kurma_izni", []))    # oda kurma yetkisi verilmiş kullanıcılar
-sabit_mesajlar = veriler.get("sabit_mesajlar", {})    # {oda: [{id,gonderen,mesaj,zaman,alici}]}
 
 if "Genel" not in oda_liderleri:
     oda_liderleri["Genel"] = "Sistem"
@@ -1158,17 +1159,6 @@ def oda_yonetebilir_mi(oda, kullanici):
     if kullanici == "Sistem":
         return True
     return oda_rolunu_al(oda, kullanici) in ("lider", "yonetici")
-
-def oda_yetkisi_var_mi(oda, kullanici, yetki):
-    """Odaya özel ince yetki kontrolü. Lider/Sistem her yetkiye sahiptir.
-    Özel kayıt yoksa yönetici rolü mevcut eski davranışı korur; üyeler yetkisizdir.
-    """
-    if kullanici == "Sistem" or oda_lideri_mi(oda, kullanici):
-        return True
-    ozel = oda_ozel_yetkileri.get(oda, {}).get(kullanici)
-    if ozel is None:
-        return oda_rolunu_al(oda, kullanici) == "yonetici"
-    return bool(ozel.get(yetki, False))
 
 def oda_lideri_mi(oda, kullanici):
     return kullanici == "Sistem" or oda_liderleri.get(oda) == kullanici
@@ -1227,7 +1217,6 @@ def oda_istegi_gorunumu(kullanici, veri):
 def oda_kaydini_sil(oda_adi):
     oda_liderleri.pop(oda_adi, None)
     oda_roller.pop(oda_adi, None)
-    oda_ozel_yetkileri.pop(oda_adi, None)
     oda_yasaklari.pop(oda_adi, None)
     oda_gecici_banlar.pop(oda_adi, None)
 
@@ -1236,8 +1225,6 @@ def oda_kaydini_tasi(eski_oda, yeni_oda):
         oda_liderleri[yeni_oda] = oda_liderleri.pop(eski_oda)
     if eski_oda in oda_roller:
         oda_roller[yeni_oda] = oda_roller.pop(eski_oda)
-    if eski_oda in oda_ozel_yetkileri:
-        oda_ozel_yetkileri[yeni_oda] = oda_ozel_yetkileri.pop(eski_oda)
     if eski_oda in oda_yasaklari:
         oda_yasaklari[yeni_oda] = oda_yasaklari.pop(eski_oda)
     if eski_oda in oda_gecici_banlar:
@@ -1303,11 +1290,9 @@ def durumu_kaydet():
             "odalar_db": dict(odalar_db),
             "oda_liderleri": dict(oda_liderleri),
             "oda_roller": {k: dict(v) for k, v in oda_roller.items()},
-            "oda_ozel_yetkileri": {k: {u: dict(y) for u, y in v.items()} for k, v in oda_ozel_yetkileri.items()},
             "oda_yasaklari": {k: list(v) for k, v in oda_yasaklari.items()},
             "oda_gecici_banlar": {k: dict(v) for k, v in oda_gecici_banlar.items()},
             "oda_kurma_izni": list(oda_kurma_izni),
-            "sabit_mesajlar": {k: list(v) for k, v in sabit_mesajlar.items()},
             "geri_bildirimler": list(geri_bildirimler),
             "kullanici_kayit_zamani": dict(kullanici_kayit_zamani),
             "kullanici_oturum_toplam_saniye": dict(kullanici_oturum_toplam_saniye),
@@ -1315,6 +1300,7 @@ def durumu_kaydet():
             "yavas_mod_saniye": yavas_mod_saniye,
             "kufur_filtresi": kufur_filtresi,
             "sabit_duyuru": sabit_duyuru,
+            "sabit_mesajlar": {k: list(v) for k, v in sabit_mesajlar.items()},
         }
     verileri_kaydet(guncel_veriler)
 
@@ -1833,6 +1819,11 @@ mesaj_html = """
 
         .typing-indicator { height: 18px; font-size: 11px; font-style: italic; color: #4a6580; font-weight: 600; margin-bottom: 6px; padding-left: 2px; }
 
+        .msg-item.pinned-msg, .msg-private.pinned-msg { border: 1px solid #e0b400; background: #fff3a6; box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
+        .msg-context-menu { display:none; position:fixed; min-width:190px; background:#fff; border:1px solid #7393b0; border-radius:6px; box-shadow:0 12px 30px rgba(20,60,110,.28); z-index:12000; padding:4px; }
+        .msg-context-menu button { display:block; width:100%; text-align:left; border:0; background:#fff; color:#24465f; padding:7px 9px; border-radius:4px; font:700 12px Segoe UI,Tahoma,sans-serif; cursor:pointer; }
+        .msg-context-menu button:hover { background:#eaf4ff; }
+        .msg-context-menu .danger { color:#b91c1c; }
         .msg-item, .msg-private {
             margin-bottom: 5px; word-break: break-word; padding: 3px 5px; border-radius: 3px; line-height: 1.4;
         }
@@ -1879,11 +1870,6 @@ mesaj_html = """
         }
         .msg-action-btn:hover { filter: brightness(1.05); }
         .msg-action-btn:active { filter: brightness(0.9); }
-        .msg-item.pinned-msg, .msg-private.pinned-msg { border: 1px solid #e0b400; background: #fff3a6; box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
-                                                                                                                                                                        .msg-context-menu { display:none; position:fixed; min-width:190px; background:#fff; border:1px solid #7393b0; border-radius:6px; box-shadow:0 12px 30px rgba(20,60,110,.28); z-index:12000; padding:4px; }
-        .msg-context-menu button { display:block; width:100%; text-align:left; border:0; background:#fff; color:#24465f; padding:7px 9px; border-radius:4px; font:700 12px Segoe UI,Tahoma,sans-serif; cursor:pointer; }
-        .msg-context-menu button:hover { background:#eaf4ff; }
-        .msg-context-menu .danger { color:#b91c1c; }
         .mention-list {
             display: none; position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 4px;
             max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #8fa9c4;
@@ -1987,14 +1973,6 @@ mesaj_html = """
                         <option value="yonetici">Yönetici / Moderatör</option>
                         <option value="uye">Sıradan Üye</option>
                     </select>
-                    <div id="odaOzelYetkiBlok" style="display:none; background:#f7fbff; border:1px solid #b9cfe4; border-radius:6px; padding:7px 8px;">
-                        <span class="field-label">Özel Yetkiler</span>
-                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiMesajSil"> 🗑️ Başkalarının mesajını sil</label>
-                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiMesajSabitle"> 📌 Mesaj sabitle</label>
-                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiKullaniciAt"> 🚫 Kullanıcı at / banla</label>
-                        <label style="display:block;margin:4px 0;font-size:11.5px;"><input type="checkbox" id="yetkiRolVer"> 🛡️ Rol / yetki ver</label>
-                        <button type="button" class="btn-ok" onclick="odaOzelYetkileriKaydet()" style="margin-top:4px;">Yetkileri Kaydet</button>
-                    </div>
                     <div class="room-create-btn-row">
                         <button type="button" class="btn-ok" onclick="odaRolVer()">Rol Ver</button>
                     </div>
@@ -2046,8 +2024,6 @@ mesaj_html = """
         </div>
     </div>
 
-    <div id="mesajContextMenu" class="msg-context-menu"></div>
-
     <script>
         let sonMesajSayisi = 0;
         let ilkYukleme = true;
@@ -2059,8 +2035,6 @@ mesaj_html = """
         let kullaniciAyarlar = { sesler: true };
         let mentionKullanicilari = [];
         let mentionAcik = false;
-        let sabitMesajIds = new Set();
-        let sabitMesajVerileri = [];
 
         function ayarlarYukle() {
             try {
@@ -2278,55 +2252,6 @@ mesaj_html = """
             kullaniciBilgiTimer = setInterval(yukle, 5000);
         }
 
-        document.addEventListener('click', (event) => {
-            const menu = document.getElementById('mesajContextMenu');
-            if (menu && menu.style.display === 'block' && !menu.contains(event.target)) menu.style.display = 'none';
-        });
-
-        function mesajContextMenusuAc(event, mesaj) {
-            event.preventDefault();
-            event.stopPropagation();
-            const menu = document.getElementById('mesajContextMenu');
-            if (!menu || !mesaj || !mesaj.id) return;
-            menu.innerHTML = '';
-            const maddeler = [
-                ['↩️ Yanıtla', () => yanitHazirla(mesaj)],
-                ['📋 Kopyala', () => {
-                    navigator.clipboard?.writeText(String(mesaj.mesaj || '')).catch(() => {});
-                    menu.style.display = 'none';
-                }],
-                ['👤 Kullanıcı Bilgisi', () => { menu.style.display = 'none'; kullaniciBilgiAc(mesaj.gonderen); }],
-                [sabitMesajIds.has(String(mesaj.id)) ? '📌 Sabitlemeyi Kaldır' : '📌 Sabitle', () => mesajSabitleToggle(mesaj)],
-                ['⚠️ Şikayet Et', () => { menu.style.display = 'none'; sikayetPenceresiAc(mesaj.gonderen, mesaj); }],
-            ];
-            if (mesaj.gonderen === "{{ kullanici }}") maddeler.push(['🗑️ Sil', () => { menu.style.display = 'none'; mesajSil(mesaj.id); }]);
-            maddeler.forEach(([baslik, fn]) => {
-                const b = document.createElement('button');
-                b.type = 'button'; b.textContent = baslik;
-                if (baslik.includes('Sil')) b.className = 'danger';
-                b.onclick = (e) => { e.stopPropagation(); fn(); };
-                menu.appendChild(b);
-            });
-            const left = Math.min(event.clientX, window.innerWidth - 205);
-            const top = Math.min(event.clientY, window.innerHeight - 220);
-            menu.style.left = Math.max(6, left) + 'px';
-            menu.style.top = Math.max(6, top) + 'px';
-            menu.style.display = 'block';
-        }
-
-        function mesajSabitleToggle(mesaj) {
-            fetch('/api/mesaj_sabitle', {
-                method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-                body:'mesaj_id=' + encodeURIComponent(mesaj.id) + '&oda=' + encodeURIComponent(aktifOda) + '&sabitle=' + (sabitMesajIds.has(String(mesaj.id)) ? '0' : '1')
-            }).then(r => r.json()).then(res => {
-                if (!res.basarili) { alert('⚠️ ' + (res.hata || 'Mesaj sabitlenemedi.')); return; }
-                sabitMesajVerileri = Array.isArray(res.sabit_mesajlar) ? res.sabit_mesajlar : [];
-                sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
-                const menu = document.getElementById('mesajContextMenu'); if (menu) menu.style.display = 'none';
-                mesajlariGuncelle(true);
-            }).catch(() => alert('⚠️ Sabitleme sırasında bağlantı hatası oluştu.'));
-        }
-
         function mentionKullanicilariniYukle() {
             fetch('/api/kullanicilar')
                 .then(res => res.json())
@@ -2518,21 +2443,10 @@ mesaj_html = """
                             if (u.isim === secili) opt.selected = true;
                             hedefSec.appendChild(opt);
                         });
-                        hedefSec.onchange = () => odaYetkiYukle();
 
                         document.getElementById('odaLiderYapSatiri').style.display = data.lider_mi ? 'flex' : 'none';
                         document.getElementById('odaSifreDegistirBlok').style.display = data.lider_mi ? 'block' : 'none';
                         document.getElementById('odaKapatSatiri').style.display = (data.lider_mi && aktifOda !== 'Genel') ? 'flex' : 'none';
-                        const ozelBlok = document.getElementById('odaOzelYetkiBlok');
-                        if (ozelBlok) {
-                            ozelBlok.style.display = data.lider_mi ? 'block' : 'none';
-                            const seciliUye = (data.uyeler || []).find(u => u.isim === hedefSec.value);
-                            const yetkiler = (seciliUye && seciliUye.ozel_yetkiler) || {};
-                            document.getElementById('yetkiMesajSil').checked = !!yetkiler.mesaj_sil;
-                            document.getElementById('yetkiMesajSabitle').checked = !!yetkiler.mesaj_sabitle;
-                            document.getElementById('yetkiKullaniciAt').checked = !!yetkiler.kullanici_at;
-                            document.getElementById('yetkiRolVer').checked = !!yetkiler.rol_ver;
-                        }
                     } else {
                         yetkisizKutu.style.display = 'block';
                         icerikKutu.style.display = 'none';
@@ -2553,24 +2467,6 @@ mesaj_html = """
                 if (res.basarili) odaYetkiYukle();
                 else alert("⚠️ " + (res.hata || "İşlem başarısız."));
             });
-        }
-
-        function odaOzelYetkileriKaydet() {
-            const hedef = document.getElementById('odaYonetimHedef').value;
-            if (!hedef) return;
-            const veri = {
-                mesaj_sil: document.getElementById('yetkiMesajSil').checked,
-                mesaj_sabitle: document.getElementById('yetkiMesajSabitle').checked,
-                kullanici_at: document.getElementById('yetkiKullaniciAt').checked,
-                rol_ver: document.getElementById('yetkiRolVer').checked
-            };
-            fetch('/api/oda_ozel_yetki', {
-                method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-                body:'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef) + '&yetkiler=' + encodeURIComponent(JSON.stringify(veri))
-            }).then(r => r.json()).then(res => {
-                if (res.basarili) { alert('✅ Oda özel yetkileri kaydedildi.'); odaYetkiYukle(); }
-                else alert('⚠️ ' + (res.hata || 'Yetkiler kaydedilemedi.'));
-            }).catch(() => alert('⚠️ Yetkiler kaydedilirken bağlantı hatası oluştu.'));
         }
 
         function odaLiderYap() {
@@ -2824,6 +2720,63 @@ function kullanicilariGuncelle() {
             div.addEventListener('pointerleave', temizle);
         }
 
+        let sabitMesajIds = new Set();
+        let sabitMesajVerileri = [];
+
+        document.addEventListener('click', (event) => {
+            const menu = document.getElementById('mesajContextMenu');
+            if (menu && menu.style.display === 'block' && !menu.contains(event.target)) menu.style.display = 'none';
+        });
+
+        function mesajContextMenusuAc(event, mesaj) {
+            event.preventDefault();
+            event.stopPropagation();
+            const menu = document.getElementById('mesajContextMenu');
+            if (!menu || !mesaj || !mesaj.id) return;
+            menu.innerHTML = '';
+            const maddeler = [
+                ['↩️ Yanıtla', () => yanitHazirla(mesaj)],
+                ['📋 Kopyala', () => {
+                    const txt = String(mesaj.mesaj || '');
+                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(() => {});
+                    menu.style.display = 'none';
+                }],
+                ['👤 Kullanıcı Bilgisi', () => { menu.style.display = 'none'; kullaniciBilgiAc(mesaj.gonderen); }],
+                [sabitMesajIds.has(String(mesaj.id)) ? '📌 Sabitlemeyi Kaldır' : '📌 Sabitle', () => mesajSabitleToggle(mesaj)],
+                ['⚠️ Şikayet Et', () => { menu.style.display = 'none'; sikayetPenceresiAc(mesaj.gonderen, mesaj); }]
+            ];
+            if (mesaj.gonderen === "{{ kullanici }}") maddeler.push(['🗑️ Sil', () => { menu.style.display = 'none'; mesajSil(mesaj.id); }]);
+            maddeler.forEach(([baslik, fn]) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = baslik;
+                if (baslik.includes('Sil')) b.className = 'danger';
+                b.onclick = (e) => { e.stopPropagation(); fn(); };
+                menu.appendChild(b);
+            });
+            const left = Math.min(event.clientX, window.innerWidth - 205);
+            const top = Math.min(event.clientY, window.innerHeight - 230);
+            menu.style.left = Math.max(6, left) + 'px';
+            menu.style.top = Math.max(6, top) + 'px';
+            menu.style.display = 'block';
+        }
+
+        function mesajSabitleToggle(mesaj) {
+            const yeni = sabitMesajIds.has(String(mesaj.id)) ? '0' : '1';
+            fetch('/api/mesaj_sabitle', {
+                method:'POST',
+                headers:{'Content-Type':'application/x-www-form-urlencoded'},
+                body:'mesaj_id=' + encodeURIComponent(mesaj.id) + '&oda=' + encodeURIComponent(aktifOda) + '&sabitle=' + yeni
+            }).then(r => r.json()).then(res => {
+                if (!res.basarili) { alert('⚠️ ' + (res.hata || 'Mesaj sabitlenemedi.')); return; }
+                sabitMesajVerileri = Array.isArray(res.sabit_mesajlar) ? res.sabit_mesajlar : [];
+                sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
+                const menu = document.getElementById('mesajContextMenu');
+                if (menu) menu.style.display = 'none';
+                mesajlariGuncelle(true);
+            }).catch(() => alert('⚠️ Sabitleme sırasında bağlantı hatası oluştu.'));
+        }
+
         function mesajlariGuncelle(zorla = false) {
             if (zorla) { sonMesajSayisi = 0; ilkYukleme = true; }
             fetch('/api/mesajlar?oda=' + encodeURIComponent(aktifOda))
@@ -2850,9 +2803,11 @@ function kullanicilariGuncelle() {
                         document.getElementById('pinnedBanner').style.display = 'none';
                     }
 
-                    const msgs = data.mesajlar || [];
                     sabitMesajVerileri = Array.isArray(data.sabit_mesajlar) ? data.sabit_mesajlar : [];
                     sabitMesajIds = new Set(sabitMesajVerileri.map(x => String(x.id)));
+
+                    const msgs = data.mesajlar || [];
+
                     if (!ilkYukleme && msgs.length > sonMesajSayisi) {
                         const sonMesaj = msgs[msgs.length - 1];
                         if (sonMesaj.gonderen === '📢 ALARM') {
@@ -2899,8 +2854,6 @@ function kullanicilariGuncelle() {
                             }
                         } else {
                             div.className = isPrivate ? 'msg-private' : (isDuyuru ? 'msg-item msg-duyuru' : 'msg-item');
-                            if (m.id && sabitMesajIds.has(String(m.id))) div.classList.add('pinned-msg');
-                            div.oncontextmenu = (event) => mesajContextMenusuAc(event, m);
 
                             const head = document.createElement('div');
                             head.className = 'msg-head';
@@ -2974,10 +2927,12 @@ function kullanicilariGuncelle() {
                             mesajMetniRenderEt(govde, m.mesaj);
                             div.appendChild(govde);
 
+                            if (m.id && sabitMesajIds.has(String(m.id))) div.classList.add('pinned-msg');
                             if (!isDuyuru && m.gonderen) {
                                 div.style.cursor = 'pointer';
                                 div.title = 'Kullanıcı bilgilerini aç';
                                 div.onclick = () => kullaniciBilgiAc(m.gonderen);
+                                div.oncontextmenu = (event) => mesajContextMenusuAc(event, m);
                             }
                             mesajSwipeKur(div, m);
                         }
@@ -3151,6 +3106,7 @@ function kullanicilariGuncelle() {
             mesajInput.addEventListener('click', mentionIcerikGuncelle);
         }
         mentionKullanicilariniYukle();
+
         setInterval(odalariGuncelle, 5000);
         setInterval(kullanicilariGuncelle, 5000);
         setInterval(mesajlariGuncelle, 1000);
@@ -3296,7 +3252,7 @@ def giris():
                     if kilitlendi:
                         hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
-                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme.get(_giris_koruma_anahtari(), {"sayi": 0})["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -3314,7 +3270,7 @@ def giris():
                     if kilitlendi:
                         hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
-                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
+                        kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme.get(_giris_koruma_anahtari(), {"sayi": 0})["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
                     return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
@@ -3625,8 +3581,7 @@ def get_oda_yetki():
             "isim": isim,
             "rol": oda_rolunu_al(oda, isim),
             "banli": oda_banli_mi(oda, isim),
-            "ban_kalan_dk": oda_gecici_ban_kalan_dk(oda, isim),
-            "ozel_yetkiler": dict(oda_ozel_yetkileri.get(oda, {}).get(isim, {}))
+            "ban_kalan_dk": oda_gecici_ban_kalan_dk(oda, isim)
         })
 
     return jsonify({
@@ -3642,30 +3597,6 @@ def get_oda_yetki():
         "uyeler": uyeler
     })
 
-@app.route("/api/oda_ozel_yetki", methods=["POST"])
-def post_oda_ozel_yetki():
-    if "kullanici" not in session:
-        return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
-    kullanici = session["kullanici"]
-    oda = (request.form.get("oda") or "Genel").strip()
-    hedef = (request.form.get("hedef") or "").strip()
-    try:
-        yetkiler = json.loads(request.form.get("yetkiler", "{}"))
-    except Exception:
-        yetkiler = {}
-    if oda not in odalar_db:
-        return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
-    if not oda_lideri_mi(oda, kullanici):
-        return jsonify({"basarili": False, "hata": "Özel yetkileri yalnızca oda lideri değiştirebilir."}), 403
-    if hedef not in kullanici_db or hedef == oda_liderleri.get(oda):
-        return jsonify({"basarili": False, "hata": "Bu kullanıcı için özel yetki ayarlanamaz."}), 400
-    izinler = {k: bool(yetkiler.get(k, False)) for k in ("mesaj_sil", "mesaj_sabitle", "kullanici_at", "rol_ver")}
-    with veri_kilidi:
-        oda_ozel_yetkileri.setdefault(oda, {})[hedef] = izinler
-    log_ekle(f"'{kullanici}', '{oda}' odasında '{hedef}' için özel yetkileri güncelledi.")
-    durumu_kaydet()
-    return jsonify({"basarili": True, "yetkiler": izinler})
-
 @app.route("/api/oda_rol_ver", methods=["POST"])
 def post_oda_rol_ver():
     if "kullanici" not in session:
@@ -3679,8 +3610,8 @@ def post_oda_rol_ver():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    # Rol verme yetkisi liderde veya oda özel yetkisi olan kişidedir.
-    if not oda_yetkisi_var_mi(oda, kullanici, "rol_ver"):
+    # Rol atama yetkisi yalnızca odanın liderinde (veya sistem Sistem'inde) olsun
+    if not oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu işlem için odanın lideri olmanız gerekir."})
 
     if hedef not in kullanici_db:
@@ -3715,8 +3646,8 @@ def post_oda_kick():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    if not oda_yetkisi_var_mi(oda, kullanici, "kullanici_at"):
-        return jsonify({"basarili": False, "hata": "Bu işlem için bu odada yetkiniz yok."})
+    if not oda_yonetebilir_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Bu odayı yönetme yetkiniz yok."})
 
     if oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
@@ -3761,8 +3692,8 @@ def post_oda_ban():
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
 
-    if not oda_yetkisi_var_mi(oda, kullanici, "kullanici_at"):
-        return jsonify({"basarili": False, "hata": "Bu işlem için bu odada yetkiniz yok."})
+    if not oda_yonetebilir_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Bu odayı yönetme yetkiniz yok."})
 
     if oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Oda sahibi bu işlemi yapamaz."})
@@ -3869,11 +3800,39 @@ def get_mesajlar():
     sabitler = sabit_mesajlar.get(aktif_oda, [])
     mevcut_ids = {str(m.get("id", "")) for m in sohbet_gecmisi}
     sabitler = [m for m in sabitler if str(m.get("id", "")) in mevcut_ids]
-    if len(sabitler) != len(sabit_mesajlar.get(aktif_oda, [])):
-        with veri_kilidi:
-            if sabitler: sabit_mesajlar[aktif_oda] = sabitler
-            else: sabit_mesajlar.pop(aktif_oda, None)
     return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "sabit_mesajlar": sabitler, "oda_banli": oda_banli})
+
+@app.route("/api/mesaj_sabitle", methods=["POST"])
+def post_mesaj_sabitle():
+    kullanici = session.get("kullanici")
+    if not kullanici:
+        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
+    mesaj_id = (request.form.get("mesaj_id") or "").strip()
+    oda = (request.form.get("oda") or "Genel").strip()
+    sabitle = request.form.get("sabitle", "1") == "1"
+    if not mesaj_id or oda not in odalar_db:
+        return jsonify({"basarili": False, "hata": "Geçersiz mesaj veya oda."}), 400
+    with veri_kilidi:
+        bulunan = next((m for m in sohbet_gecmisi if str(m.get("id", "")) == mesaj_id), None)
+        if not bulunan:
+            return jsonify({"basarili": False, "hata": "Mesaj bulunamadı."}), 404
+        if bulunan.get("oda", "Genel") != oda or bulunan.get("gonderen") in ["📢 SAYAÇ", "📢 ALARM"] or bulunan.get("tur") == "duyuru":
+            return jsonify({"basarili": False, "hata": "Bu mesaj bu odada sabitlenemez."}), 400
+        # Sabitleme yetkisi yalnızca oda lideri ve Sistem'de.
+        if kullanici != "Sistem" and not oda_lideri_mi(oda, kullanici):
+            return jsonify({"basarili": False, "hata": "Bu odada mesaj sabitleme yetkiniz yok."}), 403
+        mevcut = [m for m in sabit_mesajlar.get(oda, []) if str(m.get("id", "")) != mesaj_id]
+        if sabitle:
+            if len(mevcut) >= 10:
+                return jsonify({"basarili": False, "hata": "Bir odada en fazla 10 sabit mesaj olabilir."}), 400
+            mevcut.insert(0, {"id": bulunan.get("id"), "gonderen": bulunan.get("gonderen"), "mesaj": bulunan.get("mesaj", ""), "zaman": bulunan.get("zaman", 0), "alici": bulunan.get("alici", "Genel"), "oda": oda})
+        if mevcut:
+            sabit_mesajlar[oda] = mevcut[:10]
+        else:
+            sabit_mesajlar.pop(oda, None)
+    durumu_kaydet()
+    log_ekle(f"'{kullanici}' '{oda}' odasında mesaj {'sabitledi' if sabitle else 'sabitlemesini kaldırdı'}: {mesaj_id}")
+    return jsonify({"basarili": True, "sabit_mesajlar": sabit_mesajlar.get(oda, [])})
 
 @app.route("/api/mesaj_sil", methods=["POST"])
 def post_mesaj_sil():
@@ -3895,60 +3854,24 @@ def post_mesaj_sil():
         if not bulunan:
             return jsonify({"basarili": False, "hata": "Mesaj bulunamadı."}), 404
 
-        if bulunan.get("gonderen") != kullanici and not oda_yetkisi_var_mi(bulunan.get("oda", "Genel"), kullanici, "mesaj_sil"):
-            return jsonify({"basarili": False, "hata": "Bu mesajı silmek için oda yetkiniz yok."}), 403
+        if bulunan.get("gonderen") != kullanici:
+            return jsonify({"basarili": False, "hata": "Sadece kendi mesajınızı silebilirsiniz."}), 403
 
         # Duyuru/sistem mesajları normal kullanıcı mesajı olarak silinemez.
         if bulunan.get("gonderen") in ["Sistem", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"] or bulunan.get("tur") == "duyuru":
             return jsonify({"basarili": False, "hata": "Bu mesaj silinemez."}), 403
 
         sohbet_gecmisi.remove(bulunan)
-        mesaj_oda = bulunan.get("oda", "Genel")
-        sabit_mesajlar[mesaj_oda] = [m for m in sabit_mesajlar.get(mesaj_oda, []) if str(m.get("id", "")) != mesaj_id]
-        if not sabit_mesajlar[mesaj_oda]: sabit_mesajlar.pop(mesaj_oda, None)
         try:
             guncel_veriler = dict(veriler)
-            guncel_veriler["sabit_mesajlar"] = {k: list(v) for k, v in sabit_mesajlar.items()}
             guncel_veriler["sohbet_gecmisi"] = list(sohbet_gecmisi)
             verileri_kaydet(guncel_veriler)
         except Exception as e:
             # Bellekten de silindi; kalıcı kayıt başarısızsa kullanıcıya bilgi ver.
             return jsonify({"basarili": False, "hata": f"Mesaj silindi ancak kayıt güncellenemedi: {e}"}), 500
 
-    log_ekle(f"'{kullanici}' mesaj sildi: {mesaj_id}")
+    log_ekle(f"'{kullanici}' kendi mesajını sildi: {mesaj_id}")
     return jsonify({"basarili": True})
-
-@app.route("/api/mesaj_sabitle", methods=["POST"])
-def post_mesaj_sabitle():
-    kullanici = session.get("kullanici")
-    if not kullanici:
-        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-    mesaj_id = (request.form.get("mesaj_id") or "").strip()
-    oda = (request.form.get("oda") or "Genel").strip()
-    sabitle = request.form.get("sabitle", "1") == "1"
-    if not mesaj_id or oda not in odalar_db:
-        return jsonify({"basarili": False, "hata": "Geçersiz mesaj veya oda."}), 400
-    if not oda_yetkisi_var_mi(oda, kullanici, "mesaj_sabitle"):
-        return jsonify({"basarili": False, "hata": "Bu odada mesaj sabitleme yetkiniz yok."}), 403
-    with veri_kilidi:
-        bulunan = next((m for m in sohbet_gecmisi if str(m.get("id", "")) == mesaj_id), None)
-        if not bulunan:
-            return jsonify({"basarili": False, "hata": "Mesaj bulunamadı."}), 404
-        if bulunan.get("oda", "Genel") != oda or bulunan.get("gonderen") in ["📢 SAYAÇ", "📢 ALARM"]:
-            return jsonify({"basarili": False, "hata": "Bu mesaj bu odada sabitlenemez."}), 400
-        mevcut = list(sabit_mesajlar.get(oda, []))
-        mevcut = [m for m in mevcut if str(m.get("id", "")) != mesaj_id]
-        if sabitle:
-            if len(mevcut) >= 10:
-                return jsonify({"basarili": False, "hata": "Bir odada en fazla 10 sabit mesaj olabilir."}), 400
-            mevcut.insert(0, {"id": bulunan.get("id"), "gonderen": bulunan.get("gonderen"), "mesaj": bulunan.get("mesaj", ""), "zaman": bulunan.get("zaman", 0), "alici": bulunan.get("alici", "Genel"), "oda": oda})
-        if mevcut:
-            sabit_mesajlar[oda] = mevcut[:10]
-        else:
-            sabit_mesajlar.pop(oda, None)
-    log_ekle(f"'{kullanici}' '{oda}' odasında bir mesajı {'sabitledi' if sabitle else 'sabitlemeyi kaldırdı'}: {mesaj_id}")
-    durumu_kaydet()
-    return jsonify({"basarili": True, "sabit_mesajlar": sabit_mesajlar.get(oda, [])})
 
 @app.route("/api/yaziyor", methods=["POST"])
 def post_yaziyor():
