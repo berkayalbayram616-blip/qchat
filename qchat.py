@@ -855,45 +855,74 @@ sabit_duyuru = veriler.get("sabit_duyuru", "") or ""
 zorla_cikis = set()
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
-GIRIS_MAKS_DENEME = 5          # bu sayıda hatalı şifreden sonra hesap kilitlenir
-GIRIS_KILIT_SANIYE = 30 * 60   # kilit süresi: 30 dakika
-GIRIS_DENEME_SIFIRLAMA_SANIYE = 15 * 60  # bu süre boyunca hiç deneme yoksa sayaç sıfırlanır
+GIRIS_MAKS_DENEME = 5          # Aynı giriş yapan kişi 5 hatalı denemeden sonra kilitlenir.
+GIRIS_KILIT_SANIYE = 30 * 60   # Kilit süresi: 30 dakika
+GIRIS_DENEME_SIFIRLAMA_SANIYE = 15 * 60  # Bu süre boyunca hiç deneme yoksa sayaç sıfırlanır.
+GIRIS_KORUMA_COOKIE = "qchat_login_guard"
 
-giris_hatali_deneme = {}  # {kullanici_adi: {"sayi": int, "son_deneme": zaman}}
-giris_kilitli = {}        # {kullanici_adi: kilit_bitis_zamani}
+giris_hatali_deneme = {}  # {giris_koruma_anahtari: {"sayi": int, "son_deneme": zaman}}
+giris_kilitli = {}        # {giris_koruma_anahtari: kilit_bitis_zamani}
 
-def giris_kilidini_kontrol_et(kullanici):
-    """Kullanıcı kilitliyse kalan süreyi (saniye) döndürür, değilse None döndürür."""
-    bitis = giris_kilitli.get(kullanici)
+def _giris_koruma_anahtari():
+    """Hatalı girişleri hedef hesaptan bağımsız olarak giriş yapan tarayıcıya bağlar."""
+    anahtar = getattr(request, "_qchat_login_guard", None)
+    if not anahtar:
+        anahtar = request.cookies.get(GIRIS_KORUMA_COOKIE) or secrets.token_urlsafe(32)
+        request._qchat_login_guard = anahtar
+    return anahtar
+
+@app.after_request
+def giris_koruma_cookie_yaz(response):
+    """Giriş koruma kimliğini hesap oturumundan bağımsız, ayrı bir cookie olarak tutar."""
+    try:
+        if request.path == "/giris" and not request.cookies.get(GIRIS_KORUMA_COOKIE):
+            response.set_cookie(
+                GIRIS_KORUMA_COOKIE,
+                _giris_koruma_anahtari(),
+                max_age=30 * 24 * 60 * 60,
+                httponly=True,
+                samesite="Lax",
+                secure=app.config.get("SESSION_COOKIE_SECURE", False),
+            )
+    except Exception:
+        pass
+    return response
+
+def giris_kilidini_kontrol_et(kullanici=None):
+    """Giriş yapan kişi kilitliyse kalan süreyi (saniye) döndürür; hesap kilitlemez."""
+    anahtar = _giris_koruma_anahtari()
+    bitis = giris_kilitli.get(anahtar)
     if not bitis:
         return None
     kalan = bitis - time.time()
     if kalan <= 0:
-        giris_kilitli.pop(kullanici, None)
-        giris_hatali_deneme.pop(kullanici, None)
+        giris_kilitli.pop(anahtar, None)
+        giris_hatali_deneme.pop(anahtar, None)
         return None
     return kalan
 
-def giris_hatali_deneme_kaydet(kullanici):
-    """Hatalı şifre denemesini kaydeder; limit aşılırsa hesabı kilitler."""
+def giris_hatali_deneme_kaydet(kullanici=None):
+    """Hatalı şifre denemesini giriş yapan kişiye bağlar; hedef hesabı kilitlemez."""
+    anahtar = _giris_koruma_anahtari()
     simdi = time.time()
-    kayit = giris_hatali_deneme.get(kullanici)
+    kayit = giris_hatali_deneme.get(anahtar)
     if not kayit or simdi - kayit["son_deneme"] > GIRIS_DENEME_SIFIRLAMA_SANIYE:
         kayit = {"sayi": 0, "son_deneme": simdi}
     kayit["sayi"] += 1
     kayit["son_deneme"] = simdi
-    giris_hatali_deneme[kullanici] = kayit
+    giris_hatali_deneme[anahtar] = kayit
 
     if kayit["sayi"] >= GIRIS_MAKS_DENEME:
-        giris_kilitli[kullanici] = simdi + GIRIS_KILIT_SANIYE
-        giris_hatali_deneme.pop(kullanici, None)
-        log_ekle(f"'{kullanici}' hesabı {GIRIS_MAKS_DENEME} hatalı denemeden sonra 30 dakika kilitlendi.")
+        giris_kilitli[anahtar] = simdi + GIRIS_KILIT_SANIYE
+        giris_hatali_deneme.pop(anahtar, None)
+        log_ekle(f"Giriş yapan kişi {GIRIS_MAKS_DENEME} hatalı denemeden sonra 30 dakika kilitlendi.")
         return True
     return False
 
-def giris_denemesini_temizle(kullanici):
-    giris_hatali_deneme.pop(kullanici, None)
-    giris_kilitli.pop(kullanici, None)
+def giris_denemesini_temizle(kullanici=None):
+    anahtar = _giris_koruma_anahtari()
+    giris_hatali_deneme.pop(anahtar, None)
+    giris_kilitli.pop(anahtar, None)
 
 YASAKLI_KELIMELER = [
     "amk", "aq", "sik", "siktir", "piç", "pic", "orospu", "yarrak", "yarak",
@@ -3128,7 +3157,7 @@ def giris():
             kalan_kilit = giris_kilidini_kontrol_et(kullanici)
             if kalan_kilit is not None:
                 kalan_dk = max(1, int(kalan_kilit // 60) + 1)
-                hata = f"🔒 Çok fazla hatalı deneme! Hesap {kalan_dk} dakika daha kilitli."
+                hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {kalan_dk} dakika kilitli."
                 return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
             if kullanici in kullanici_db:
@@ -3143,7 +3172,7 @@ def giris():
                 else:
                     kilitlendi = giris_hatali_deneme_kaydet(kullanici)
                     if kilitlendi:
-                        hata = f"🔒 Çok fazla hatalı deneme! Hesap {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
+                        hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
                         kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
@@ -3161,7 +3190,7 @@ def giris():
                 else:
                     kilitlendi = giris_hatali_deneme_kaydet(kullanici)
                     if kilitlendi:
-                        hata = f"🔒 Çok fazla hatalı deneme! Hesap {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
+                        hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {GIRIS_KILIT_SANIYE // 60} dakika kilitlendi."
                     else:
                         kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[kullanici]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
