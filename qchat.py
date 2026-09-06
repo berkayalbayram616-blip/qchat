@@ -1709,6 +1709,16 @@ mesaj_html = """
             padding: 6px 8px; margin-bottom: 8px; font-size: 12px; font-weight: 600;
             display: none; color: #6b5200;
         }
+        .oda-sonuc-bildirimi {
+            display: none; padding: 8px 10px; margin-bottom: 8px; border-radius: 5px;
+            font-size: 12px; font-weight: 700; line-height: 1.4;
+        }
+        .oda-sonuc-bildirimi.onay {
+            background: #edf9f0; border: 1px solid #8fcea0; color: #17682e;
+        }
+        .oda-sonuc-bildirimi.red {
+            background: #fff0ee; border: 1px solid #dfaaa3; color: #9f2b20;
+        }
 
         .panel-row {
             display: flex; gap: 6px; margin-bottom: 8px;
@@ -1855,6 +1865,7 @@ mesaj_html = """
         <div class="win7-titlebar"><span>💬</span><span>Konuşma</span></div>
         <div class="content">
             <div id="pinnedBanner" class="pinned-banner">📌 <span id="pinnedText"></span></div>
+            <div id="odaSonucBildirimi" class="oda-sonuc-bildirimi"><span id="odaSonucMetni"></span></div>
 
             <div class="topbar">
                 <div class="user-info">👤 {{ kullanici }}</div>
@@ -2548,17 +2559,26 @@ mesaj_html = """
                 .catch(err => alert("İşlem sırasında hata oluştu: " + err));
         }
 
+        function odaSonucBildirimiGoster(durum, mesaj, oda) {
+            const kutu = document.getElementById('odaSonucBildirimi');
+            const metin = document.getElementById('odaSonucMetni');
+            if (!kutu || !metin) return;
+            kutu.className = 'oda-sonuc-bildirimi ' + (durum === 'onay' ? 'onay' : 'red');
+            metin.textContent = (durum === 'onay' ? '✅ ' : '❌ ') + (mesaj || (durum === 'onay' ? 'Oda isteğiniz kabul edildi.' : 'Oda isteğiniz reddedildi.'));
+            kutu.style.display = 'block';
+            clearTimeout(window.odaSonucBildirimTimer);
+            window.odaSonucBildirimTimer = setTimeout(() => { kutu.style.display = 'none'; }, 7000);
+        }
+
         function odaIzinDurumuKontrol() {
             fetch('/api/oda_izin_durumu').then(r => r.json()).then(data => {
                 if (data.bekliyor) return;
                 if (data.sonuc) {
                     const s = data.sonuc;
-                    if (s.durum === 'onay') {
-                        alert("✅ Admin oda isteğinizi onayladı. " + s.mesaj);
-                        odalariGuncelle();
-                    } else if (s.durum === 'red') {
-                        alert("❌ Oda isteğiniz reddedildi. " + (s.mesaj || ''));
-                    }
+                    odaSonucBildirimiGoster(s.durum, s.mesaj, s.oda);
+                    const bilgi = document.getElementById('odaIstekBilgi');
+                    if (bilgi) bilgi.textContent = s.durum === 'onay' ? '✅ Oda isteğiniz kabul edildi.' : '❌ Oda isteğiniz reddedildi.';
+                    if (s.durum === 'onay') odalariGuncelle();
                 }
             }).catch(() => {});
         }
@@ -2983,10 +3003,12 @@ function kullanicilariGuncelle() {
         setInterval(odalariGuncelle, 5000);
         setInterval(kullanicilariGuncelle, 5000);
         setInterval(mesajlariGuncelle, 1000);
+        setInterval(odaIzinDurumuKontrol, 1500);
         odalariGuncelle();
         kullanicilariGuncelle();
         mesajlariGuncelle();
         odaYetkiYukle();
+        odaIzinDurumuKontrol();
     </script>
 </body>
 </html>
