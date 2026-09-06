@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import logging
+import urllib.parse
 try:
     import keyboard
 except Exception:
@@ -190,6 +191,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
   <nav class="nav" id="nav">
     <button class="active" data-tab="dashboard">🏠 Genel Bakış</button>
     <button data-tab="users">👥 Kullanıcılar <span class="pill">{{ toplam_kullanici }}</span></button>
+    <button data-tab="sorgu">🔎 Sorgula <span class="pill">{{ aktif_sorgu_sayisi }}</span></button>
     <button data-tab="chat">💬 Canlı Sohbet</button>
     <button data-tab="rooms">🏠 Odalar</button>
     <button data-tab="roomrequests">📨 Oda İstekleri {% if oda_istek_sayisi %}<span class="pill">{{ oda_istek_sayisi }}</span>{% endif %}</button>
@@ -268,6 +270,80 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 {% if duzenlenen %}<div class="box" style="margin-top:12px"><h3>✏️ Hesap Düzenle — {{ duzenlenen }}</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duzenle"><input type="hidden" name="eski_isim" value="{{ duzenlenen }}"><input type="hidden" name="hedef" value="{{ duzenlenen }}"><div class="form-grid"><div class="field"><label>Yeni kullanıcı adı</label><input name="yeni_isim" value="{{ duzenlenen }}"></div><div class="field"><label>Yeni şifre (boş = değiştirme)</label><input type="password" name="yeni_sifre"></div></div><button class="btn green">💾 Kaydet</button></form></div>{% endif %}
 </section>
 
+<section id="sorgu" class="section">
+<div class="grid">
+  <div class="box">
+    <h2>🔎 Zorunlu Görüşme / Sorgu</h2>
+    <p class="muted" style="font-size:12px">Bir kullanıcı seçtiğinizde o kullanıcı normal sohbetten çıkarılır ve yalnızca bu görüşme ekranına alınır. Görüşmeyi bitirdiğinizde tekrar normal sohbete döner.</p>
+    <form method="post" action="/admin/islem" onsubmit="return confirm('Seçtiğiniz kullanıcı için zorunlu görüşme başlatılsın mı?')">
+      <input type="hidden" name="islem" value="sorgu_baslat">
+      <div class="field"><label>Kullanıcı seç</label>
+        <select name="hedef" required>
+          <option value="">— Kullanıcı seçin —</option>
+          {% for u in kullanicilar if u.isim != admin %}
+          <option value="{{ u.isim }}">{{ u.isim }}{% if u.online %} • Online{% endif %}{% if u.isim in aktif_sorgular %} • Zaten sorguda{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn purple" type="submit">🔎 Sorguyu Başlat</button>
+    </form>
+  </div>
+  <div class="box">
+    <h3>📌 Aktif Sorgular</h3>
+    {% if aktif_sorgular_gorunum %}
+      <div class="room-grid">
+      {% for s in aktif_sorgular_gorunum %}
+        <div class="room">
+          <div class="room-top"><strong>👤 {{ s.kullanici }}</strong><span class="pill">🔴 Aktif</span></div>
+          <div class="sub">Başlatan: <b>{{ s.baslatan }}</b><br>Başlangıç: {{ s.baslangic }}</div>
+          <div class="actions" style="margin-top:8px">
+            <a class="btn light" href="/admin?sorgu={{ s.kullanici }}#sorgu">💬 Görüşmeyi Aç</a>
+            <form method="post" action="/admin/islem" onsubmit="return confirm('{{ s.kullanici }} ile yapılan görüşme bitirilsin mi?')">
+              <input type="hidden" name="islem" value="sorgu_bitir">
+              <input type="hidden" name="hedef" value="{{ s.kullanici }}">
+              <button class="btn red">✅ Sorguyu Bitir</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">Aktif zorunlu görüşme yok.</div>
+    {% endif %}
+  </div>
+</div>
+{% if sorgu_secili %}
+<div class="box" style="margin-top:12px">
+  <div class="toolbar">
+    <h2 style="margin:0;flex:1">💬 {{ sorgu_secili }} ile Zorunlu Görüşme</h2>
+    <form method="post" action="/admin/islem" onsubmit="return confirm('Bu sorgu bitirilsin mi?')">
+      <input type="hidden" name="islem" value="sorgu_bitir">
+      <input type="hidden" name="hedef" value="{{ sorgu_secili }}">
+      <button class="btn red">✅ Sorguyu Bitir</button>
+    </form>
+  </div>
+  <div class="chat-stream" id="sorguChatStream" style="height:420px">
+    {% if sorgu_mesajlar_gorunum %}
+      {% for m in sorgu_mesajlar_gorunum %}
+      <div class="chat-item">
+        <div class="chat-head"><b>{{ m.gonderen }}</b> • {{ m.zaman }}</div>
+        <div class="chat-body">{{ m.mesaj }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Henüz mesaj yok. Görüşmeyi siz başlatabilirsiniz.</div>
+    {% endif %}
+  </div>
+  <form class="compose" method="post" action="/admin/islem">
+    <input type="hidden" name="islem" value="sorgu_mesaj">
+    <input type="hidden" name="hedef" value="{{ sorgu_secili }}">
+    <input name="mesaj" maxlength="500" placeholder="{{ sorgu_secili }} kullanıcısına yazın…" required autocomplete="off">
+    <button class="btn">📤 Gönder</button>
+  </form>
+</div>
+{% endif %}
+</section>
+
 <section id="chat" class="section"><div class="grid"><div class="box"><h2>💬 Canlı Sohbet Akışı</h2><div class="toolbar"><div class="grow"><input id="chatSearch" placeholder="Mesaj veya kullanıcı ara…" oninput="filtreChat()"></div><select id="chatRoom" onchange="filtreChat()"><option value="all">Tüm odalar</option>{% for oda in odalar %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="chat-stream" id="chatStream">{% if son_mesajlar %}{% for m in son_mesajlar %}<div class="chat-item{% if m.tur == 'duyuru' %} notice{% endif %}" data-search="{{ (m.gonderen ~ ' ' ~ m.mesaj ~ ' ' ~ m.oda)|lower }}" data-room="{{ m.oda }}"><div class="chat-head"><b>{{ '📢 DUYURU' if m.tur == 'duyuru' else m.gonderen }}</b> • {{ m.oda }} • {{ m.zaman }}</div><div class="chat-body">{{ m.mesaj }}</div>{% if m.idx is defined %}<div class="actions" style="margin-top:5px"><form method="post" action="/admin/mesaj_sil"><input type="hidden" name="idx" value="{{ m.idx }}"><button class="btn red" onclick="return confirm('Bu mesajı silmek istediğine emin misin?')">🗑 Sil</button></form></div>{% endif %}</div>{% endfor %}{% else %}<div class="empty">Henüz mesaj bulunmuyor.</div>{% endif %}</div></div>
 <div class="box"><h2>✍️ Admin olarak yaz</h2><p class="muted">Gönderilen mesaj mevcut sohbet akışına <b>Admin</b> kimliğiyle eklenir ve mesaj kuyruğuna iletilir.</p><form class="compose" method="post" action="/admin/admin_mesaj_form"><input name="mesaj" maxlength="500" placeholder="Kullanıcılara gönderilecek mesaj…" required><button class="btn">📤 Gönder</button></form><div class="notice" style="margin-top:10px">Bu alan ayrı bir veritabanı kullanmaz; mevcut <b>sohbet_gecmisi</b> üzerinde çalışır.</div></div></div></section>
 
@@ -332,7 +408,7 @@ let auto=true, timer=null;
 const users={{ kullanicilar|tojson }};
 function sekmeAc(id){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));localStorage.setItem('qchatAdminTab',id);window.scrollTo({top:0,behavior:'smooth'});}
 document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>sekmeAc(b.dataset.tab)));
-(function(){const saved=localStorage.getItem('qchatAdminTab');if(saved&&document.getElementById(saved))sekmeAc(saved);baslatOtomatik();})();
+(function(){const q=new URLSearchParams(location.search).get('sorgu');const saved=localStorage.getItem('qchatAdminTab');if(q&&document.getElementById('sorgu'))sekmeAc('sorgu');else if(saved&&document.getElementById(saved))sekmeAc(saved);baslatOtomatik();})();
 function yenile(){document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');window.location.reload();}
 function baslatOtomatik(){clearInterval(timer);if(auto)timer=setInterval(()=>{document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');},20000);document.getElementById('autoState').textContent=auto?'Açık':'Kapalı';document.getElementById('autoBtn').textContent='⏱ Otomatik: '+(auto?'Açık':'Kapalı');}
 function muteAc(isim){const modal=document.getElementById('muteModal');if(!modal)return;document.getElementById('muteTarget').value=isim;document.getElementById('muteMinutes').value=10;modal.classList.add('open');setTimeout(()=>document.getElementById('muteMinutes').focus(),50);}
@@ -440,6 +516,32 @@ def admin_panel():
             x["durum"] = x.get("durum", "Yeni")
             sikayet_gorunum.append(x)
 
+    aktif_sorgular_gorunum = []
+    with veri_kilidi:
+        for k, v in sorted(aktif_sorgular.items(), key=lambda item: item[1].get("baslangic", 0) if isinstance(item[1], dict) else 0):
+            if k not in kullanici_db:
+                continue
+            aktif_sorgular_gorunum.append({
+                "kullanici": k,
+                "baslatan": v.get("baslatan", ADMIN_KULLANICI) if isinstance(v, dict) else ADMIN_KULLANICI,
+                "baslangic": _admin_guvenli_zaman(v.get("baslangic", 0) if isinstance(v, dict) else 0),
+            })
+
+    sorgu_secili = (request.args.get("sorgu") or "").strip()
+    if sorgu_secili not in aktif_sorgular:
+        sorgu_secili = ""
+    sorgu_mesajlar_gorunum = []
+    if sorgu_secili:
+        with veri_kilidi:
+            for m in sorgu_mesajlari.get(sorgu_secili, [])[-200:]:
+                if not isinstance(m, dict):
+                    continue
+                sorgu_mesajlar_gorunum.append({
+                    "gonderen": m.get("gonderen", ""),
+                    "mesaj": m.get("mesaj", ""),
+                    "zaman": _admin_guvenli_zaman(m.get("zaman")),
+                })
+
     duzenlenen = (request.args.get("duzenle") or "").strip()
     if kullanici_adi_rezerve_mi(duzenlenen) or duzenlenen not in kullanici_db:
         duzenlenen = ""
@@ -473,6 +575,11 @@ def admin_panel():
         top_odalar=top_odalar,
         son_mesajlar=son_mesajlar,
         geri_bildirimler=geri_bildirim_gorunum,
+        aktif_sorgular=aktif_sorgular,
+        aktif_sorgu_sayisi=len(aktif_sorgular_gorunum),
+        aktif_sorgular_gorunum=aktif_sorgular_gorunum,
+        sorgu_secili=sorgu_secili,
+        sorgu_mesajlar_gorunum=sorgu_mesajlar_gorunum,
     )
 
 @app.route("/admin/cikis")
@@ -588,6 +695,8 @@ def admin_islem():
                 engellenenler.discard(hedef)
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
+                aktif_sorgular.pop(hedef, None)
+                sorgu_mesajlari.pop(hedef, None)
                 oda_kurma_izni.discard(hedef)
                 kullanici_kayit_zamani.pop(hedef, None)
                 kullanici_oturum_toplam_saniye.pop(hedef, None)
@@ -642,10 +751,34 @@ def admin_islem():
                                 if msg.get("gonderen") == eski: msg["gonderen"] = yeni_isim
                                 if msg.get("alici") == eski: msg["alici"] = yeni_isim
                             zorla_cikis.add(eski)
+                            if eski in aktif_sorgular:
+                                aktif_sorgular[yeni_isim] = aktif_sorgular.pop(eski)
+                            if eski in sorgu_mesajlari:
+                                sorgu_mesajlari[yeni_isim] = sorgu_mesajlari.pop(eski)
                             hedef_isim = yeni_isim
                     if yeni_sifre and hedef_isim in kullanici_db:
                         kullanici_db[hedef_isim] = sifre_hashle(yeni_sifre)
                     log_ekle(f"Admin '{eski}' hesabını düzenledi.")
+            elif islem == "sorgu_baslat":
+                if not hedef or hedef == ADMIN_KULLANICI or kullanici_adi_rezerve_mi(hedef) or hedef not in kullanici_db:
+                    return redirect("/admin")
+                aktif_sorgular[hedef] = {"baslatan": ADMIN_KULLANICI, "baslangic": time.time()}
+                sorgu_mesajlari.setdefault(hedef, [])
+                log_ekle(f"Admin '{hedef}' kullanıcısı için zorunlu görüşme başlattı.")
+            elif islem == "sorgu_bitir":
+                if hedef in aktif_sorgular:
+                    aktif_sorgular.pop(hedef, None)
+                    log_ekle(f"Admin '{hedef}' kullanıcısı için zorunlu görüşmeyi bitirdi.")
+            elif islem == "sorgu_mesaj":
+                mesaj = (request.form.get("mesaj") or "").strip()[:500]
+                if hedef in aktif_sorgular and mesaj:
+                    sorgu_mesajlari.setdefault(hedef, []).append({
+                        "gonderen": ADMIN_KULLANICI,
+                        "mesaj": mesaj,
+                        "zaman": time.time()
+                    })
+                    if len(sorgu_mesajlari[hedef]) > 500:
+                        sorgu_mesajlari[hedef] = sorgu_mesajlari[hedef][-500:]
             elif islem == "oda_istek_cevap":
                 hedef = (request.form.get("hedef") or "").strip()
                 cevap = request.form.get("cevap", "red").strip()
@@ -755,6 +888,8 @@ def admin_islem():
     except Exception as e:
         log_ekle(f"Admin işlemi sırasında hata: {e}")
 
+    if islem.startswith("sorgu") and hedef:
+        return redirect("/admin?sorgu=" + urllib.parse.quote(hedef) + "#sorgu")
     return redirect("/admin")
 
 def _ban_geri_bildirim_sayfasi(durum_mesaji="", gonderildi=False, status=200):
@@ -853,6 +988,16 @@ yavas_mod_saniye = int(veriler.get("yavas_mod_saniye", 0) or 0)
 kufur_filtresi = bool(veriler.get("kufur_filtresi", False))
 sabit_duyuru = veriler.get("sabit_duyuru", "") or ""
 zorla_cikis = set()
+
+# ==================== ZORUNLU SORGU / GÖRÜŞME SİSTEMİ ====================
+# {kullanici: {"baslatan": admin_adi, "baslangic": unix_zamani}}
+aktif_sorgular = veriler.get("aktif_sorgular", {})
+# {kullanici: [{"gonderen": ..., "mesaj": ..., "zaman": ...}, ...]}
+sorgu_mesajlari = veriler.get("sorgu_mesajlari", {})
+if not isinstance(aktif_sorgular, dict):
+    aktif_sorgular = {}
+if not isinstance(sorgu_mesajlari, dict):
+    sorgu_mesajlari = {}
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
 GIRIS_MAKS_DENEME = 5          # Aynı giriş yapan kişi 5 hatalı denemeden sonra kilitlenir.
@@ -1290,6 +1435,8 @@ def durumu_kaydet():
             "yavas_mod_saniye": yavas_mod_saniye,
             "kufur_filtresi": kufur_filtresi,
             "sabit_duyuru": sabit_duyuru,
+            "aktif_sorgular": dict(aktif_sorgular),
+            "sorgu_mesajlari": {k: list(v) for k, v in sorgu_mesajlari.items()},
         }
     verileri_kaydet(guncel_veriler)
 
@@ -1371,6 +1518,14 @@ def guvenlik_kontrolu():
         if request.path.startswith("/api/"):
             return "Kick", 403
         return redirect("/giris")
+
+    # Zorunlu görüşme aktifken kullanıcı normal sohbet ve diğer kullanıcı ekranlarına erişemez.
+    # Sadece sorgu ekranı, sorgu API'leri ve normal çıkış yolu açık bırakılır.
+    if kullanici and kullanici in aktif_sorgular:
+        if request.path not in {"/sorgu", "/cikis"} and not request.path.startswith("/api/sorgu/"):
+            if request.path.startswith("/api/"):
+                return jsonify({"zorunlu_sorgu": True, "hata": "Zorunlu görüşme aktif."}), 423
+            return redirect("/sorgu")
 
     if bakim_modu and kullanici != "Sistem":
         if request.path.startswith("/api/"):
@@ -2714,6 +2869,11 @@ function kullanicilariGuncelle() {
                 .then(data => {
                     if (!data) return;
 
+                    if (data.zorunlu_sorgu) {
+                        location.replace('/sorgu');
+                        return;
+                    }
+
                     if (data.oda_banli && aktifOda !== "Genel") {
                         alert("🚫 '" + aktifOda + "' odasından atıldınız.");
                         aktifOda = "Genel";
@@ -3043,10 +3203,138 @@ function kullanicilariGuncelle() {
 </html>
 """
 
+zorunlu_sorgu_html = """
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QChat • Zorunlu Görüşme</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI",Tahoma,sans-serif;background:linear-gradient(145deg,#c9def2 0%,#eef5fb 55%,#e6eef6 100%);color:#20354a;display:flex;align-items:center;justify-content:center;padding:14px}
+.wrap{width:min(900px,100%);background:#fff;border:1px solid #7fa7cb;border-radius:12px;box-shadow:0 18px 50px rgba(39,76,112,.2);overflow:hidden}
+.head{background:linear-gradient(180deg,#79bdf7 0%,#3184dc 48%,#1c5fb0 100%);color:#fff;padding:16px 18px}.head h1{margin:0;font-size:19px}.head p{margin:5px 0 0;font-size:12px;opacity:.92}
+.notice{margin:12px 14px 0;padding:11px 12px;border-radius:8px;background:#fff8dc;border:1px solid #e2bf45;font-size:12px;line-height:1.45}
+.chat{height:480px;overflow:auto;padding:12px;background:#0e1721;margin:12px 14px;border-radius:9px;color:#dce9f6}
+.msg{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.08)}.msg:last-child{border-bottom:0}.mh{color:#86bdea;font-size:11px;margin-bottom:3px}.mh b{color:#fff}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#93a4b5;font-size:13px}
+.compose{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 14px 14px}.compose input{width:100%;padding:11px;border:1px solid #9fb9d1;border-radius:8px;outline:none}.compose button{min-width:120px;border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer}
+.foot{padding:0 14px 14px;text-align:center;color:#6b7d90;font-size:11px}@media(max-width:600px){.chat{height:55vh}.compose{grid-template-columns:1fr}.compose button{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>🔎 Zorunlu Görüşme</h1><p>Görüşme yapılan kullanıcı: <b>{{ kullanici }}</b></p></div>
+  <div class="notice">Yönetici sizinle zorunlu bir görüşme başlattı. Görüşme bitene kadar normal sohbet ekranına dönemezsiniz. Yönetici görüşmeyi bitirdiğinde otomatik olarak normal sohbete döneceksiniz.</div>
+  <div class="chat" id="sorguChat"></div>
+  <form class="compose" id="sorguForm">
+    <input id="sorguInput" maxlength="500" autocomplete="off" placeholder="Yöneticiye yazın…" required>
+    <button type="submit">📤 Gönder</button>
+  </form>
+  <div class="foot">Bu ekran yalnızca zorunlu görüşme süresince açıktır.</div>
+</div>
+<script>
+let sonSayac=-1;
+function esc(v){
+  return String(v).replace(/[&<>'"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[m]));
+}
+function guncelle(){
+  fetch('/api/sorgu/durum',{cache:'no-store'})
+    .then(r=>r.json())
+    .then(d=>{
+      if(!d.aktif){ location.replace('/'); return; }
+      const msgs=d.mesajlar||[];
+      if(msgs.length===sonSayac) return;
+      sonSayac=msgs.length;
+      const box=document.getElementById('sorguChat');
+      if(!msgs.length){
+        box.innerHTML='<div class="empty">Yönetici henüz mesaj göndermedi.</div>';
+        return;
+      }
+      box.innerHTML=msgs.map(m=>'<div class="msg"><div class="mh"><b>'+esc(m.gonderen)+'</b> • '+esc(m.zaman||'')+'</div><div class="mb">'+esc(m.mesaj||'')+'</div></div>').join('');
+      box.scrollTop=box.scrollHeight;
+    }).catch(()=>{});
+}
+document.getElementById('sorguForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const inp=document.getElementById('sorguInput');
+  const mesaj=inp.value.trim();
+  if(!mesaj)return;
+  fetch('/api/sorgu/gonder',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'mesaj='+encodeURIComponent(mesaj)
+  }).then(r=>{
+    if(r.status===409){location.replace('/');return null;}
+    return r.json();
+  }).then(d=>{
+    if(d&&d.basarili){inp.value='';guncelle();}
+    else if(d&&d.hata){alert('⚠️ '+d.hata);}
+  }).catch(()=>alert('⚠️ Mesaj gönderilemedi.'));
+});
+guncelle();setInterval(guncelle,1000);
+window.addEventListener('pageshow',guncelle);
+</script>
+</body>
+</html>
+"""
+
+@app.route("/sorgu", methods=["GET"])
+def zorunlu_sorgu_sayfasi():
+    kullanici = session.get("kullanici")
+    if not kullanici:
+        return redirect("/giris")
+    if kullanici not in aktif_sorgular:
+        return redirect("/")
+    return render_template_string(zorunlu_sorgu_html, kullanici=kullanici)
+
+@app.route("/api/sorgu/durum", methods=["GET"])
+def sorgu_durum_api():
+    kullanici = session.get("kullanici")
+    if not kullanici:
+        return jsonify({"aktif": False}), 403
+    if kullanici not in aktif_sorgular:
+        return jsonify({"aktif": False, "mesajlar": []})
+    with veri_kilidi:
+        mesajlar = []
+        for m in sorgu_mesajlari.get(kullanici, [])[-500:]:
+            if not isinstance(m, dict):
+                continue
+            mesajlar.append({
+                "gonderen": m.get("gonderen", ""),
+                "mesaj": m.get("mesaj", ""),
+                "zaman": _admin_guvenli_zaman(m.get("zaman")),
+            })
+    son_aktiflik[kullanici] = time.time()
+    return jsonify({"aktif": True, "mesajlar": mesajlar})
+
+@app.route("/api/sorgu/gonder", methods=["POST"])
+def sorgu_mesaj_gonder():
+    kullanici = session.get("kullanici")
+    if not kullanici:
+        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
+    if kullanici not in aktif_sorgular:
+        return jsonify({"basarili": False, "aktif": False}), 409
+    mesaj = (request.form.get("mesaj") or "").strip()[:500]
+    if not mesaj:
+        return jsonify({"basarili": False, "hata": "Mesaj boş olamaz."}), 400
+    with veri_kilidi:
+        sorgu_mesajlari.setdefault(kullanici, []).append({
+            "gonderen": kullanici,
+            "mesaj": mesaj,
+            "zaman": time.time(),
+        })
+        if len(sorgu_mesajlari[kullanici]) > 500:
+            sorgu_mesajlari[kullanici] = sorgu_mesajlari[kullanici][-500:]
+        son_aktiflik[kullanici] = time.time()
+    durumu_kaydet()
+    return jsonify({"basarili": True})
+
 @app.route("/", methods=["GET"])
 def ana_sayfa():
     if "kullanici" not in session:
         return redirect("/giris")
+    if session["kullanici"] in aktif_sorgular:
+        return redirect("/sorgu")
     return render_template_string(mesaj_html, kullanici=session["kullanici"])
 
 @app.route("/cikis", methods=["GET"])
@@ -3090,6 +3378,8 @@ def hesap_sil():
         giris_hatali_deneme.pop(kullanici, None)
         giris_kilitli.pop(kullanici, None)
         zorla_cikis.discard(kullanici)
+        aktif_sorgular.pop(kullanici, None)
+        sorgu_mesajlari.pop(kullanici, None)
 
         for oda_adi, lider in list(oda_liderleri.items()):
             if lider == kullanici:
@@ -3704,6 +3994,9 @@ def get_mesajlar():
     kullanici = session.get("kullanici")
     aktif_oda = request.args.get("oda", "Genel")
     
+    if kullanici in aktif_sorgular:
+        return jsonify({"mesajlar": [], "sabit_duyuru": sabit_duyuru, "oda_banli": False, "zorunlu_sorgu": True})
+
     if kullanici:
         son_aktiflik[kullanici] = time.time()
         
@@ -3780,6 +4073,8 @@ def get_yaziyor_durumu():
 def post_gonder():
     if "kullanici" in session:
         kullanici = session["kullanici"]
+        if kullanici in aktif_sorgular:
+            return "Zorunlu görüşmedesiniz. Normal sohbet kullanılamaz.", 403
         simdi = time.time()
         son_aktiflik[kullanici] = simdi
         
