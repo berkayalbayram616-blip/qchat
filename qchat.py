@@ -109,7 +109,7 @@ def _admin_durumlari():
             susturulanlar.pop(k, None)
 
     kullanicilar = []
-    for isim in sorted(kullanici_db.keys(), key=lambda x: str(x).lower()):
+    for isim in sorted(kullanici_db.keys() if isinstance(kullanici_db, dict) else [], key=lambda x: str(x).lower()):
         isim = str(isim)
         mute_veri = susturulanlar.get(isim)
         if isinstance(mute_veri, (int, float)):
@@ -128,7 +128,7 @@ def _admin_durumlari():
             "banli": isim in engellenenler,
             "muteli": bool(mute_bitis and mute_bitis > simdi),
             "mute_kalan": max(0, int((mute_bitis - simdi) // 60) + 1) if mute_bitis and mute_bitis > simdi else 0,
-            "mesaj_sayisi": sum(1 for m in sohbet_gecmisi if m.get("gonderen") == isim),
+            "mesaj_sayisi": sum(1 for m in sohbet_gecmisi if isinstance(m, dict) and m.get("gonderen") == isim),
             "email": kullanici_emailleri.get(isim),
             "oda_izni": isim in oda_kurma_izni,
         })
