@@ -127,155 +127,161 @@ admin_html = """
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>QChat Yönetim Paneli</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QChat • Yönetim Merkezi</title>
 <style>
 *{box-sizing:border-box}
-body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#bcd6ee 0%,#eaf2fa 100%);margin:0;padding:18px;color:#24384c}
-.wrap{max-width:1180px;margin:auto}.top{background:linear-gradient(180deg,#79bdf7,#1c5fb0);color:#fff;padding:14px 18px;border-radius:9px 9px 0 0;font-weight:700;display:flex;justify-content:space-between;align-items:center}.top a{color:#fff;text-decoration:none;background:#c0392b;padding:7px 10px;border-radius:4px}
-.panel{background:#f4f8fc;border:1px solid #5b8ac4;border-top:0;border-radius:0 0 9px 9px;padding:14px}
-.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-bottom:14px}.stat{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:10px}.stat b{display:block;margin-bottom:3px}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tab{border:1px solid #8fa9c4;background:#eef4fb;padding:7px 10px;border-radius:5px;font-weight:700;cursor:pointer}.tab.active{background:#2d7fd6;color:#fff;border-color:#1c5fb0}
-.section{display:none}.section.active{display:block}.grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px}.box{background:#fff;border:1px solid #b9cfe4;border-radius:7px;padding:12px}.box h3{margin:0 0 9px;color:#1c3d5c;font-size:15px}
-.users{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:9px}.user{background:#fff;border:1px solid #b9cfe4;border-radius:6px;padding:10px}.online{color:#15803d;font-weight:700}.offline{color:#64748b}.banned{color:#b91c1c;font-weight:700}.muted{color:#b45309;font-weight:700}.info{font-size:12px;color:#526b82;line-height:1.5}.actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.actions form{margin:0}.btn,.mini{border:1px solid #1c5fb0;background:#2d7fd6;color:#fff;border-radius:4px;padding:6px 8px;font-weight:700;cursor:pointer}.red{background:#c0392b;border-color:#8f241a}.green{background:#20833c;border-color:#17652d}.orange{background:#c77b11;border-color:#945d08}.dark{background:#46515d;border-color:#35404a}.purple{background:#6856bb;border-color:#4b3b91}
-input,textarea,select{width:100%;padding:8px;border:1px solid #8fa9c4;border-radius:4px;font:inherit}textarea{min-height:90px;resize:vertical}.field{margin-bottom:8px}.field label{display:block;font-size:12px;font-weight:700;color:#3a5a7a;margin-bottom:3px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.room{display:flex;justify-content:space-between;gap:8px;border:1px solid #d2deea;padding:8px;border-radius:5px;margin-bottom:5px}.room small{color:#64748b}.notice{background:#fff8db;border:1px solid #e0b400;padding:8px;border-radius:5px;font-size:12px;margin-bottom:10px}
-.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:7px;border-bottom:1px solid #d9e4ef;text-align:left;vertical-align:top}.table th{background:#eef4fb}.log{max-height:340px;overflow:auto;font-family:Consolas,monospace;font-size:11px;white-space:pre-wrap;background:#0f1720;color:#dbeafe;border-radius:5px;padding:9px}
-@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
+:root{--bg:#edf4fb;--panel:#ffffff;--line:#cfe0ef;--text:#20354a;--muted:#6b7d90;--blue:#2477cf;--blue2:#1558a7;--red:#c0392b;--green:#21853f;--orange:#c77b11;--purple:#6b56bd;--shadow:0 14px 34px rgba(39,76,112,.14)}
+html,body{margin:0;min-height:100%;font-family:"Segoe UI",Tahoma,sans-serif;color:var(--text);background:linear-gradient(145deg,#c9def2 0%,#eef5fb 55%,#e6eef6 100%)}
+button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1440px;margin:0 auto;padding:18px}.shell{display:grid;grid-template-columns:235px 1fr;min-height:calc(100vh - 36px);gap:14px}
+.sidebar{background:rgba(247,251,255,.96);border:1px solid #7fa7cb;border-radius:12px;box-shadow:var(--shadow);padding:12px;position:sticky;top:18px;height:calc(100vh - 36px);display:flex;flex-direction:column}
+.brand{padding:12px;border-radius:9px;background:linear-gradient(180deg,#74b5ef,#1d5fab);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);margin-bottom:12px}.brand strong{display:block;font-size:15px}.brand small{opacity:.86}
+.nav{display:grid;gap:5px}.nav button{border:1px solid transparent;background:transparent;color:#29445d;text-align:left;padding:10px 11px;border-radius:8px;font-weight:700}.nav button:hover{background:#eaf3fb;border-color:#c9dced}.nav button.active{background:#2b7ed3;color:#fff;box-shadow:0 4px 10px rgba(30,100,175,.2)}
+.side-info{margin-top:auto;padding:10px;border-top:1px solid #d7e4ef;color:var(--muted);font-size:11px;line-height:1.55}.side-actions{display:grid;gap:6px;margin-top:10px}.side-actions a{display:block;text-decoration:none;text-align:center;padding:8px;border-radius:7px;border:1px solid #b9cfe4;background:#f4f8fc;color:#2b557b;font-weight:700}.side-actions a.logout{background:#c0392b;color:#fff;border-color:#8f241a}
+.main{min-width:0}.topbar{background:linear-gradient(180deg,#79bdf7 0%,#3184dc 48%,#1c5fb0 100%);color:#fff;border:1px solid #4c84b8;border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow)}.topbar h1{margin:0;font-size:18px}.topbar .meta{font-size:12px;opacity:.92}.top-actions{display:flex;gap:6px;align-items:center}.top-actions button{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.13);color:#fff;padding:7px 9px;border-radius:7px;font-weight:700}.top-actions button:hover{background:rgba(255,255,255,.22)}
+.content{margin-top:14px}.section{display:none}.section.active{display:block}.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}.stat{background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;padding:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}.stat:after{content:"";position:absolute;inset:auto 0 0 0;height:3px;background:linear-gradient(90deg,#2b7ed3,#86bdea)}.stat small{display:block;color:var(--muted);font-size:11px;font-weight:700}.stat b{display:block;font-size:22px;margin-top:3px}.stat em{font-style:normal;font-size:11px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.box{background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:10px;padding:13px;box-shadow:var(--shadow);min-width:0}.box h2,.box h3{margin:0 0 10px;color:#1d3c5b}.box h2{font-size:17px}.box h3{font-size:14px}.muted{color:var(--muted)}.notice{background:#fff8dc;border:1px solid #e2bf45;padding:9px;border-radius:8px;font-size:12px;line-height:1.45}.good{background:#edf9f0;border:1px solid #a8d8b3}.danger-note{background:#fff0ee;border:1px solid #e5b2ad}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.toolbar .grow{flex:1;min-width:210px}.toolbar input,.toolbar select,.field input,.field textarea,.field select{width:100%;padding:9px 10px;border:1px solid #9fb9d1;border-radius:7px;background:#fbfdff;color:#253d55;outline:none}.toolbar input:focus,.field input:focus,.field textarea:focus,.field select:focus{border-color:#4f91d2;box-shadow:0 0 0 3px rgba(79,145,210,.12)}
+.btn{border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:7px;padding:7px 10px;font-weight:700}.btn:hover{filter:brightness(.97)}.red{background:#c0392b;border-color:#8f241a}.green{background:#21853f;border-color:#17682e}.orange{background:#c77b11;border-color:#945d08}.dark{background:#46515d;border-color:#35404a}.purple{background:#6b56bd;border-color:#4f3f92}.light{background:#eef4fb;color:#2b557b;border-color:#b9cfe4}
+.user-table-wrap,.table-wrap,.chat-wrap{overflow:auto;border:1px solid #d7e4ef;border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}.table th,.table td{padding:9px;border-bottom:1px solid #e1eaf2;text-align:left;vertical-align:middle}.table th{background:#eef4fb;color:#385974;position:sticky;top:0;z-index:1}.table tr:hover td{background:#f8fbfe}.status{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:800}.online{background:#e8f7ec;color:#17733a}.offline{background:#eef1f4;color:#677584}.ban{background:#fdeceb;color:#a92a20}.mute{background:#fff4df;color:#9a6508}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#edf3fa;color:#42627d;font-size:10px;font-weight:800}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions form{margin:0}.row-actions{white-space:nowrap}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.quick form,.quick a{text-decoration:none}.quick .btn{width:100%}.metric-list{display:grid;gap:7px}.metric{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #dae6f0;border-radius:7px;background:#fbfdff}.metric span{color:var(--muted)}.barline{display:grid;grid-template-columns:100px 1fr 50px;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar{height:8px;border-radius:999px;background:#e6eef5;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#327fca,#7aaedb)}
+.chat-stream{height:430px;overflow:auto;background:#0e1721;color:#dce9f6;padding:10px;border-radius:8px;font-family:Consolas,monospace;font-size:11px}.chat-item{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)}.chat-item:last-child{border-bottom:0}.chat-head{color:#86bdea}.chat-head b{color:#fff}.chat-body{white-space:pre-wrap;word-break:break-word;margin-top:2px}.mini-meta{font-size:10px;color:#7f93a8}.compose{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:8px}.compose input{padding:10px;border:1px solid #9fb9d1;border-radius:7px}.compose button{min-width:110px}
+.room-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}.room{border:1px solid #d5e2ed;background:#fbfdff;border-radius:8px;padding:10px}.room-top{display:flex;justify-content:space-between;gap:8px}.room strong{font-size:14px}.room .sub{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}.room form{margin-top:8px}
+.log{height:450px;overflow:auto;font-family:Consolas,monospace;font-size:11px;white-space:pre-wrap;background:#0f1720;color:#dbeafe;border-radius:8px;padding:11px}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #c8d8e7;border-radius:8px}
+.modal{position:fixed;inset:0;background:rgba(13,31,48,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:40}.modal.open{display:flex}.modal-card{width:min(660px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #87a8c7;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.22)}.modal-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;background:linear-gradient(180deg,#79bdf7,#2d7fd6);color:#fff}.modal-head h3{margin:0;color:#fff}.modal-close{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:6px 9px;font-weight:800}.modal-body{padding:14px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.detail{border:1px solid #dae6f0;border-radius:8px;padding:9px;background:#fbfdff}.detail b{display:block;font-size:10px;color:#6c8093;margin-bottom:3px}.detail span{font-size:13px;word-break:break-word}.field{margin-bottom:9px}.field label{display:block;font-size:11px;color:#4b6983;font-weight:800;margin-bottom:4px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:1150px){.shell{grid-template-columns:190px 1fr}.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:850px){.app{padding:9px}.shell{display:block}.sidebar{position:static;height:auto;margin-bottom:9px}.nav{grid-template-columns:repeat(4,1fr)}.nav button{text-align:center;padding:8px 5px;font-size:11px}.side-info,.side-actions{display:none}.grid,.grid3{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.topbar{align-items:flex-start}.topbar h1{font-size:15px}.top-actions{flex-wrap:wrap;justify-content:flex-end}.detail-grid,.form-grid{grid-template-columns:1fr}}
+@media(max-width:540px){.nav{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:1fr}.quick{grid-template-columns:1fr}.compose{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="wrap">
-<div class="top"><span>🛠️ QChat Yönetim Paneli — {{ admin }}</span><a href="/admin/cikis">Çıkış</a></div>
-<div class="panel">
+<div class="app"><div class="shell">
+<aside class="sidebar">
+  <div class="brand"><strong>🛠️ QChat Yönetim</strong><small>{{ admin }} • yönetici</small></div>
+  <nav class="nav" id="nav">
+    <button class="active" data-tab="dashboard">🏠 Genel Bakış</button>
+    <button data-tab="users">👥 Kullanıcılar <span class="pill">{{ toplam_kullanici }}</span></button>
+    <button data-tab="chat">💬 Canlı Sohbet</button>
+    <button data-tab="rooms">🏠 Odalar</button>
+    <button data-tab="reports">⚠️ Şikâyetler <span class="pill">{{ yeni_sikayet }}</span></button>
+    <button data-tab="system">📢 Sistem</button>
+    <button data-tab="logs">📋 Denetim</button>
+    <button data-tab="feedback">📝 Geri Bildirim <span class="pill">{{ geri_sayisi }}</span></button>
+  </nav>
+  <div class="side-info">
+    <b>Panel durumu</b><br>
+    🟢 Yönetim bağlantısı aktif<br>
+    🕒 Son yenileme: <span id="lastRefresh">şimdi</span><br>
+    🔄 Otomatik yenileme: <span id="autoState">Açık</span>
+  </div>
+  <div class="side-actions"><a href="/">💬 Siteye Git</a><a href="/admin/cikis" class="logout">🚪 Güvenli Çıkış</a></div>
+</aside>
+
+<main class="main">
+<header class="topbar"><div><h1>QChat Yönetim Merkezi</h1><div class="meta">Kullanıcılar, mesajlar, odalar, şikâyetler ve sistem kontrolleri tek panelde.</div></div><div class="top-actions"><button type="button" onclick="yenile()">↻ Yenile</button><button type="button" id="autoBtn" onclick="otomatikToggle()">⏱ Otomatik: Açık</button></div></header>
+<div class="content">
+
+<section id="dashboard" class="section active">
 <div class="stats">
-<div class="stat"><b>👥 Hesaplar</b>{{ toplam_kullanici }}</div>
-<div class="stat"><b>🟢 Çevrim İçi</b>{{ online }}</div>
-<div class="stat"><b>🚫 Banlı</b>{{ banli }}</div>
-<div class="stat"><b>🔇 Susturulan</b>{{ muteli }}</div>
-<div class="stat"><b>💬 Mesaj</b>{{ mesaj_sayisi }}</div>
+  <div class="stat"><small>👥 Toplam hesap</small><b>{{ toplam_kullanici }}</b><em>kayıtlı kullanıcı</em></div>
+  <div class="stat"><small>🟢 Çevrim içi</small><b>{{ online }}</b><em>son 10 sn aktif</em></div>
+  <div class="stat"><small>🚫 Banlı</small><b>{{ banli }}</b><em>engellenmiş hesap</em></div>
+  <div class="stat"><small>🔇 Susturulan</small><b>{{ muteli }}</b><em>aktif mute</em></div>
+  <div class="stat"><small>💬 Mesaj</small><b>{{ mesaj_sayisi }}</b><em>saklanan geçmiş</em></div>
+  <div class="stat"><small>⚠️ Yeni şikâyet</small><b>{{ yeni_sikayet }}</b><em>incelenmesi gereken</em></div>
 </div>
-
-<div class="tabs">
-<button class="tab active" onclick="tabAc('kullanicilar',this)">👥 Kullanıcılar</button>
-<button class="tab" onclick="tabAc('odalar',this)">🏠 Odalar</button>
-<button class="tab" onclick="tabAc('duyurular',this)">📢 Sistem</button>
-<button class="tab" onclick="tabAc('sikayetler',this)">⚠️ Şikayetler</button>
-</div>
-
-<div id="kullanicilar" class="section active">
-<div class="box">
-<h3>Kullanıcı Yönetimi</h3>
-<div class="notice">Bir işlem yaptıktan sonra sayfa otomatik olarak güncellenir. <b>Admin</b> hesabı korunur ve panel üzerinden değiştirilemez.</div>
-<div class="users">
-{% for u in kullanicilar %}
-<div class="user">
-<b>{{ u.isim }}</b><br>
-<span class="{{ 'online' if u.online else 'offline' }}">● {{ 'Online' if u.online else 'Çevrimdışı' }}</span>
-{% if u.banli %}<br><span class="banned">🚫 Banlı</span>{% endif %}
-{% if u.muteli %}<br><span class="muted">🔇 {{ u.mute_kalan }} dk susturulmuş</span>{% endif %}
-<div class="info">Mesaj: {{ u.mesaj_sayisi }}<br>E-posta: {{ u.email or 'Yok' }}<br>Oda kurma izni: {{ 'Var' if u.oda_izni else 'Yok' }}</div>
-{% if u.isim != admin %}
-<div class="actions">
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unban' if u.banli else 'ban' }}"><button class="btn {{ 'dark' if u.banli else 'red' }}">{{ '✅ Banı Kaldır' if u.banli else '🚫 Banla' }}</button></form>
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">👢 Kick</button></form>
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}"><input type="hidden" name="dakika" value="10"><button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Mute Kaldır' if u.muteli else '🔇 10 dk Sustur' }}</button></form>
-<form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="oda_izni"><button class="btn purple">{{ '🏷️ Oda İznini Al' if u.oda_izni else '🏷️ Oda İzni Ver' }}</button></form>
-<form method="get" action="/admin" style="margin:0"><input type="hidden" name="duzenle" value="{{ u.isim }}"><button class="btn">✏️ Düzenle</button></form>
-<form method="post" action="/admin/islem" onsubmit="return confirm('Bu hesabı tamamen silmek istediğine emin misin?');"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="sil"><button class="btn red">❌ Hesabı Sil</button></form>
-</div>
-{% endif %}
-</div>
-{% endfor %}
-</div>
-</div>
-</div>
-
-{% if duzenlenen %}
-<div class="box" style="margin-top:12px">
-<h3>✏️ Hesap Düzenle — {{ duzenlenen }}</h3>
-<form method="post" action="/admin/islem">
-<input type="hidden" name="islem" value="duzenle"><input type="hidden" name="eski_isim" value="{{ duzenlenen }}">
-<div class="form-grid">
-<div class="field"><label>Yeni Kullanıcı Adı</label><input name="yeni_isim" value="{{ duzenlenen }}"></div>
-<div class="field"><label>Yeni Şifre (boş = değiştirme)</label><input type="password" name="yeni_sifre"></div>
-</div>
-<button class="btn green">💾 Kaydet</button>
-</form>
-</div>
-{% endif %}
-</div>
-
-<div id="odalar" class="section">
 <div class="grid">
-<div class="box"><h3>🏠 Mevcut Odalar</h3>
-{% for oda in odalar %}
-<div class="room"><div><b>{{ oda.ad }}</b> <small>{{ '🔒 Şifreli' if oda.sifre else '🔓 Şifresiz' }}</small><br><small>Lider: {{ oda.lider }}</small></div>
-{% if oda.ad != 'Genel' %}<form method="post" action="/admin/islem"><input type="hidden" name="hedef_oda" value="{{ oda.ad }}"><input type="hidden" name="islem" value="oda_sil"><button class="btn red">🗑️ Sil</button></form>{% endif %}</div>
-{% endfor %}
+  <div class="box"><h2>📊 Sunucu Özeti</h2>
+    <div class="metric-list">
+      <div class="metric"><span>Oda sayısı</span><b>{{ oda_sayisi }}</b></div>
+      <div class="metric"><span>Özel oda kapasitesi</span><b>{{ ozel_oda }}/{{ maks_oda }}</b></div>
+      <div class="metric"><span>Oda oluşturma izni</span><b>{{ oda_izinli }}</b></div>
+      <div class="metric"><span>Toplam geri bildirim</span><b>{{ geri_sayisi }}</b></div>
+      <div class="metric"><span>Yavaş mod</span><b>{{ yavas_mod_saniye }} sn</b></div>
+      <div class="metric"><span>Bakım modu</span><b>{{ 'AÇIK' if bakim_modu else 'KAPALI' }}</b></div>
+    </div>
+  </div>
+  <div class="box"><h2>⚡ Hızlı İşlemler</h2><div class="quick">
+    <button class="btn" onclick="sekmeAc('chat')">💬 Canlı sohbet</button>
+    <button class="btn light" onclick="sekmeAc('reports')">⚠️ Şikâyetleri aç</button>
+    <button class="btn orange" onclick="sekmeAc('system')">📢 Duyuru paneli</button>
+    <button class="btn purple" onclick="sekmeAc('users');document.getElementById('userSearch').focus()">🔎 Kullanıcı bul</button>
+  </div><div class="notice good" style="margin-top:10px">Panel; mevcut <b>veriler.json</b>, oda yapısı, şikâyet dosyası ve sohbet geçmişiyle çalışır. Yeni özellikler mevcut akışı değiştirmeden katmanlandırılmıştır.</div></div>
 </div>
-<div class="box"><h3>➕ Oda Oluştur / Düzenle</h3>
-<form method="post" action="/admin/islem">
-<input type="hidden" name="islem" value="oda_kur">
-<div class="field"><label>Oda Adı</label><input name="oda_adi" maxlength="15" required></div>
-<div class="field"><label>Şifre (boş = şifresiz)</label><input name="oda_sifre" maxlength="15"></div>
-<button class="btn green">➕ Oda Oluştur</button>
-</form>
-<hr style="border:0;border-top:1px solid #d9e4ef;margin:13px 0">
-<h3>✏️ Oda Düzenle</h3>
-<form method="post" action="/admin/islem">
-<input type="hidden" name="islem" value="oda_duzenle">
-<div class="field"><label>Mevcut Oda</label><select name="eski_oda">{% for oda in odalar if oda.ad != 'Genel' %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div>
-<div class="field"><label>Yeni Ad (boş = aynı)</label><input name="yeni_oda"></div>
-<div class="field"><label>Yeni Şifre (boş = şifresiz)</label><input name="yeni_oda_sifre"></div>
-<button class="btn">💾 Güncelle</button>
-</form>
+<div class="grid3" style="margin-top:12px">
+  <div class="box"><h3>👤 En aktif kullanıcılar</h3>{% if top_kullanicilar %}{% for u in top_kullanicilar %}<div class="barline"><span>{{ u.isim }}</span><div class="bar"><i style="width:{{ u.yuzde }}%"></i></div><b>{{ u.mesaj }}</b></div>{% endfor %}{% else %}<div class="empty">Henüz mesaj verisi yok.</div>{% endif %}</div>
+  <div class="box"><h3>🏠 En yoğun odalar</h3>{% if top_odalar %}{% for o in top_odalar %}<div class="barline"><span>{{ o.ad }}</span><div class="bar"><i style="width:{{ o.yuzde }}%"></i></div><b>{{ o.mesaj }}</b></div>{% endfor %}{% else %}<div class="empty">Henüz oda mesajı yok.</div>{% endif %}</div>
+  <div class="box"><h3>🛡️ Sistem durumu</h3><div class="metric-list"><div class="metric"><span>Bakım</span><b>{{ '🟠 Açık' if bakim_modu else '🟢 Kapalı' }}</b></div><div class="metric"><span>Küfür filtresi</span><b>{{ '🟢 Açık' if kufur_filtresi else '⚪ Kapalı' }}</b></div><div class="metric"><span>Sabit duyuru</span><b>{{ 'Var' if sabit_duyuru else 'Yok' }}</b></div></div></div>
 </div>
-</div>
-</div>
+</section>
 
-<div id="duyurular" class="section">
-<div class="grid">
-<div class="box"><h3>📢 Duyuru</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duyuru">
-<div class="field"><label>Mesaj</label><textarea name="metin" maxlength="500" required></textarea></div><button class="btn">📢 Yayınla</button></form></div>
-<div class="box"><h3>⏱️ Sayaç</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sayac">
-<div class="field"><label>Dakika</label><input type="number" name="dakika" min="0.1" max="10080" step="0.1" required></div><button class="btn red">⏱️ Başlat</button></form></div>
-<div class="box"><h3>📌 Sabit Duyuru</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sabit_duyuru">
-<div class="field"><label>Üst bilgi bandı (boş = kaldır)</label><input name="metin" value="{{ sabit_duyuru }}"></div><button class="btn orange">📌 Kaydet</button></form></div>
-<div class="box"><h3>⏳ Yavaş Mod</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="yavas_mod">
-<div class="field"><label>Mesaj aralığı (saniye, 0 = kapalı)</label><input type="number" name="saniye" min="0" max="3600" value="{{ yavas_mod_saniye }}"></div><button class="btn dark">⏳ Ayarla</button></form></div>
-<div class="box"><h3>🛠️ Bakım Modu</h3><p><b>Durum:</b> {{ 'AÇIK' if bakim_modu else 'KAPALI' }}</p><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="bakim"><button class="btn {{ 'green' if bakim_modu else 'orange' }}">{{ '🟢 Bakımı Kapat' if bakim_modu else '🛠️ Bakımı Aç' }}</button></form></div>
-<div class="box"><h3>🔞 Küfür Filtresi</h3><p><b>Durum:</b> {{ 'AÇIK' if kufur_filtresi else 'KAPALI' }}</p><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="kufur"><button class="btn {{ 'green' if kufur_filtresi else 'dark' }}">{{ '🔴 Kapat' if kufur_filtresi else '✅ Aç' }}</button></form></div>
-<div class="box"><h3>🚨 Sesli Siren</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="alarm"><div class="field"><label>Siren mesajı</label><input name="metin" value="TÜM KULLANICILARIN DİKKATİNE! YÖNETİCİ UYARISI!" maxlength="300"></div><button class="btn red">🚨 Sireni Gönder</button></form></div>
-<div class="box"><h3>👻 Ghost Mode</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="ghost"><button class="btn purple">👻 Ghost Mod</button></form><p class="info">Sunucu tarafında admin yazma işlemi için mevcut yönetici yetkisini kullanır.</p></div>
-<div class="box"><h3>🗑️ Sohbeti Temizle</h3><form method="post" action="/admin/islem" onsubmit="return confirm('Tüm sohbet geçmişini temizlemek istediğine emin misin?');"><input type="hidden" name="islem" value="temizle"><button class="btn red">🗑️ Chati Temizle</button></form></div>
+<section id="users" class="section">
+<div class="box"><h2>👥 Kullanıcı Yönetimi</h2>
+  <div class="toolbar"><div class="grow"><input id="userSearch" placeholder="Kullanıcı adı veya e-posta ara…" oninput="filtreKullanicilar()"></div><select id="userFilter" onchange="filtreKullanicilar()"><option value="all">Tümü</option><option value="online">Online</option><option value="offline">Çevrimdışı</option><option value="ban">Banlı</option><option value="mute">Susturulmuş</option><option value="room">Oda izinli</option></select><button class="btn light" onclick="document.getElementById('userSearch').value='';document.getElementById('userFilter').value='all';filtreKullanicilar()">Temizle</button></div>
+  <div class="notice">Kullanıcı işlemleri mevcut admin işlem endpoint'lerini kullanır. <b>Admin</b> hesabı değiştirilemez veya silinemez.</div>
+  <div class="user-table-wrap" style="margin-top:10px"><table class="table" id="userTable"><thead><tr><th>Kullanıcı</th><th>Durum</th><th>İstatistik</th><th>E-posta</th><th>Oda</th><th>İşlemler</th></tr></thead><tbody>
+  {% for u in kullanicilar %}<tr class="user-row" data-name="{{ (u.isim ~ ' ' ~ (u.email or ''))|lower }}" data-online="{{ '1' if u.online else '0' }}" data-ban="{{ '1' if u.banli else '0' }}" data-mute="{{ '1' if u.muteli else '0' }}" data-room="{{ '1' if u.oda_izni else '0' }}">
+    <td><b>{{ u.isim }}</b>{% if u.isim == admin %}<span class="pill"> ADMIN</span>{% endif %}</td>
+    <td>{% if u.online %}<span class="status online">● Online</span>{% else %}<span class="status offline">● Çevrimdışı</span>{% endif %}{% if u.banli %}<span class="status ban">🚫 Ban</span>{% endif %}{% if u.muteli %}<span class="status mute">🔇 {{ u.mute_kalan }} dk</span>{% endif %}</td>
+    <td>{{ u.mesaj_sayisi }} mesaj</td><td>{{ u.email or 'Yok' }}</td><td>{{ '✅ İzinli' if u.oda_izni else '—' }}</td>
+    <td class="row-actions">{% if u.isim != admin %}<div class="actions"><button type="button" class="btn light" onclick="kullaniciDetay('{{ u.isim|e }}')">👁 Detay</button>
+      <form method="post" action="/admin/islem">{% if u.banli %}<input type="hidden" name="islem" value="unban"><input type="hidden" name="hedef" value="{{ u.isim }}"><button class="btn dark">✅ Unban</button>{% else %}<input type="hidden" name="islem" value="ban"><input type="hidden" name="hedef" value="{{ u.isim }}"><button class="btn red" onclick="return confirm('{{ u.isim }} kullanıcısını banlamak istiyor musun?')">🚫 Ban</button>{% endif %}</form>
+      <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">👢 Kick</button></form>
+      <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="{{ 'unmute' if u.muteli else 'mute' }}"><input type="hidden" name="dakika" value="10"><button class="btn {{ 'green' if u.muteli else 'dark' }}">{{ '🔊 Unmute' if u.muteli else '🔇 10 dk' }}</button></form>
+      <form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="oda_izni"><button class="btn purple">🏷️ {{ 'İzni Al' if u.oda_izni else 'İzin Ver' }}</button></form>
+      <form method="get" action="/admin"><input type="hidden" name="duzenle" value="{{ u.isim }}"><button class="btn light">✏️ Düzenle</button></form>
+      <form method="post" action="/admin/islem" onsubmit="return confirm('{{ u.isim }} hesabını tamamen silmek istediğine emin misin?')"><input type="hidden" name="hedef" value="{{ u.isim }}"><input type="hidden" name="islem" value="sil"><button class="btn red">❌ Sil</button></form>
+    </div>{% else %}<span class="pill">Korunan hesap</span>{% endif %}</td>
+  </tr>{% endfor %}
+  </tbody></table></div>
 </div>
-</div>
+{% if duzenlenen %}<div class="box" style="margin-top:12px"><h3>✏️ Hesap Düzenle — {{ duzenlenen }}</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duzenle"><input type="hidden" name="eski_isim" value="{{ duzenlenen }}"><input type="hidden" name="hedef" value="{{ duzenlenen }}"><div class="form-grid"><div class="field"><label>Yeni kullanıcı adı</label><input name="yeni_isim" value="{{ duzenlenen }}"></div><div class="field"><label>Yeni şifre (boş = değiştirme)</label><input type="password" name="yeni_sifre"></div></div><button class="btn green">💾 Kaydet</button></form></div>{% endif %}
+</section>
 
-<div id="sikayetler" class="section">
-<div class="box"><h3>⚠️ Şikayetler</h3>
-{% if sikayetler %}
-<table class="table"><tr><th>Zaman</th><th>Bildiren</th><th>Şikayet edilen</th><th>Neden</th><th>Oda</th><th>Durum</th><th>İşlem</th></tr>
-{% for s in sikayetler %}
-<tr><td>{{ s.zaman }}</td><td>{{ s.bildiren }}</td><td>{{ s.sikayet_edilen }}</td><td>{{ s.neden }}</td><td>{{ s.oda }}</td><td>{{ s.durum }}</td>
-<td>
-<form method="post" action="/admin/islem" style="display:inline"><input type="hidden" name="islem" value="sikayet_durum"><input type="hidden" name="sikayet_idx" value="{{ s.idx }}"><select name="durum" onchange="this.form.submit()"><option value="Yeni" {{ 'selected' if s.durum=='Yeni' else '' }}>Yeni</option><option value="İnceleniyor" {{ 'selected' if s.durum=='İnceleniyor' else '' }}>İnceleniyor</option><option value="Çözüldü" {{ 'selected' if s.durum=='Çözüldü' else '' }}>Çözüldü</option></select></form>
-<form method="post" action="/admin/islem" style="display:inline"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="ban"><button class="mini red">Ban</button></form>
-<form method="post" action="/admin/islem" style="display:inline"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="kick"><button class="mini orange">Kick</button></form>
-<form method="post" action="/admin/islem" style="display:inline"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="mute"><input type="hidden" name="dakika" value="10"><button class="mini dark">Mute</button></form>
-</td></tr>
-{% endfor %}</table>
-{% else %}<div class="notice">Bekleyen veya kayıtlı şikayet bulunmuyor.</div>{% endif %}
-</div>
-</div>
-</div></div>
+<section id="chat" class="section"><div class="grid"><div class="box"><h2>💬 Canlı Sohbet Akışı</h2><div class="toolbar"><div class="grow"><input id="chatSearch" placeholder="Mesaj veya kullanıcı ara…" oninput="filtreChat()"></div><select id="chatRoom" onchange="filtreChat()"><option value="all">Tüm odalar</option>{% for oda in odalar %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="chat-stream" id="chatStream">{% if son_mesajlar %}{% for m in son_mesajlar %}<div class="chat-item" data-search="{{ (m.gonderen ~ ' ' ~ m.mesaj ~ ' ' ~ m.oda)|lower }}" data-room="{{ m.oda }}"><div class="chat-head"><b>{{ m.gonderen }}</b> • {{ m.oda }} • {{ m.zaman }}</div><div class="chat-body">{{ m.mesaj }}</div>{% if m.idx is defined %}<div class="actions" style="margin-top:5px"><form method="post" action="/admin/mesaj_sil"><input type="hidden" name="idx" value="{{ m.idx }}"><button class="btn red" onclick="return confirm('Bu mesajı silmek istediğine emin misin?')">🗑 Sil</button></form></div>{% endif %}</div>{% endfor %}{% else %}<div class="empty">Henüz mesaj bulunmuyor.</div>{% endif %}</div></div>
+<div class="box"><h2>✍️ Admin olarak yaz</h2><p class="muted">Gönderilen mesaj mevcut sohbet akışına <b>Admin</b> kimliğiyle eklenir ve mesaj kuyruğuna iletilir.</p><form class="compose" method="post" action="/admin/admin_mesaj_form"><input name="mesaj" maxlength="500" placeholder="Kullanıcılara gönderilecek mesaj…" required><button class="btn">📤 Gönder</button></form><div class="notice" style="margin-top:10px">Bu alan ayrı bir veritabanı kullanmaz; mevcut <b>sohbet_gecmisi</b> üzerinde çalışır.</div></div></div></section>
+
+<section id="rooms" class="section"><div class="grid"><div class="box"><h2>🏠 Odalar</h2><div class="room-grid">{% for oda in odalar %}<div class="room"><div class="room-top"><strong>{{ oda.ad }}</strong><span class="pill">{{ '🔒 Şifreli' if oda.sifre else '🔓 Açık' }}</span></div><div class="sub">Lider: <b>{{ oda.lider }}</b><br>Mesaj: {{ oda.mesaj_sayisi }}</div>{% if oda.ad != 'Genel' %}<form method="post" action="/admin/islem" onsubmit="return confirm('{{ oda.ad }} odasını silmek istiyor musun?')"><input type="hidden" name="hedef_oda" value="{{ oda.ad }}"><input type="hidden" name="islem" value="oda_sil"><button class="btn red">🗑️ Odayı Sil</button></form>{% else %}<div class="notice" style="margin-top:8px">Genel oda sistem tarafından korunur.</div>{% endif %}</div>{% endfor %}</div></div>
+<div class="box"><h2>➕ Oda Oluştur / Düzenle</h2><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_kur"><div class="field"><label>Oda adı</label><input name="oda_adi" maxlength="15" required></div><div class="field"><label>Şifre (boş = açık)</label><input name="oda_sifre" maxlength="15"></div><button class="btn green">➕ Oda Oluştur</button></form><hr style="border:0;border-top:1px solid #dce7f0;margin:14px 0"><h3>✏️ Oda düzenle</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_duzenle"><div class="field"><label>Mevcut oda</label><select name="eski_oda">{% for oda in odalar if oda.ad != 'Genel' %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="field"><label>Yeni ad (boş = aynı)</label><input name="yeni_oda" maxlength="15"></div><div class="field"><label>Yeni şifre</label><input name="yeni_oda_sifre" maxlength="15"></div><button class="btn">💾 Güncelle</button></form></div></div></section>
+
+<section id="reports" class="section"><div class="box"><h2>⚠️ Şikâyet Merkezi</h2><div class="toolbar"><div class="grow"><input id="reportSearch" placeholder="Bildiren, hedef, neden veya açıklama ara…" oninput="filtreRapor()"></div><select id="reportFilter" onchange="filtreRapor()"><option value="all">Tüm durumlar</option><option value="Yeni">Yeni</option><option value="İnceleniyor">İnceleniyor</option><option value="Çözüldü">Çözüldü</option></select></div>{% if sikayetler %}<div class="table-wrap"><table class="table" id="reportTable"><thead><tr><th>Zaman</th><th>Bildiren</th><th>Hedef</th><th>Neden</th><th>Oda</th><th>Açıklama / Mesaj</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{% for s in sikayetler %}<tr class="report-row" data-status="{{ s.durum }}" data-search="{{ (s.bildiren ~ ' ' ~ s.sikayet_edilen ~ ' ' ~ s.neden ~ ' ' ~ s.aciklama ~ ' ' ~ s.ilgili_mesaj)|lower }}"><td>{{ s.zaman }}</td><td>{{ s.bildiren }}</td><td><b>{{ s.sikayet_edilen }}</b></td><td>{{ s.neden }}</td><td>{{ s.oda }}</td><td><div>{{ s.aciklama }}</div>{% if s.ilgili_mesaj %}<div class="notice" style="margin-top:5px"><b>İlgili mesaj:</b> {{ s.ilgili_mesaj }}</div>{% endif %}</td><td><span class="status {{ 'ban' if s.durum=='Yeni' else ('mute' if s.durum=='İnceleniyor' else 'online') }}">{{ s.durum }}</span></td><td><div class="actions"><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sikayet_durum"><input type="hidden" name="sikayet_idx" value="{{ s.idx }}"><select name="durum" onchange="this.form.submit()"><option {{ 'selected' if s.durum=='Yeni' else '' }}>Yeni</option><option {{ 'selected' if s.durum=='İnceleniyor' else '' }}>İnceleniyor</option><option {{ 'selected' if s.durum=='Çözüldü' else '' }}>Çözüldü</option></select></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="ban"><button class="btn red">Ban</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">Kick</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="mute"><input type="hidden" name="dakika" value="10"><button class="btn dark">10 dk mute</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty">Kayıtlı şikâyet bulunmuyor.</div>{% endif %}</div></section>
+
+<section id="system" class="section"><div class="grid3">
+<div class="box"><h3>📢 Duyuru</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duyuru"><div class="field"><label>Genel sohbete duyuru</label><textarea name="metin" maxlength="500" required></textarea></div><button class="btn">📢 Yayınla</button></form></div>
+<div class="box"><h3>📌 Sabit duyuru</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sabit_duyuru"><div class="field"><label>Üst bilgi bandı</label><input name="metin" maxlength="250" value="{{ sabit_duyuru }}"></div><button class="btn orange">📌 Kaydet</button></form></div>
+<div class="box"><h3>⏳ Yavaş mod</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="yavas_mod"><div class="field"><label>Saniye (0 = kapalı)</label><input type="number" name="saniye" min="0" max="3600" value="{{ yavas_mod_saniye }}"></div><button class="btn dark">⏳ Uygula</button></form></div>
+<div class="box"><h3>🛠️ Bakım modu</h3><div class="metric"><span>Durum</span><b>{{ 'AÇIK' if bakim_modu else 'KAPALI' }}</b></div><form method="post" action="/admin/islem" style="margin-top:8px"><input type="hidden" name="islem" value="bakim"><button class="btn {{ 'green' if bakim_modu else 'orange' }}">{{ '🟢 Bakımı Kapat' if bakim_modu else '🛠️ Bakımı Aç' }}</button></form></div>
+<div class="box"><h3>🔞 Küfür filtresi</h3><div class="metric"><span>Durum</span><b>{{ 'AÇIK' if kufur_filtresi else 'KAPALI' }}</b></div><form method="post" action="/admin/islem" style="margin-top:8px"><input type="hidden" name="islem" value="kufur"><button class="btn {{ 'green' if kufur_filtresi else 'dark' }}">{{ '🔴 Kapat' if kufur_filtresi else '✅ Aç' }}</button></form></div>
+<div class="box"><h3>⏱️ Geri sayım</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sayac"><div class="field"><label>Dakika</label><input type="number" name="dakika" min="0.1" max="10080" step="0.1" value="5" required></div><button class="btn red">⏱️ Başlat</button></form></div>
+<div class="box"><h3>🚨 Siren / alarm</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="alarm"><div class="field"><label>Mesaj</label><input name="metin" maxlength="300" value="TÜM KULLANICILARIN DİKKATİNE! YÖNETİCİ UYARISI!" required></div><button class="btn red">🚨 Gönder</button></form></div>
+<div class="box"><h3>👻 Ghost / sistem</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="ghost"><button class="btn purple">👻 Tetikle</button></form><p class="muted" style="font-size:11px">Mevcut yönetici sistem akışını tetikler.</p></div>
+<div class="box"><h3>🗑️ Sohbeti temizle</h3><p class="muted" style="font-size:11px">Tüm sohbet geçmişini kalıcı kayıttan da temizler.</p><form method="post" action="/admin/islem" onsubmit="return confirm('Tüm sohbet geçmişi silinecek. Devam edilsin mi?')"><input type="hidden" name="islem" value="temizle"><button class="btn red">🗑️ Chati Temizle</button></form></div>
+</div></section>
+
+<section id="logs" class="section"><div class="box"><div class="toolbar"><h2 style="margin:0;flex:1">📋 Denetim Logları</h2><button class="btn light" onclick="yenile()">↻ Yenile</button></div><div class="log">{{ loglar }}</div></div></section>
+
+<section id="feedback" class="section"><div class="box"><h2>📝 Kullanıcı Geri Bildirimleri</h2>{% if geri_bildirimler %}<div class="table-wrap"><table class="table"><thead><tr><th>Tarih</th><th>Kullanıcı</th><th>Oda</th><th>Mesaj</th></tr></thead><tbody>{% for fb in geri_bildirimler %}<tr><td>{{ fb.zaman }}</td><td><b>{{ fb.kullanici }}</b></td><td>{{ fb.oda }}</td><td>{{ fb.mesaj }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty">Henüz geri bildirim yok.</div>{% endif %}</div></section>
+
+</div></main></div></div>
+
+<div class="modal" id="userModal" onclick="modalDis(event)"><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">Kullanıcı</h3><button class="modal-close" onclick="modalKapat()">✕</button></div><div class="modal-body" id="modalBody">Yükleniyor…</div></div></div>
 <script>
-function tabAc(id,btn){
- document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
- document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
- document.getElementById(id).classList.add('active'); btn.classList.add('active');
-}
-setInterval(()=>location.reload(),15000);
+let auto=true, timer=null;
+const users={{ kullanici_json|safe }};
+function sekmeAc(id){document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));localStorage.setItem('qchatAdminTab',id);window.scrollTo({top:0,behavior:'smooth'});}
+document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>sekmeAc(b.dataset.tab)));
+(function(){const saved=localStorage.getItem('qchatAdminTab');if(saved&&document.getElementById(saved))sekmeAc(saved);baslatOtomatik();})();
+function yenile(){document.getElementById('lastRefresh').textContent=new Date().toLocaleTimeString('tr-TR');location.reload();}
+function baslatOtomatik(){clearInterval(timer);if(auto)timer=setInterval(()=>location.reload(),20000);document.getElementById('autoState').textContent=auto?'Açık':'Kapalı';document.getElementById('autoBtn').textContent='⏱ Otomatik: '+(auto?'Açık':'Kapalı');}
+function otomatikToggle(){auto=!auto;sessionStorage.setItem('qchatAdminAuto',auto?'1':'0');baslatOtomatik();}
+(function(){const s=sessionStorage.getItem('qchatAdminAuto');if(s==='0')auto=false;})();
+function filtreKullanicilar(){const q=(document.getElementById('userSearch').value||'').toLowerCase();const f=document.getElementById('userFilter').value;document.querySelectorAll('.user-row').forEach(r=>{const okQ=!q||r.dataset.name.includes(q);let okF=true;if(f==='online')okF=r.dataset.online==='1';if(f==='offline')okF=r.dataset.online==='0';if(f==='ban')okF=r.dataset.ban==='1';if(f==='mute')okF=r.dataset.mute==='1';if(f==='room')okF=r.dataset.room==='1';r.style.display=(okQ&&okF)?'':'none';});}
+function filtreChat(){const q=(document.getElementById('chatSearch').value||'').toLowerCase();const room=document.getElementById('chatRoom').value;document.querySelectorAll('.chat-item').forEach(r=>{r.style.display=(!q||r.dataset.search.includes(q))&&(room==='all'||r.dataset.room===room)?'':'none';});}
+function filtreRapor(){const q=(document.getElementById('reportSearch').value||'').toLowerCase();const f=document.getElementById('reportFilter').value;document.querySelectorAll('.report-row').forEach(r=>{r.style.display=(!q||r.dataset.search.includes(q))&&(f==='all'||r.dataset.status===f)?'':'none';});}
+function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
+function escapeHtml(v){return String(v).replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));}
+function modalKapat(){document.getElementById('userModal').classList.remove('open')}function modalDis(e){if(e.target.id==='userModal')modalKapat()}document.addEventListener('keydown',e=>{if(e.key==='Escape')modalKapat()});
 </script>
 </body></html>
 """
@@ -296,8 +302,51 @@ def admin_panel():
     simdi = time.time()
     kullanicilar = _admin_durumlari()
     odalar = []
+    oda_mesaj_sayilari = {}
     for oda, sifre in odalar_db.items():
-        odalar.append({"ad": oda, "sifre": sifre, "lider": oda_liderleri.get(oda, "Sistem" if oda == "Genel" else "-")})
+        oda_mesaj_sayilari[oda] = sum(1 for m in sohbet_gecmisi if m.get("oda", "Genel") == oda)
+        odalar.append({"ad": oda, "sifre": sifre, "lider": oda_liderleri.get(oda, "Sistem" if oda == "Genel" else "-"), "mesaj_sayisi": oda_mesaj_sayilari[oda]})
+
+    # Yönetim paneli için hafif istatistikler: mevcut sohbet geçmişinden hesaplanır,
+    # yeni bir veri tabanı veya kalıcı tablo oluşturmaz.
+    kullanici_mesajlari = {}
+    for m in sohbet_gecmisi:
+        g = m.get("gonderen") or "Bilinmeyen"
+        if g in ("📢 DUYURU", "📢 SAYAÇ", "📢 ALARM", "Sistem"):
+            continue
+        kullanici_mesajlari[g] = kullanici_mesajlari.get(g, 0) + 1
+    en_yuksek = max(kullanici_mesajlari.values(), default=1)
+    top_kullanicilar = [
+        {"isim": isim, "mesaj": sayi, "yuzde": min(100, int((sayi / en_yuksek) * 100))}
+        for isim, sayi in sorted(kullanici_mesajlari.items(), key=lambda x: (-x[1], x[0].lower()))[:7]
+    ]
+    en_yuksek_oda = max(oda_mesaj_sayilari.values(), default=1)
+    top_odalar = [
+        {"ad": isim, "mesaj": sayi, "yuzde": min(100, int((sayi / en_yuksek_oda) * 100))}
+        for isim, sayi in sorted(oda_mesaj_sayilari.items(), key=lambda x: (-x[1], x[0].lower()))[:7]
+    ]
+
+    son_mesajlar = []
+    with veri_kilidi:
+        baslangic = max(0, len(sohbet_gecmisi) - 120)
+        for idx in range(len(sohbet_gecmisi) - 1, baslangic - 1, -1):
+            m = dict(sohbet_gecmisi[idx])
+            m["idx"] = idx
+            m["oda"] = m.get("oda", "Genel")
+            m["gonderen"] = m.get("gonderen", "")
+            m["mesaj"] = m.get("mesaj", "")
+            m["zaman"] = time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(m.get("zaman", 0))) if m.get("zaman") else "-"
+            son_mesajlar.append(m)
+
+    geri_bildirim_gorunum = []
+    for fb in reversed(geri_bildirimler[-100:]):
+        geri_bildirim_gorunum.append({
+            "kullanici": fb.get("kullanici", "Bilinmeyen"),
+            "oda": fb.get("oda", "Genel"),
+            "mesaj": fb.get("mesaj", ""),
+            "zaman": time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(fb.get("zaman", 0))) if fb.get("zaman") else "-"
+        })
+
     sikayet_gorunum = []
     with sikayet_kilidi:
         for idx, s in enumerate(reversed(sikayetler)):
@@ -332,12 +381,76 @@ def admin_panel():
         yavas_mod_saniye=yavas_mod_saniye,
         sabit_duyuru=sabit_duyuru,
         kufur_filtresi=kufur_filtresi,
+        yeni_sikayet=sum(1 for s in sikayet_gorunum if s.get("durum") == "Yeni"),
+        oda_sayisi=len(odalar),
+        ozel_oda=max(0, len(odalar) - 1),
+        maks_oda=MAKS_OZEL_ODA,
+        oda_izinli=len(oda_kurma_izni),
+        geri_sayisi=len(geri_bildirimler),
+        top_kullanicilar=top_kullanicilar,
+        top_odalar=top_odalar,
+        son_mesajlar=son_mesajlar,
+        geri_bildirimler=geri_bildirim_gorunum,
+        kullanici_json=json.dumps(kullanicilar, ensure_ascii=False),
     )
 
 @app.route("/admin/cikis")
 def admin_cikis():
     session.pop("admin_giris", None)
     return redirect("/admin")
+
+@app.route("/admin/mesaj_sil", methods=["POST"])
+def admin_mesaj_sil():
+    if not admin_giris_gerekli():
+        return redirect("/admin")
+    try:
+        idx = int(request.form.get("idx", "-1"))
+    except ValueError:
+        idx = -1
+    with veri_kilidi:
+        if 0 <= idx < len(sohbet_gecmisi):
+            silinen = sohbet_gecmisi.pop(idx)
+            log_ekle(f"Admin mesaj sildi: {silinen.get('gonderen', '')}: {silinen.get('mesaj', '')}")
+            durumu_kaydet()
+    return redirect("/admin")
+
+@app.route("/admin/admin_mesaj_form", methods=["POST"])
+def admin_mesaj_form():
+    if not admin_giris_gerekli():
+        return redirect("/admin")
+    mesaj = (request.form.get("mesaj") or "").strip()[:500]
+    if mesaj:
+        veri = {
+            "id": secrets.token_hex(8),
+            "gonderen": ADMIN_KULLANICI,
+            "mesaj": mesaj,
+            "alici": "Genel",
+            "oda": "Genel",
+            "zaman": time.time(),
+        }
+        with veri_kilidi:
+            sohbet_gecmisi.append(veri)
+            mesaj_kuyrugu.put(veri)
+            log_ekle(f"Admin mesaj gönderdi: {mesaj}")
+            durumu_kaydet()
+    return redirect("/admin")
+
+@app.route("/admin/admin_chat", methods=["GET"])
+def admin_chat_api():
+    if not admin_giris_gerekli():
+        return jsonify({"mesajlar": []}), 403
+    with veri_kilidi:
+        mesajlar = []
+        for idx, m in enumerate(reversed(sohbet_gecmisi[-150:])):
+            if m.get("oda", "Genel") != "Genel" or m.get("alici", "Genel") != "Genel":
+                continue
+            mesajlar.append({
+                "idx": len(sohbet_gecmisi) - 1 - idx,
+                "gonderen": m.get("gonderen", ""),
+                "mesaj": m.get("mesaj", ""),
+                "zaman": m.get("zaman", 0),
+            })
+    return jsonify({"mesajlar": mesajlar[:100]})
 
 @app.route("/admin/islem", methods=["POST"])
 def admin_islem():
