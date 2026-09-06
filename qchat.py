@@ -70,7 +70,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_COOKIE_SECURE', '0') == '1'
 app.permanent_session_lifetime = timedelta(days=30)
 
-app.secret_key = secrets.token_hex(32)
+app.secret_key = os.getenv('QCHAT_SECRET_KEY', 'qchat-local-dev-secret-change-me')
 
 # ==================== YÖNETİCİ PANELİ ====================
 ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
@@ -687,6 +687,9 @@ def admin_islem():
     hedef = (request.form.get("hedef") or "").strip()
     islem = request.form.get("islem") or ""
 
+    if islem.startswith("sorgu_"):
+        sorgu_verilerini_tazele()
+
     try:
         with veri_kilidi:
             if islem in {"ban","unban","kick","mute","unmute","oda_izni","sil","duzenle"}:
@@ -1033,6 +1036,23 @@ if not isinstance(aktif_sorgular, dict):
     aktif_sorgular = {}
 if not isinstance(sorgu_mesajlari, dict):
     sorgu_mesajlari = {}
+
+
+def sorgu_verilerini_tazele():
+    """Sorgu durumunu diskten tekrar okuyarak farklı Render worker'larının
+    aynı aktif görüşme ve mesajları görmesini sağlar."""
+    global aktif_sorgular, sorgu_mesajlari
+    try:
+        with open(DOSYA, "r", encoding="utf-8") as f:
+            kayit = json.load(f)
+        yeni_aktif = kayit.get("aktif_sorgular", {})
+        yeni_mesaj = kayit.get("sorgu_mesajlari", {})
+        if isinstance(yeni_aktif, dict):
+            aktif_sorgular = yeni_aktif
+        if isinstance(yeni_mesaj, dict):
+            sorgu_mesajlari = yeni_mesaj
+    except Exception:
+        pass
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
 GIRIS_MAKS_DENEME = 5          # Aynı giriş yapan kişi 5 hatalı denemeden sonra kilitlenir.
