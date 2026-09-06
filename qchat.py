@@ -500,7 +500,7 @@ def admin_panel():
         {"isim": isim, "mesaj": sayi, "yuzde": min(100, int((sayi / en_yuksek) * 100))}
         for isim, sayi in sorted(kullanici_mesajlari.items(), key=lambda x: (-x[1], x[0].lower()))[:7]
     ]
-    en_yuksek_oda = max(oda_mesaj_sayilari.values(), default=1)
+    en_yuksek_oda = max(oda_mesaj_sayilari.values(), default=1) or 1
     top_odalar = [
         {"ad": isim, "mesaj": sayi, "yuzde": min(100, int((sayi / en_yuksek_oda) * 100))}
         for isim, sayi in sorted(oda_mesaj_sayilari.items(), key=lambda x: (-x[1], x[0].lower()))[:7]
