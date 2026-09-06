@@ -82,18 +82,46 @@ def kullanici_adi_rezerve_mi(kullanici):
 def admin_giris_gerekli():
     return session.get("admin_giris") is True
 
+def _admin_guvenli_zaman(deger, varsayilan="-"):
+    """Admin panelinde bozuk/eksik zaman değerleri yüzünden 500 oluşmasını engeller."""
+    try:
+        if deger is None or deger == "":
+            return varsayilan
+        return time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(float(deger)))
+    except (TypeError, ValueError, OverflowError, OSError):
+        return varsayilan
+
 def _admin_durumlari():
     simdi = time.time()
     # Süresi dolan susturmaları temizle.
     for k, mute_veri in list(susturulanlar.items()):
-        bitis = mute_veri if isinstance(mute_veri, (int, float)) else mute_veri.get("bitis", 0)
+        if isinstance(mute_veri, (int, float)):
+            bitis = mute_veri
+        elif isinstance(mute_veri, dict):
+            bitis = mute_veri.get("bitis", 0)
+        else:
+            bitis = 0
+        try:
+            bitis = float(bitis or 0)
+        except (TypeError, ValueError):
+            bitis = 0
         if simdi >= bitis:
             susturulanlar.pop(k, None)
 
     kullanicilar = []
-    for isim in sorted(kullanici_db.keys(), key=str.lower):
+    for isim in sorted(kullanici_db.keys(), key=lambda x: str(x).lower()):
+        isim = str(isim)
         mute_veri = susturulanlar.get(isim)
-        mute_bitis = mute_veri if isinstance(mute_veri, (int, float)) else (mute_veri or {}).get("bitis", 0)
+        if isinstance(mute_veri, (int, float)):
+            mute_bitis = mute_veri
+        elif isinstance(mute_veri, dict):
+            mute_bitis = mute_veri.get("bitis", 0)
+        else:
+            mute_bitis = 0
+        try:
+            mute_bitis = float(mute_bitis or 0)
+        except (TypeError, ValueError):
+            mute_bitis = 0
         kullanicilar.append({
             "isim": isim,
             "online": bool(son_aktiflik.get(isim) and simdi - son_aktiflik.get(isim, 0) < 10),
@@ -303,14 +331,17 @@ def admin_panel():
     kullanicilar = _admin_durumlari()
     odalar = []
     oda_mesaj_sayilari = {}
-    for oda, sifre in odalar_db.items():
-        oda_mesaj_sayilari[oda] = sum(1 for m in sohbet_gecmisi if m.get("oda", "Genel") == oda)
+    for oda, sifre in (odalar_db.items() if isinstance(odalar_db, dict) else []):
+        oda = str(oda)
+        oda_mesaj_sayilari[oda] = sum(1 for m in sohbet_gecmisi if isinstance(m, dict) and m.get("oda", "Genel") == oda)
         odalar.append({"ad": oda, "sifre": sifre, "lider": oda_liderleri.get(oda, "Sistem" if oda == "Genel" else "-"), "mesaj_sayisi": oda_mesaj_sayilari[oda]})
 
     # Yönetim paneli için hafif istatistikler: mevcut sohbet geçmişinden hesaplanır,
     # yeni bir veri tabanı veya kalıcı tablo oluşturmaz.
     kullanici_mesajlari = {}
     for m in sohbet_gecmisi:
+        if not isinstance(m, dict):
+            continue
         g = m.get("gonderen") or "Bilinmeyen"
         if g in ("📢 DUYURU", "📢 SAYAÇ", "📢 ALARM", "Sistem"):
             continue
@@ -330,29 +361,35 @@ def admin_panel():
     with veri_kilidi:
         baslangic = max(0, len(sohbet_gecmisi) - 120)
         for idx in range(len(sohbet_gecmisi) - 1, baslangic - 1, -1):
+            if not isinstance(sohbet_gecmisi[idx], dict):
+                continue
             m = dict(sohbet_gecmisi[idx])
             m["idx"] = idx
             m["oda"] = m.get("oda", "Genel")
             m["gonderen"] = m.get("gonderen", "")
             m["mesaj"] = m.get("mesaj", "")
-            m["zaman"] = time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(m.get("zaman", 0))) if m.get("zaman") else "-"
+            m["zaman"] = _admin_guvenli_zaman(m.get("zaman"))
             son_mesajlar.append(m)
 
     geri_bildirim_gorunum = []
     for fb in reversed(geri_bildirimler[-100:]):
+        if not isinstance(fb, dict):
+            continue
         geri_bildirim_gorunum.append({
             "kullanici": fb.get("kullanici", "Bilinmeyen"),
             "oda": fb.get("oda", "Genel"),
             "mesaj": fb.get("mesaj", ""),
-            "zaman": time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(fb.get("zaman", 0))) if fb.get("zaman") else "-"
+            "zaman": _admin_guvenli_zaman(fb.get("zaman"))
         })
 
     sikayet_gorunum = []
     with sikayet_kilidi:
         for idx, s in enumerate(reversed(sikayetler)):
+            if not isinstance(s, dict):
+                continue
             x = dict(s)
             x["idx"] = len(sikayetler) - 1 - idx
-            x["zaman"] = time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(x.get("zaman", 0)))
+            x["zaman"] = _admin_guvenli_zaman(x.get("zaman"))
             x["bildiren"] = x.get("bildiren", "")
             x["sikayet_edilen"] = x.get("sikayet_edilen", "")
             x["neden"] = x.get("neden", "")
@@ -668,6 +705,13 @@ def _tum_hatalari_yakala(e):
     kod = getattr(e, "code", 500) or 500
     if request.path.startswith("/api/"):
         return jsonify({"basarili": False, "hata": f"Sunucu hatası: {e}"}), kod
+    if request.path.startswith("/admin"):
+        return (
+            "<h2 style='font-family:sans-serif;color:#b91c1c'>QChat Yönetim Paneli Hatası</h2>"
+            "<p style='font-family:sans-serif'>Panel yüklenirken bir veri hatası oluştu. "
+            "Sunucu konsolundaki traceback gerçek hatayı gösterir.</p>",
+            kod,
+        )
     if request.path == "/ban-geri-bildirim":
         return _ban_geri_bildirim_sayfasi(
             "Geri bildirimin alındı.",
@@ -2063,7 +2107,7 @@ mesaj_html = """
 
             const cursor = input.selectionStart ?? input.value.length;
             const sol = input.value.slice(0, cursor);
-            const match = sol.match(/(?:^|\s)@([\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
+            const match = sol.match(/(?:^|\\s)@([\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
             if (!match) { mentionKapat(); return; }
 
             const aranan = (match[1] || '').toLocaleLowerCase('tr-TR');
