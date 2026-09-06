@@ -13,6 +13,7 @@ import time
 import subprocess
 import shutil
 import json
+import sqlite3
 import os
 import sys
 import logging
@@ -70,7 +71,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_COOKIE_SECURE', '0') == '1'
 app.permanent_session_lifetime = timedelta(days=30)
 
-app.secret_key = secrets.token_hex(32)
+app.secret_key = os.getenv('QCHAT_SECRET_KEY') or 'qchat-dev-secret-change-me'
 
 # ==================== YÖNETİCİ PANELİ ====================
 ADMIN_KULLANICI = os.getenv("QCHAT_ADMIN_USER", "Admin")
@@ -518,7 +519,7 @@ def admin_panel():
 
     aktif_sorgular_gorunum = []
     with veri_kilidi:
-        for k, v in sorted(aktif_sorgular.items(), key=lambda item: item[1].get("baslangic", 0) if isinstance(item[1], dict) else 0):
+        for k, v in sorted(aktif_sorgular_db().items(), key=lambda item: item[1].get("baslangic", 0)):
             if k not in kullanici_db:
                 continue
             aktif_sorgular_gorunum.append({
@@ -528,12 +529,12 @@ def admin_panel():
             })
 
     sorgu_secili = (request.args.get("sorgu") or "").strip()
-    if sorgu_secili not in aktif_sorgular:
+    if not sorgu_aktif_mi(sorgu_secili):
         sorgu_secili = ""
     sorgu_mesajlar_gorunum = []
     if sorgu_secili:
         with veri_kilidi:
-            for m in sorgu_mesajlari.get(sorgu_secili, [])[-200:]:
+            for m in [{"gonderen":g,"mesaj":msg,"zaman":z} for g,msg,z in sorgu_mesajlarini_getir_db(sorgu_secili, 200)]:
                 if not isinstance(m, dict):
                     continue
                 sorgu_mesajlar_gorunum.append({
@@ -695,6 +696,8 @@ def admin_islem():
                 engellenenler.discard(hedef)
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
+                sorgu_bitir_db(hedef)
+                with sqlite3.connect(SORGU_DB, timeout=10) as db: db.execute('DELETE FROM sorgu_mesajlari WHERE kullanici=?',(hedef,))
                 aktif_sorgular.pop(hedef, None)
                 sorgu_mesajlari.pop(hedef, None)
                 oda_kurma_izni.discard(hedef)
@@ -762,16 +765,19 @@ def admin_islem():
             elif islem == "sorgu_baslat":
                 if not hedef or hedef == ADMIN_KULLANICI or kullanici_adi_rezerve_mi(hedef) or hedef not in kullanici_db:
                     return redirect("/admin")
+                sorgu_baslat_db(hedef, ADMIN_KULLANICI)
                 aktif_sorgular[hedef] = {"baslatan": ADMIN_KULLANICI, "baslangic": time.time()}
                 sorgu_mesajlari.setdefault(hedef, [])
                 log_ekle(f"Admin '{hedef}' kullanıcısı için zorunlu görüşme başlattı.")
             elif islem == "sorgu_bitir":
-                if hedef in aktif_sorgular:
+                if sorgu_aktif_mi(hedef):
+                    sorgu_bitir_db(hedef)
                     aktif_sorgular.pop(hedef, None)
                     log_ekle(f"Admin '{hedef}' kullanıcısı için zorunlu görüşmeyi bitirdi.")
             elif islem == "sorgu_mesaj":
                 mesaj = (request.form.get("mesaj") or "").strip()[:500]
-                if hedef in aktif_sorgular and mesaj:
+                if sorgu_aktif_mi(hedef) and mesaj:
+                    sorgu_mesaj_ekle_db(hedef, ADMIN_KULLANICI, mesaj)
                     sorgu_mesajlari.setdefault(hedef, []).append({
                         "gonderen": ADMIN_KULLANICI,
                         "mesaj": mesaj,
@@ -998,6 +1004,56 @@ if not isinstance(aktif_sorgular, dict):
     aktif_sorgular = {}
 if not isinstance(sorgu_mesajlari, dict):
     sorgu_mesajlari = {}
+
+# ==================== ORTAK SORGU VERİTABANI ====================
+SORGU_DB = 'sorgu.db'
+
+def sorgu_db_init():
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        db.execute('PRAGMA journal_mode=WAL')
+        db.execute('''CREATE TABLE IF NOT EXISTS sorgular (
+            kullanici TEXT PRIMARY KEY, baslatan TEXT NOT NULL, baslangic REAL NOT NULL
+        )''')
+        db.execute('''CREATE TABLE IF NOT EXISTS sorgu_mesajlari (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, kullanici TEXT NOT NULL,
+            gonderen TEXT NOT NULL, mesaj TEXT NOT NULL, zaman REAL NOT NULL
+        )''')
+        db.execute('CREATE INDEX IF NOT EXISTS idx_sorgu_mesaj_kullanici ON sorgu_mesajlari(kullanici, id)')
+
+def sorgu_aktif_mi(kullanici):
+    if not kullanici:
+        return False
+    sorgu_db_init()
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        return db.execute('SELECT 1 FROM sorgular WHERE kullanici=?', (kullanici,)).fetchone() is not None
+
+def sorgu_baslat_db(kullanici, admin_adi):
+    sorgu_db_init()
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        db.execute('INSERT OR REPLACE INTO sorgular(kullanici,baslatan,baslangic) VALUES(?,?,?)', (kullanici, admin_adi, time.time()))
+
+def sorgu_bitir_db(kullanici):
+    sorgu_db_init()
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        db.execute('DELETE FROM sorgular WHERE kullanici=?', (kullanici,))
+
+def sorgu_mesaj_ekle_db(kullanici, gonderen, mesaj):
+    sorgu_db_init()
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        db.execute('INSERT INTO sorgu_mesajlari(kullanici,gonderen,mesaj,zaman) VALUES(?,?,?,?)', (kullanici,gonderen,mesaj,time.time()))
+
+def sorgu_mesajlarini_getir_db(kullanici, limit=500):
+    sorgu_db_init()
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        rows=db.execute('SELECT gonderen,mesaj,zaman FROM sorgu_mesajlari WHERE kullanici=? ORDER BY id DESC LIMIT ?', (kullanici,limit)).fetchall()
+    return list(reversed(rows))
+
+def aktif_sorgular_db():
+    sorgu_db_init()
+    with sqlite3.connect(SORGU_DB, timeout=10) as db:
+        return {k:{'baslatan':b,'baslangic':t} for k,b,t in db.execute('SELECT kullanici,baslatan,baslangic FROM sorgular ORDER BY baslangic ASC').fetchall()}
+
+sorgu_db_init()
 
 # ==================== GİRİŞ BRUTE-FORCE KORUMASI ====================
 GIRIS_MAKS_DENEME = 5          # Aynı giriş yapan kişi 5 hatalı denemeden sonra kilitlenir.
@@ -3283,7 +3339,7 @@ def zorunlu_sorgu_sayfasi():
     kullanici = session.get("kullanici")
     if not kullanici:
         return redirect("/giris")
-    if kullanici not in aktif_sorgular:
+    if not sorgu_aktif_mi(kullanici):
         return redirect("/")
     return render_template_string(zorunlu_sorgu_html, kullanici=kullanici)
 
@@ -3292,17 +3348,15 @@ def sorgu_durum_api():
     kullanici = session.get("kullanici")
     if not kullanici:
         return jsonify({"aktif": False}), 403
-    if kullanici not in aktif_sorgular:
+    if not sorgu_aktif_mi(kullanici):
         return jsonify({"aktif": False, "mesajlar": []})
     with veri_kilidi:
         mesajlar = []
-        for m in sorgu_mesajlari.get(kullanici, [])[-500:]:
-            if not isinstance(m, dict):
-                continue
+        for gonderen, mesaj, zaman in sorgu_mesajlarini_getir_db(kullanici, 500):
             mesajlar.append({
-                "gonderen": m.get("gonderen", ""),
-                "mesaj": m.get("mesaj", ""),
-                "zaman": _admin_guvenli_zaman(m.get("zaman")),
+                "gonderen": gonderen,
+                "mesaj": mesaj,
+                "zaman": _admin_guvenli_zaman(zaman),
             })
     son_aktiflik[kullanici] = time.time()
     return jsonify({"aktif": True, "mesajlar": mesajlar})
@@ -3312,11 +3366,12 @@ def sorgu_mesaj_gonder():
     kullanici = session.get("kullanici")
     if not kullanici:
         return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-    if kullanici not in aktif_sorgular:
+    if not sorgu_aktif_mi(kullanici):
         return jsonify({"basarili": False, "aktif": False}), 409
     mesaj = (request.form.get("mesaj") or "").strip()[:500]
     if not mesaj:
         return jsonify({"basarili": False, "hata": "Mesaj boş olamaz."}), 400
+    sorgu_mesaj_ekle_db(kullanici, kullanici, mesaj)
     with veri_kilidi:
         sorgu_mesajlari.setdefault(kullanici, []).append({
             "gonderen": kullanici,
@@ -3326,14 +3381,13 @@ def sorgu_mesaj_gonder():
         if len(sorgu_mesajlari[kullanici]) > 500:
             sorgu_mesajlari[kullanici] = sorgu_mesajlari[kullanici][-500:]
         son_aktiflik[kullanici] = time.time()
-    durumu_kaydet()
     return jsonify({"basarili": True})
 
 @app.route("/", methods=["GET"])
 def ana_sayfa():
     if "kullanici" not in session:
         return redirect("/giris")
-    if session["kullanici"] in aktif_sorgular:
+    if sorgu_aktif_mi(session["kullanici"]):
         return redirect("/sorgu")
     return render_template_string(mesaj_html, kullanici=session["kullanici"])
 
