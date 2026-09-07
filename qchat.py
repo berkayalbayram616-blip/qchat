@@ -1203,6 +1203,20 @@ def e_posta_gecerli_mi(email):
 def dogrulama_kodu_uret():
     return f"{secrets.randbelow(1_000_000):06d}"
 
+def kullanici_giris_kodunu_al(kullanici):
+    """Kullanıcının 6 haneli giriş güvenlik kodunu döndürür, yoksa oluşturur."""
+    kod = kullanici_giris_kodlari.get(kullanici)
+    if not kod:
+        kod = dogrulama_kodu_uret()
+        kullanici_giris_kodlari[kullanici] = kod
+    return kod
+
+def kullanici_giris_kodunu_yenile(kullanici):
+    """Kullanıcı için yeni rastgele 6 haneli bir giriş güvenlik kodu üretir."""
+    kod = dogrulama_kodu_uret()
+    kullanici_giris_kodlari[kullanici] = kod
+    return kod
+
 def kullanici_emaili_al(kullanici):
     return e_posta_normalize(kullanici_emailleri.get(kullanici, ""))
 
@@ -1297,6 +1311,14 @@ odalar_db = veriler.get("odalar_db", {"Genel": ""})
 kullanici_emailleri = veriler.get("kullanici_emailleri", {})
 email_hesaplari = veriler.get("email_hesaplari", {})
 banli_emailler = set(veriler.get("banli_emailler", []))
+
+# ==================== GİRİŞ GÜVENLİK KODU (6 haneli) ====================
+# Her hesap için rastgele 6 haneli bir kod tutulur (Ayarlar'dan görülüp yenilenebilir).
+# Bir hesapta oturum açıkken (çıkış yapılmadan) başka bir cihazdan aynı hesaba
+# şifreyle girilmeye çalışılırsa, bu kodun girilmesi istenir. Hesaptan çıkış
+# yapıldıysa (aktif oturum kalmadıysa) başka cihazdan giriş koda gerek kalmadan yapılabilir.
+kullanici_giris_kodlari = veriler.get("kullanici_giris_kodlari", {})  # {kullanici: "123456"}
+aktif_oturumlar = veriler.get("aktif_oturumlar", {})  # {kullanici: True/False} - hesabın açık bir oturumu var mı
 engellenenler.difference_update({u for u in list(engellenenler) if str(u).strip().casefold() in REZERVE_KULLANICI_ADLARI})
 bekleyen_kayitlar = {}  # {token: {kullanici, email, sifre_hash, kod, olusturma_zamani}}
 bekleyen_sifre_sifirlama = {}  # {token: {kullanici, email, kimlik, kod, olusturma_zamani}}
@@ -1454,6 +1476,8 @@ def durumu_kaydet():
             "engellenenler": list(engellenenler),
             "susturulanlar": dict(susturulanlar),
             "kullanici_db": dict(kullanici_db),
+            "kullanici_giris_kodlari": dict(kullanici_giris_kodlari),
+            "aktif_oturumlar": dict(aktif_oturumlar),
             "kullanici_emailleri": dict(kullanici_emailleri),
             "email_hesaplari": dict(email_hesaplari),
             "banli_emailler": list(banli_emailler),
@@ -1549,6 +1573,7 @@ def guvenlik_kontrolu():
 
     if kullanici and kullanici in zorla_cikis:
         zorla_cikis.discard(kullanici)
+        aktif_oturumlar[kullanici] = False
         session.pop("kullanici", None)
         if request.path.startswith("/api/"):
             return "Kick", 403
@@ -1757,6 +1782,10 @@ giris_html = """
                 {% if kod_gerekli %}
                 <span class="field-label">Doğrulama Kodu</span>
                 <input type="text" name="dogrulama_kodu" placeholder="E-postaya gelen 6 haneli kod" inputmode="numeric" maxlength="6" pattern="\\d{6}" autocomplete="off">
+                {% endif %}
+                {% if guvenlik_kodu_gerekli %}
+                <span class="field-label">Giriş Kodu</span>
+                <input type="text" name="guvenlik_kodu" placeholder="Ayarlar'daki 6 haneli giriş kodu" inputmode="numeric" maxlength="6" pattern="\\d{6}" autocomplete="off" autofocus>
                 {% endif %}
                 <div class="sifre-ipucu">Yeni hesap için: 7-15 karakter, en az 1 büyük harf ve 1 özel karakter (!@#$% vb.)</div>
                 {% if onay_mesaji %}<div class="error" style="color:#1d5d2a;background:#e7f7ea;border-color:#b9e3c1;">✅ {{ onay_mesaji }}</div>{% endif %}
@@ -2106,6 +2135,12 @@ mesaj_html = """
                             <button type="button" class="small-btn" onclick="ayarlarSifirla()">Sıfırla</button>
                             <button type="button" class="small-btn" onclick="ayarlarPenceresiKapat()">Kapat</button>
                         </div>
+                        <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:6px; border-top:1px solid #d7e4ef; padding-top:10px;">
+                            <label style="font-weight:700;">🔑 Giriş Kodu</label>
+                            <div style="font-size:11px; color:#5a7a9a; line-height:1.4;">Bu hesapta bir oturum açıkken başka bir cihazdan giriş yapılmaya çalışılırsa bu kod istenir.</div>
+                            <div id="girisKoduDeger" style="font-size:22px; font-weight:700; letter-spacing:4px; color:#1c3d5c; background:#eef4fb; border:1px solid #b9cfe6; border-radius:6px; padding:8px 12px; width:100%; text-align:center;">------</div>
+                            <button type="button" class="small-btn" style="width:100%;" onclick="girisKoduYenile()">🔄 Kodu Yenile</button>
+                        </div>
                         {% if kullanici != "Sistem" %}
                         <form method="POST" action="/hesap-sil" onsubmit="return confirm('Hesabın kalıcı olarak silinsin ve çıkış yapılsın mı?');" style="margin:0;">
                             <button type="submit" class="small-btn" style="width:100%; background:linear-gradient(180deg,#f28b82,#c0392b); border-color:#8f241a;">🗑️ Hesabı Sil ve Çıkış Yap</button>
@@ -2243,6 +2278,21 @@ mesaj_html = """
         function ayarlarPenceresiAc() {
             ayarlarUygula();
             document.getElementById('ayarlarOverlay').style.display = 'flex';
+            girisKoduGetir();
+        }
+
+        function girisKoduGetir() {
+            const kutu = document.getElementById('girisKoduDeger');
+            fetch('/api/giris_kodu').then(r => r.json()).then(veri => {
+                if (veri && veri.basarili && kutu) kutu.textContent = veri.kod;
+            }).catch(() => {});
+        }
+
+        function girisKoduYenile() {
+            const kutu = document.getElementById('girisKoduDeger');
+            fetch('/api/giris_kodu_yenile', { method: 'POST' }).then(r => r.json()).then(veri => {
+                if (veri && veri.basarili && kutu) kutu.textContent = veri.kod;
+            }).catch(() => {});
         }
 
         function ayarlarPenceresiKapat() {
@@ -3412,6 +3462,7 @@ def cikis():
     kullanici = session.get("kullanici")
     if kullanici:
         oturum_suresini_guncelle(kullanici)
+        aktif_oturumlar[kullanici] = False
     session.pop("kullanici", None)
     return redirect("/giris")
 
@@ -3425,6 +3476,8 @@ def hesap_sil():
 
     with veri_kilidi:
         kullanici_db.pop(kullanici, None)
+        kullanici_giris_kodlari.pop(kullanici, None)
+        aktif_oturumlar.pop(kullanici, None)
 
         eski_email = kullanici_emailleri.pop(kullanici, None)
         if eski_email:
@@ -3478,6 +3531,7 @@ def giris():
     hata = None
     onay_mesaji = None
     kod_gerekli = False
+    guvenlik_kodu_gerekli = False
     form_kullanici = ""
     form_email = ""
 
@@ -3489,6 +3543,7 @@ def giris():
         email = e_posta_normalize(request.form.get("email", ""))
         sifre = request.form.get("sifre", "").strip()
         kod = request.form.get("dogrulama_kodu", "").strip()
+        guvenlik_kodu = request.form.get("guvenlik_kodu", "").strip()
         remember = request.form.get("beni_hatirla") == "on"
 
         form_kullanici = kullanici
@@ -3522,11 +3577,21 @@ def giris():
 
             if kullanici in kullanici_db:
                 if sifre_dogrula(kullanici, sifre):
+                    if aktif_oturumlar.get(kullanici):
+                        kayitli_guvenlik_kodu = kullanici_giris_kodunu_al(kullanici)
+                        if not guvenlik_kodu:
+                            onay_mesaji = "🔐 Bu hesapta zaten açık bir oturum var. Devam etmek için Ayarlar'daki 6 haneli giriş kodunu girin."
+                            return render_template_string(giris_html, hata=hata, kod_gerekli=False, guvenlik_kodu_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                        if guvenlik_kodu != kayitli_guvenlik_kodu:
+                            hata = "❌ Giriş kodu hatalı."
+                            return render_template_string(giris_html, hata=hata, kod_gerekli=False, guvenlik_kodu_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+
                     giris_denemesini_temizle(kullanici)
                     session["kullanici"] = kullanici
                     session.permanent = remember
                     son_aktiflik[kullanici] = time.time()
                     kullanici_oturum_son_kayit[kullanici] = time.time()
+                    aktif_oturumlar[kullanici] = True
                     log_ekle(f"'{kullanici}' oturum açtı.")
                     return redirect("/")
                 else:
@@ -3563,10 +3628,12 @@ def giris():
 
             kullanici_db[kullanici] = sifre_hashle(sifre)
             kullanici_kayit_zamani[kullanici] = time.time()
+            kullanici_giris_kodunu_al(kullanici)  # yeni hesap için 6 haneli giriş kodu oluşturulur
             session["kullanici"] = kullanici
             session.permanent = remember
             son_aktiflik[kullanici] = time.time()
             kullanici_oturum_son_kayit[kullanici] = time.time()
+            aktif_oturumlar[kullanici] = True
             log_ekle(f"Yeni hesap oluşturuldu: '{kullanici}'")
             durumu_kaydet()
             return redirect("/")
@@ -3577,7 +3644,7 @@ def giris():
         kod_gerekli = True
         onay_mesaji = "Doğrulama kodu gönderildi. Lütfen e-postanıza bakın."
 
-    return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+    return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, guvenlik_kodu_gerekli=guvenlik_kodu_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
 @app.route("/sifre-unuttum", methods=["GET", "POST"])
 def sifre_unuttum():
@@ -3596,6 +3663,25 @@ def sifre_unuttum():
     <a href="/giris">Girişe dön</a>
     </div></body></html>
     """)
+
+@app.route("/api/giris_kodu", methods=["GET"])
+def api_giris_kodu_getir():
+    kullanici = session.get("kullanici")
+    if not kullanici or kullanici not in kullanici_db:
+        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
+    kod = kullanici_giris_kodunu_al(kullanici)
+    return jsonify({"basarili": True, "kod": kod})
+
+@app.route("/api/giris_kodu_yenile", methods=["POST"])
+def api_giris_kodu_yenile():
+    kullanici = session.get("kullanici")
+    if not kullanici or kullanici not in kullanici_db:
+        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
+    with veri_kilidi:
+        kod = kullanici_giris_kodunu_yenile(kullanici)
+        durumu_kaydet()
+    log_ekle(f"'{kullanici}' giriş kodunu yeniledi.")
+    return jsonify({"basarili": True, "kod": kod})
 
 @app.route("/api/kullanicilar", methods=["GET"])
 
