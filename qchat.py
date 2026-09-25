@@ -40,8 +40,13 @@ def verileri_yukle():
     return {}
 
 def verileri_kaydet(veriler):
-    with open(DOSYA, "w", encoding="utf-8") as f:
+    """Verileri yarım JSON bırakmadan atomik olarak kaydeder."""
+    gecici = DOSYA + ".tmp"
+    with open(gecici, "w", encoding="utf-8") as f:
         json.dump(veriler, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(gecici, DOSYA)
 
 veriler = verileri_yukle()
 
@@ -1580,6 +1585,68 @@ def kullanici_bilgi_hazirla(kullanici):
 
 MAKS_MESAJ_GECMISI = 500  # sohbet_gecmisi'nin sınırsız büyüyüp RAM/disk şişirmesini engeller
 
+def oda_giris_isteklerini_diskten_yenile():
+    """Sadece oda giriş isteklerini güvenli biçimde diskten günceller."""
+    try:
+        if not os.path.exists(DOSYA):
+            return
+        with open(DOSYA, "r", encoding="utf-8") as f:
+            disk = json.load(f)
+        istekler = disk.get("oda_giris_istekleri") if isinstance(disk, dict) else None
+        if not isinstance(istekler, dict):
+            return
+        with veri_kilidi:
+            oda_giris_istekleri.clear()
+            oda_giris_istekleri.update({
+                k: dict(v) if isinstance(v, dict) else {}
+                for k, v in istekler.items()
+            })
+    except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+        log_ekle(f"Oda giriş istekleri diskten okunamadı: {e}")
+
+def oda_durumunu_diskten_yenile():
+    """Oda lideri/rolleri ve giriş isteklerini veriler.json'dan günceller.
+    Render/Gunicorn gibi birden fazla worker olduğunda bir worker'ın yaptığı oda
+    değişikliğinin diğer worker tarafından da hemen görülmesini sağlar.
+    """
+    try:
+        if not os.path.exists(DOSYA):
+            return
+        with open(DOSYA, "r", encoding="utf-8") as f:
+            disk = json.load(f)
+        if not isinstance(disk, dict):
+            return
+        with veri_kilidi:
+            global odalar_db, oda_liderleri, oda_roller, oda_yasaklari
+            global oda_gecici_banlar, oda_kurma_izni, oda_ayarlar, oda_davetlileri
+            global oda_giris_istekleri, oda_onayli_girisler
+            if isinstance(disk.get("odalar_db"), dict):
+                odalar_db.clear(); odalar_db.update(disk.get("odalar_db", {}))
+            if isinstance(disk.get("oda_liderleri"), dict):
+                oda_liderleri.clear(); oda_liderleri.update(disk.get("oda_liderleri", {}))
+            if isinstance(disk.get("oda_roller"), dict):
+                oda_roller.clear(); oda_roller.update({k: dict(v) if isinstance(v, dict) else {} for k,v in disk.get("oda_roller", {}).items()})
+            if isinstance(disk.get("oda_yasaklari"), dict):
+                oda_yasaklari.clear(); oda_yasaklari.update({k: list(v) if isinstance(v, list) else [] for k,v in disk.get("oda_yasaklari", {}).items()})
+            if isinstance(disk.get("oda_gecici_banlar"), dict):
+                oda_gecici_banlar.clear(); oda_gecici_banlar.update({k: dict(v) if isinstance(v, dict) else {} for k,v in disk.get("oda_gecici_banlar", {}).items()})
+            if isinstance(disk.get("oda_kurma_izni"), list):
+                oda_kurma_izni.clear(); oda_kurma_izni.update(disk.get("oda_kurma_izni", []))
+            if isinstance(disk.get("oda_ayarlar"), dict):
+                oda_ayarlar.clear(); oda_ayarlar.update({k: dict(v) if isinstance(v, dict) else {} for k,v in disk.get("oda_ayarlar", {}).items()})
+            if isinstance(disk.get("oda_davetlileri"), dict):
+                oda_davetlileri.clear(); oda_davetlileri.update({k: list(v) if isinstance(v, list) else [] for k,v in disk.get("oda_davetlileri", {}).items()})
+            if isinstance(disk.get("oda_giris_istekleri"), dict):
+                oda_giris_istekleri.clear(); oda_giris_istekleri.update({k: dict(v) if isinstance(v, dict) else {} for k,v in disk.get("oda_giris_istekleri", {}).items()})
+            if isinstance(disk.get("oda_onayli_girisler"), dict):
+                oda_onayli_girisler.clear(); oda_onayli_girisler.update({k: dict(v) if isinstance(v, dict) else {} for k,v in disk.get("oda_onayli_girisler", {}).items()})
+            if "Genel" not in oda_liderleri:
+                oda_liderleri["Genel"] = "Sistem"
+            for oda in list(odalar_db.keys()):
+                oda_ayarlarini_baslat(oda)
+    except Exception as e:
+        log_ekle(f"Oda verileri diskten yenilenemedi: {e}")
+
 def durumu_kaydet():
     # Kilit altında, diğer thread'ler dict/listeleri değiştirirken json.dump'ın
     # "dictionary changed size during iteration" gibi hatalarla çökmesini engeller.
@@ -1620,7 +1687,11 @@ def durumu_kaydet():
 
 def otomatik_kayit():
     while True:
-        durumu_kaydet()
+        try:
+            oda_durumunu_diskten_yenile()
+            durumu_kaydet()
+        except Exception as e:
+            log_ekle(f"Otomatik kayıt hatası: {e}")
         time.sleep(3)
 
 bakim_html = """
@@ -2699,6 +2770,14 @@ mesaj_html = """
         let dmKullanicilari = [];
         const oturumKullanici = {{ kullanici|tojson }};
 
+        // Ana sohbet sayfasında kullanılan güvenli HTML kaçış yardımcısı.
+        // Lider onay penceresi ve giriş isteği listesi bunu kullanır.
+        function escapeHtml(v) {
+            return String(v ?? '').replace(/[&<>'"]/g, m => ({
+                '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
+            }[m]));
+        }
+
         function ayarlarPenceresiAc() {
             document.getElementById('ayarlarOverlay').style.display = 'flex';
             girisKoduGetir();
@@ -3213,83 +3292,99 @@ mesaj_html = """
             if (event.target && event.target.id === 'odaYonetimOverlay') odaYonetimKapat();
         }
 
-        function odaYetkiYukle() {
-            fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda), {cache:'no-store'})
-                .then(r => r.json())
-                .then(data => {
-                    document.getElementById('odaYonetimBaslik').textContent = "🛡️ " + aktifOda + " Odası — Lider: " + (data.lider || "-");
+        async function odaYetkiYukle() {
+            const yetkisizKutu = document.getElementById('odaYonetimYetkisiz');
+            const icerikKutu = document.getElementById('odaYonetimIcerik');
+            const istekKutu = document.getElementById('odaGirisIstekleri');
+            try {
+                const [yetkiR, istekR] = await Promise.all([
+                    fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda), {cache:'no-store'}),
+                    fetch('/api/oda_giris_istekleri', {cache:'no-store'})
+                ]);
+                const data = await yetkiR.json();
+                const reqData = await istekR.json();
 
-                    const yetkisizKutu = document.getElementById('odaYonetimYetkisiz');
-                    const icerikKutu = document.getElementById('odaYonetimIcerik');
+                document.getElementById('odaYonetimBaslik').textContent =
+                    "🛡️ " + aktifOda + " Odası — Lider: " + (data.lider || "-");
 
-                    if (data.yonetebilir_mi) {
-                        yetkisizKutu.style.display = 'none';
-                        icerikKutu.style.display = 'flex';
+                const istekler = (reqData && reqData.basarili) ? (reqData.istekler || []) : [];
+                const istekListesi = istekler.map(i => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid #d7e4ef;border-radius:6px;padding:7px;margin:5px 0;background:#fbfdff;">
+                        <span style="min-width:0;"><b>${escapeHtml(i.isim)}</b><br><small>🏠 ${escapeHtml(i.oda || '')} • ${escapeHtml(i.zaman_gorunum || '')}</small></span>
+                        <span style="display:flex;gap:4px;flex:0 0 auto;">
+                            <button type="button" class="btn-ok" style="padding:5px 7px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',true,'${encodeURIComponent(i.oda || '')}')">✅</button>
+                            <button type="button" class="btn-cancel" style="padding:5px 7px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',false,'${encodeURIComponent(i.oda || '')}')">❌</button>
+                        </span>
+                    </div>`).join('');
 
-                        const hedefSec = document.getElementById('odaYonetimHedef');
-                        const secili = hedefSec.value;
-                        hedefSec.innerHTML = '';
-                        (data.uyeler || []).forEach(u => {
-                            if (u.isim === "{{ kullanici }}") return;
-                            const opt = document.createElement('option');
-                            opt.value = u.isim;
-                            let etiket = u.isim;
-                            if (u.isim === data.lider) etiket += " (Lider)";
-                            else {
-                                const rolEtiketi = odaRolEtiketi(u.rol);
-                                if (rolEtiketi) etiket += " (" + rolEtiketi + ")";
-                            }
-                            if (u.banli) etiket += u.ban_kalan_dk ? ` (Banlı: ${u.ban_kalan_dk}dk)` : " (Atılmış)";
-                            opt.textContent = etiket;
-                            if (u.isim === secili) opt.selected = true;
-                            hedefSec.appendChild(opt);
-                        });
+                if (data.yonetebilir_mi) {
+                    yetkisizKutu.style.display = 'none';
+                    icerikKutu.style.display = 'flex';
 
-                        const davetSec = document.getElementById('odaDavetliHedef');
-                        const davetSecili = davetSec.value;
-                        davetSec.innerHTML = '';
-                        (data.uyeler || []).forEach(u => {
-                            if (u.isim === "{{ kullanici }}") return;
-                            const opt = document.createElement('option');
-                            opt.value = u.isim;
-                            opt.textContent = u.isim + ((data.davetliler || []).includes(u.isim) ? ' ✅ Davetli' : '');
-                            if (u.isim === davetSecili) opt.selected = true;
-                            davetSec.appendChild(opt);
-                        });
-
-                        odaOzelRolAlaniniGuncelle();
-                        const ayar = data.ayarlar || {};
-                        document.getElementById('odaAyarYavas').checked = !!ayar.yavas_mod_saniye;
-                        document.getElementById('odaAyarYavasSaniye').value = Number(ayar.yavas_mod_saniye || 0);
-                        document.getElementById('odaAyarDavet').checked = !!ayar.sadece_davetliler;
-                        document.getElementById('odaAyarOnay').checked = !!ayar.giris_onayi;
-                        document.getElementById('odaAyarMaks').value = Number(ayar.maks_kullanici || 0);
-                        document.getElementById('odaAyarAktifBilgi').textContent = 'Aktif kullanıcı: ' + (data.aktif_kullanici || 0) + (Number(ayar.maks_kullanici || 0) ? ' / ' + ayar.maks_kullanici : ' / sınırsız');
-
-                                        const istekKutu = document.getElementById('odaGirisIstekleri');
-                        const istekler = data.tum_giris_istekleri || data.giris_istekleri || [];
-                        if (!istekler.length) {
-                            istekKutu.textContent = 'Bekleyen istek yok.';
-                        } else {
-                            istekKutu.innerHTML = istekler.map(i => `
-                                <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;border:1px solid #d7e4ef;border-radius:5px;padding:6px;margin:4px 0;background:#fbfdff;">
-                                    <span><b>${escapeHtml(i.isim)}</b><br><small>🏠 ${escapeHtml(i.oda || aktifOda)} • ${escapeHtml(i.zaman_gorunum || '')}</small></span>
-                                    <span style="display:flex;gap:4px;">
-                                        <button type="button" class="btn-ok" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',true,'${encodeURIComponent(i.oda || aktifOda)}')">✅</button>
-                                        <button type="button" class="btn-cancel" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',false,'${encodeURIComponent(i.oda || aktifOda)}')">❌</button>
-                                    </span>
-                                </div>`).join('');
+                    const hedefSec = document.getElementById('odaYonetimHedef');
+                    const secili = hedefSec.value;
+                    hedefSec.innerHTML = '';
+                    (data.uyeler || []).forEach(u => {
+                        if (u.isim === "{{ kullanici }}") return;
+                        const opt = document.createElement('option');
+                        opt.value = u.isim;
+                        let etiket = u.isim;
+                        if (u.isim === data.lider) etiket += " (Lider)";
+                        else {
+                            const rolEtiketi = odaRolEtiketi(u.rol);
+                            if (rolEtiketi) etiket += " (" + rolEtiketi + ")";
                         }
+                        if (u.banli) etiket += u.ban_kalan_dk ? ` (Banlı: ${u.ban_kalan_dk}dk)` : " (Atılmış)";
+                        opt.textContent = etiket;
+                        if (u.isim === secili) opt.selected = true;
+                        hedefSec.appendChild(opt);
+                    });
 
-                        document.getElementById('odaLiderYapSatiri').style.display = data.lider_mi ? 'flex' : 'none';
-                        document.getElementById('odaSifreDegistirBlok').style.display = data.lider_mi ? 'block' : 'none';
-                        document.getElementById('odaKapatSatiri').style.display = (data.lider_mi && aktifOda !== 'Genel') ? 'flex' : 'none';
-                    } else {
-                        yetkisizKutu.style.display = 'block';
-                        icerikKutu.style.display = 'none';
+                    const davetSec = document.getElementById('odaDavetliHedef');
+                    const davetSecili = davetSec.value;
+                    davetSec.innerHTML = '';
+                    (data.uyeler || []).forEach(u => {
+                        if (u.isim === "{{ kullanici }}") return;
+                        const opt = document.createElement('option');
+                        opt.value = u.isim;
+                        opt.textContent = u.isim + ((data.davetliler || []).includes(u.isim) ? ' ✅ Davetli' : '');
+                        if (u.isim === davetSecili) opt.selected = true;
+                        davetSec.appendChild(opt);
+                    });
+
+                    odaOzelRolAlaniniGuncelle();
+                    const ayar = data.ayarlar || {};
+                    document.getElementById('odaAyarYavas').checked = !!ayar.yavas_mod_saniye;
+                    document.getElementById('odaAyarYavasSaniye').value = Number(ayar.yavas_mod_saniye || 0);
+                    document.getElementById('odaAyarDavet').checked = !!ayar.sadece_davetliler;
+                    document.getElementById('odaAyarOnay').checked = !!ayar.giris_onayi;
+                    document.getElementById('odaAyarMaks').value = Number(ayar.maks_kullanici || 0);
+                    document.getElementById('odaAyarAktifBilgi').textContent = 'Aktif kullanıcı: ' + (data.aktif_kullanici || 0) + (Number(ayar.maks_kullanici || 0) ? ' / ' + ayar.maks_kullanici : ' / sınırsız');
+
+                    if (istekKutu) {
+                        istekKutu.innerHTML = istekler.length ? istekListesi : 'Bekleyen istek yok.';
                     }
-                })
-                .catch(err => console.log(err));
+                    document.getElementById('odaLiderYapSatiri').style.display = data.lider_mi ? 'flex' : 'none';
+                    document.getElementById('odaSifreDegistirBlok').style.display = data.lider_mi ? 'block' : 'none';
+                    document.getElementById('odaKapatSatiri').style.display = (data.lider_mi && aktifOda !== 'Genel') ? 'flex' : 'none';
+                } else {
+                    // Aktif oda yönetilemiyor olsa bile başka yönetilebilir odalarda istek varsa göster.
+                    icerikKutu.style.display = 'none';
+                    yetkisizKutu.style.display = 'block';
+                    if (istekler.length) {
+                        yetkisizKutu.innerHTML = '<b>📨 Bekleyen giriş istekleri</b><div style="margin-top:6px;">' + istekListesi + '</div>';
+                    } else {
+                        yetkisizKutu.innerHTML = 'Bu odada yönetim yetkiniz yok.';
+                    }
+                }
+            } catch (err) {
+                console.error('Oda yönetimi yüklenemedi:', err);
+                if (yetkisizKutu) {
+                    yetkisizKutu.style.display = 'block';
+                    yetkisizKutu.textContent = '⚠️ Oda yönetimi verileri alınamadı.';
+                }
+                if (icerikKutu) icerikKutu.style.display = 'none';
+            }
         }
 
         function odaIstekBadgeGuncelle(sayi) {
@@ -3301,12 +3396,16 @@ mesaj_html = """
         }
 
         function odaIstekBadgeKontrol() {
-            fetch('/api/odalar', {cache:'no-store'})
-                .then(r => r.json()).then(data => {
-                    const toplam = (data || []).reduce((sum, oda) => sum + (oda.yonetebilir_mi ? Number(oda.giris_istek_sayisi || 0) : 0), 0);
-                    odaIstekBadgeGuncelle(toplam);
-                    desktopOdaListesiGuncelle(data || []);
-                }).catch(() => odaIstekBadgeGuncelle(0));
+            Promise.all([
+                fetch('/api/oda_giris_istekleri', {cache:'no-store'}).then(r => r.json()),
+                fetch('/api/odalar', {cache:'no-store'}).then(r => r.json())
+            ]).then(([istekData, odaData]) => {
+                const sayi = istekData && istekData.basarili ? Number(istekData.sayi || 0) : 0;
+                odaIstekBadgeGuncelle(sayi);
+                desktopOdaListesiGuncelle(odaData || []);
+            }).catch(err => {
+                console.error('Giriş isteği sayacı alınamadı:', err);
+            });
         }
 
         function odaAyarlariKaydet() {
@@ -3433,6 +3532,8 @@ mesaj_html = """
                     const fd = new URLSearchParams();
                     fd.set('oda', aktifOda);
                     fd.set('hedef', hedef);
+                    const liderBtn = document.querySelector('#odaLiderYapSatiri button');
+                    if (liderBtn) liderBtn.disabled = true;
                     try {
                         const r = await fetch('/api/oda_lider_yap', {
                             method: 'POST',
@@ -3452,6 +3553,8 @@ mesaj_html = """
                         }
                     } catch (_) {
                         alert('⚠️ Liderlik devredilirken bağlantı hatası oluştu.');
+                    } finally {
+                        if (liderBtn) liderBtn.disabled = false;
                     }
                 }
             );
@@ -4693,6 +4796,7 @@ def sikayet_olustur():
 
 @app.route("/api/odalar", methods=["GET"])
 def get_odalar():
+    oda_durumunu_diskten_yenile()
     liste = []
     mevcut_kullanici = session.get("kullanici")
     for k, v in odalar_db.items():
@@ -4815,6 +4919,7 @@ def get_oda_kontrol():
 
 @app.route("/api/oda_giris", methods=["POST"])
 def post_oda_giris():
+    oda_durumunu_diskten_yenile()
     oda = request.form.get("oda", "").strip()
     sifre = request.form.get("sifre", "")
     kullanici = session.get("kullanici")
@@ -4869,6 +4974,7 @@ def post_oda_giris():
 
 @app.route("/api/oda_giris_durumu", methods=["GET"])
 def get_oda_giris_durumu():
+    oda_durumunu_diskten_yenile()
     kullanici = session.get("kullanici")
     oda = request.args.get("oda", "").strip()
     if not kullanici or not oda:
@@ -4887,6 +4993,7 @@ def get_oda_giris_durumu():
 
 @app.route("/api/oda_ayar_guncelle", methods=["POST"])
 def post_oda_ayar_guncelle():
+    oda_durumunu_diskten_yenile()
     if "kullanici" not in session:
         return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
     kullanici = session["kullanici"]
@@ -4918,6 +5025,7 @@ def post_oda_ayar_guncelle():
 
 @app.route("/api/oda_davetli", methods=["POST"])
 def post_oda_davetli():
+    oda_durumunu_diskten_yenile()
     if "kullanici" not in session:
         return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
     kullanici = session["kullanici"]
@@ -4945,6 +5053,7 @@ def post_oda_davetli():
 
 @app.route("/api/oda_giris_istegi_cevap", methods=["POST"])
 def post_oda_giris_istegi_cevap():
+    oda_giris_isteklerini_diskten_yenile()
     if "kullanici" not in session:
         return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
     kullanici = session["kullanici"]
@@ -5022,8 +5131,31 @@ def post_oda_kapat():
     durumu_kaydet()
     return jsonify({"basarili": True})
 
+@app.route("/api/oda_giris_istekleri", methods=["GET"])
+def get_oda_giris_istekleri():
+    """Lider/moderatörün yönetebildiği tüm odalardaki giriş isteklerini döndürür."""
+    if "kullanici" not in session:
+        return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."}), 403
+    oda_giris_isteklerini_diskten_yenile()
+    kullanici = session["kullanici"]
+    istekler = []
+    with veri_kilidi:
+        for oda_adi in list(odalar_db.keys()):
+            if not oda_yonetebilir_mi(oda_adi, kullanici):
+                continue
+            for isim, zaman in sorted(oda_giris_istekleri.get(oda_adi, {}).items(), key=lambda x: float(x[1] or 0)):
+                istekler.append({
+                    "oda": oda_adi,
+                    "isim": isim,
+                    "zaman": zaman,
+                    "zaman_gorunum": _admin_guvenli_zaman(zaman),
+                })
+    istekler.sort(key=lambda x: float(x.get("zaman") or 0))
+    return jsonify({"basarili": True, "istekler": istekler, "sayi": len(istekler)})
+
 @app.route("/api/oda_yetki", methods=["GET"])
 def get_oda_yetki():
+    oda_durumunu_diskten_yenile()
     if "kullanici" not in session:
         return jsonify({"hata": "Giriş yapmalısınız"}), 403
 
@@ -5246,7 +5378,7 @@ def post_oda_lider_yap():
         return jsonify({"basarili": False, "hata": "Bu odadan atılmış bir kullanıcı lider yapılamaz."})
 
     with veri_kilidi:
-        # Eski kayıt bozuk/eksikse mevcut isteği yine de yalnızca gerçek lider değiştirebilir.
+        # Lider kaydı mevcut kullanıcıyla birebir eşleşmelidir.
         eski_lider = oda_liderleri.get(oda)
         if eski_lider != kullanici and kullanici != "Sistem":
             return jsonify({"basarili": False, "hata": "Bu odanın mevcut lideri siz değilsiniz."})
@@ -5258,7 +5390,11 @@ def post_oda_lider_yap():
         if eski_lider and eski_lider != hedef and eski_lider != "Sistem":
             oda_roller.setdefault(oda, {})[eski_lider] = "yonetici"
 
-    log_ekle(f"'{kullanici}', '{oda}' odasının liderliğini '{hedef}' kullanıcısına devretti.")
+        # Lider değişikliğiyle birlikte dosyayı aynı kritik bölümde kalıcılaştır.
+        log_ekle(f"'{kullanici}', '{oda}' odasının liderliğini '{hedef}' kullanıcısına devretti.")
+        kaydedilecek_lider = eski_lider
+        kaydedilecek_yeni = hedef
+
     durumu_kaydet()
     return jsonify({"basarili": True, "oda": oda, "eski_lider": eski_lider, "yeni_lider": hedef})
 
