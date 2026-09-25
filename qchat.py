@@ -2585,6 +2585,7 @@ mesaj_html = """
 
                     <div style="border-top:1px solid #d7e4ef; margin-top:5px; padding-top:8px;">
                         <span class="field-label">📨 Bekleyen Giriş İstekleri</span>
+                        <div style="font-size:10px;color:#71879b;margin-bottom:4px;">Yönetebildiğiniz tüm odalardaki bekleyen istekler burada görünür.</div>
                         <div id="odaGirisIstekleri" style="font-size:11px;color:#556b7f;">Bekleyen istek yok.</div>
                     </div>
 
@@ -3265,17 +3266,17 @@ mesaj_html = """
                         document.getElementById('odaAyarMaks').value = Number(ayar.maks_kullanici || 0);
                         document.getElementById('odaAyarAktifBilgi').textContent = 'Aktif kullanıcı: ' + (data.aktif_kullanici || 0) + (Number(ayar.maks_kullanici || 0) ? ' / ' + ayar.maks_kullanici : ' / sınırsız');
 
-                        const istekKutu = document.getElementById('odaGirisIstekleri');
-                        const istekler = data.giris_istekleri || [];
+                                        const istekKutu = document.getElementById('odaGirisIstekleri');
+                        const istekler = data.tum_giris_istekleri || data.giris_istekleri || [];
                         if (!istekler.length) {
                             istekKutu.textContent = 'Bekleyen istek yok.';
                         } else {
                             istekKutu.innerHTML = istekler.map(i => `
-                                <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;border:1px solid #d7e4ef;border-radius:5px;padding:5px;margin:4px 0;background:#fbfdff;">
-                                    <span><b>${escapeHtml(i.isim)}</b><br><small>${escapeHtml(i.zaman_gorunum || '')}</small></span>
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;border:1px solid #d7e4ef;border-radius:5px;padding:6px;margin:4px 0;background:#fbfdff;">
+                                    <span><b>${escapeHtml(i.isim)}</b><br><small>🏠 ${escapeHtml(i.oda || aktifOda)} • ${escapeHtml(i.zaman_gorunum || '')}</small></span>
                                     <span style="display:flex;gap:4px;">
-                                        <button type="button" class="btn-ok" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',true)">✅</button>
-                                        <button type="button" class="btn-cancel" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',false)">❌</button>
+                                        <button type="button" class="btn-ok" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',true,'${encodeURIComponent(i.oda || aktifOda)}')">✅</button>
+                                        <button type="button" class="btn-cancel" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',false,'${encodeURIComponent(i.oda || aktifOda)}')">❌</button>
                                     </span>
                                 </div>`).join('');
                         }
@@ -3339,15 +3340,23 @@ mesaj_html = """
                 });
         }
 
-        function odaGirisIstekCevap(hedefKod, onay) {
+        function odaGirisIstekCevap(hedefKod, onay, odaKod) {
             const hedef = decodeURIComponent(hedefKod);
+            const hedefOda = odaKod ? decodeURIComponent(odaKod) : aktifOda;
             const fd = new URLSearchParams();
-            fd.set('oda', aktifOda); fd.set('hedef', hedef); fd.set('cevap', onay ? 'onay' : 'red');
+            fd.set('oda', hedefOda); fd.set('hedef', hedef); fd.set('cevap', onay ? 'onay' : 'red');
             fetch('/api/oda_giris_istegi_cevap', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
-                .then(r=>r.json()).then(res=>{
+                .then(async r => {
+                    const txt = await r.text();
+                    let res;
+                    try { res = JSON.parse(txt); } catch (_) { res = {basarili:false, hata:'Sunucudan geçersiz yanıt geldi.'}; }
+                    return res;
+                })
+                .then(res=>{
                     if(res.basarili) { odaYetkiYukle(); odaIstekBadgeKontrol(); }
                     else alert('⚠️ ' + (res.hata || 'İstek işlenemedi.'));
-                });
+                })
+                .catch(()=>alert('⚠️ Giriş isteği işlenirken bağlantı hatası oluştu.'));
         }
 
         function odaOzelRolAlaniniGuncelle() {
@@ -3415,23 +3424,35 @@ mesaj_html = """
 
         function odaLiderYap() {
             const hedef = document.getElementById('odaYonetimHedef').value;
-            if (!hedef) return;
+            if (!hedef) { alert('⚠️ Önce bir kullanıcı seçin.'); return; }
             merkezOnayGoster(
                 '👑 Liderliği Devret',
                 hedef + ' artık bu odanın sahibi/lideri olacak. Mevcut liderlik yetkiniz devredilecek. Kabul ediyor musunuz?',
                 '👑 Evet, Lider Yap',
-                () => {
-                    fetch('/api/oda_lider_yap', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: 'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef)
-                    }).then(r => r.json()).then(res => {
+                async () => {
+                    const fd = new URLSearchParams();
+                    fd.set('oda', aktifOda);
+                    fd.set('hedef', hedef);
+                    try {
+                        const r = await fetch('/api/oda_lider_yap', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+                            body: fd.toString(),
+                            cache: 'no-store'
+                        });
+                        const txt = await r.text();
+                        let res;
+                        try { res = JSON.parse(txt); } catch (_) { res = {basarili:false, hata:'Sunucudan geçersiz yanıt geldi.'}; }
                         if (res.basarili) {
                             odaYetkiYukle();
                             odalariGuncelle();
+                            alert('✅ ' + hedef + ' artık ' + aktifOda + ' odasının lideri.');
+                        } else {
+                            alert('⚠️ ' + (res.hata || 'Liderlik devredilemedi.'));
                         }
-                        else alert("⚠️ " + (res.hata || "İşlem başarısız."));
-                    });
+                    } catch (_) {
+                        alert('⚠️ Liderlik devredilirken bağlantı hatası oluştu.');
+                    }
                 }
             );
         }
@@ -5024,9 +5045,26 @@ def get_oda_yetki():
     davetliler = set(oda_davetlileri.get(oda, []))
     yonetebilir = oda_yonetebilir_mi(oda, kullanici)
     giris_istekleri = [
-        {"isim": isim, "zaman": zaman, "zaman_gorunum": _admin_guvenli_zaman(zaman)}
+        {"oda": oda, "isim": isim, "zaman": zaman, "zaman_gorunum": _admin_guvenli_zaman(zaman)}
         for isim, zaman in sorted(oda_giris_istekleri.get(oda, {}).items(), key=lambda item: float(item[1] or 0))
     ] if yonetebilir else []
+
+    # Sayaçta görünen istekler farklı bir odadaysa da yönetim penceresinde
+    # kaybolmasın: kullanıcının yönetebildiği tüm odalardaki bekleyen istekleri getir.
+    tum_giris_istekleri = []
+    if kullanici:
+        for istek_oda in odalar_db.keys():
+            if not oda_yonetebilir_mi(istek_oda, kullanici):
+                continue
+            for isim, zaman in sorted(oda_giris_istekleri.get(istek_oda, {}).items(), key=lambda item: float(item[1] or 0)):
+                tum_giris_istekleri.append({
+                    "oda": istek_oda,
+                    "isim": isim,
+                    "zaman": zaman,
+                    "zaman_gorunum": _admin_guvenli_zaman(zaman)
+                })
+    tum_giris_istekleri.sort(key=lambda x: float(x.get("zaman") or 0))
+
     return jsonify({
         "oda": oda,
         "rol": oda_rolunu_al(oda, kullanici),
@@ -5041,6 +5079,7 @@ def get_oda_yetki():
         "aktif_kullanici": oda_aktif_kullanici_sayisi(oda),
         "davetliler": sorted(davetliler, key=lambda x: str(x).lower()),
         "giris_istekleri": giris_istekleri,
+        "tum_giris_istekleri": tum_giris_istekleri,
         "uyeler": uyeler
     })
 
@@ -5197,14 +5236,23 @@ def post_oda_lider_yap():
     if not oda_lideri_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Sadece odanın lideri, liderliği devredebilir."})
 
-    if hedef not in kullanici_db:
-        return jsonify({"basarili": False, "hata": "Kullanıcı bulunamadı."})
+    if hedef not in kullanici_db or hedef == "Sistem":
+        return jsonify({"basarili": False, "hata": "Geçerli bir kullanıcı seçin."})
+
+    if hedef == kullanici:
+        return jsonify({"basarili": False, "hata": "Kendinizi yeniden lider yapamazsınız."})
 
     if oda_banli_mi(oda, hedef):
         return jsonify({"basarili": False, "hata": "Bu odadan atılmış bir kullanıcı lider yapılamaz."})
 
     with veri_kilidi:
+        # Eski kayıt bozuk/eksikse mevcut isteği yine de yalnızca gerçek lider değiştirebilir.
         eski_lider = oda_liderleri.get(oda)
+        if eski_lider != kullanici and kullanici != "Sistem":
+            return jsonify({"basarili": False, "hata": "Bu odanın mevcut lideri siz değilsiniz."})
+        if not eski_lider:
+            return jsonify({"basarili": False, "hata": "Bu odanın lider kaydı bulunamadı."})
+
         oda_liderleri[oda] = hedef
         oda_roller.setdefault(oda, {}).pop(hedef, None)
         if eski_lider and eski_lider != hedef and eski_lider != "Sistem":
@@ -5212,7 +5260,7 @@ def post_oda_lider_yap():
 
     log_ekle(f"'{kullanici}', '{oda}' odasının liderliğini '{hedef}' kullanıcısına devretti.")
     durumu_kaydet()
-    return jsonify({"basarili": True})
+    return jsonify({"basarili": True, "oda": oda, "eski_lider": eski_lider, "yeni_lider": hedef})
 
 @app.route("/api/oda_kurma_izni_ver", methods=["POST"])
 def post_oda_kurma_izni_ver():
