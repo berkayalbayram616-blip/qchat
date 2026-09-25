@@ -2309,16 +2309,6 @@ mesaj_html = """
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
 
-        .msg-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
-        .msg-avatar {
-            width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%;
-            overflow: hidden; background: #e9f0f7; border: 1px solid #c5d5e2;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 14px; color: #64748b; margin-top: 2px;
-        }
-        .msg-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .msg-content { flex: 1; min-width: 0; }
-
         .msg-reply {
             margin: 4px 0 6px;
             padding: 5px 6px;
@@ -4152,7 +4142,7 @@ function kullanicilariGuncelle() {
                             let kalanSaniye = Math.max(0, Math.floor(m.bitis_zamani - (Date.now() / 1000)));
                             let dk = Math.floor(kalanSaniye / 60);
                             let sn = kalanSaniye % 60;
-                            let formatli = dk.toString().padStart(2, '0') + ':' + sn.toString().padStart(2, '0');
+                            let formatli = dk.toString().padStart(2, '0') + ":" + sn.toString().padStart(2, '0');
                             
                             if (kalanSaniye > 0) {
                                 div.textContent = '⏱️ ' + formatli;
@@ -4160,27 +4150,7 @@ function kullanicilariGuncelle() {
                                 div.textContent = '⏱️ 00:00 (Süre Bitti!)';
                             }
                         } else {
-                            const satir = document.createElement('div');
-                            satir.className = 'msg-row';
-                            const avatar = document.createElement('div');
-                            avatar.className = 'msg-avatar';
-                            const avatarVeri = m.avatar || '';
-                            if (!isDuyuru && m.gonderen !== 'Sistem' && m.gonderen) {
-                                if (avatarVeri) {
-                                    const img = document.createElement('img');
-                                    img.src = avatarVeri;
-                                    img.alt = 'Profil';
-                                    avatar.appendChild(img);
-                                } else {
-                                    const ilk = String(m.gonderen || '👤').trim().charAt(0).toUpperCase() || '👤';
-                                    avatar.textContent = ilk;
-                                }
-                            } else {
-                                avatar.textContent = isDuyuru ? '📢' : '👤';
-                            }
                             div.className = isPrivate ? 'msg-private' : (isDuyuru ? 'msg-item msg-duyuru' : 'msg-item');
-                            div.style.flex = '1';
-                            div.style.minWidth = '0';
 
                             const head = document.createElement('div');
                             head.className = 'msg-head';
@@ -4261,11 +4231,8 @@ function kullanicilariGuncelle() {
                                 div.onclick = () => kullaniciBilgiAc(m.gonderen);
                             }
                             mesajSwipeKur(div, m);
-                            satir.appendChild(avatar);
-                            satir.appendChild(div);
-                            chatBox.appendChild(satir);
                         }
-
+                        chatBox.appendChild(div);
                     });
             })
             .catch(err => console.log(err));
@@ -4908,21 +4875,26 @@ def profil_avatar():
         if not dosya or not dosya.filename:
             return jsonify({"basarili": False, "hata": "Bir profil fotoğrafı seçin."}), 400
 
-        mime = (dosya.mimetype or "").lower()
-        izinli = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-        if mime not in izinli:
-            return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
-
         ham = dosya.read()
         if not ham:
             return jsonify({"basarili": False, "hata": "Dosya boş."}), 400
         if len(ham) > 2 * 1024 * 1024:
             return jsonify({"basarili": False, "hata": "Profil fotoğrafı en fazla 2 MB olabilir."}), 400
 
+        # Bazı tarayıcılar dosya türünü yanlış/eksik gönderebilir.
+        # Bu yüzden MIME tipine göre erken reddetmek yerine gerçek resim olup olmadığını deneriz.
+        # Desteklenen türler: JPG, PNG, WEBP, GIF.
+        izinli_uzantilar = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+        uzanti = os.path.splitext((dosya.filename or "").lower())[1]
+        mime = (dosya.mimetype or "").lower()
+        if mime and mime not in {"image/jpeg", "image/png", "image/webp", "image/gif", "application/octet-stream"} and uzanti not in izinli_uzantilar:
+            return jsonify({"basarili": False, "hata": "JPG/PNG/WEBP/GIF deneyin."}), 400
+
         # Pillow ile gerçek görseli doğrula ve küçük bir JPEG olarak sakla.
         try:
             from PIL import Image, ImageOps
             img = Image.open(BytesIO(ham))
+            img.load()
             img = ImageOps.exif_transpose(img)
             img.thumbnail((256, 256))
             if img.mode not in ("RGB", "RGBA"):
@@ -4937,7 +4909,7 @@ def profil_avatar():
             img.save(out, format="JPEG", quality=84, optimize=True)
             veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
         except Exception:
-            return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin."}), 400
+            return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin. JPG/PNG/WEBP/GIF deneyin."}), 400
 
         kullanici_avatarlari[kullanici] = veri
         durumu_kaydet()
@@ -5681,7 +5653,6 @@ def get_mesajlar():
             kopya = dict(m)
             gonderen = kopya.get("gonderen", "")
             kopya["rol"] = oda_rolunu_al(oda, gonderen) if gonderen and not str(gonderen).startswith("📢") and gonderen != "Sistem" else "uye"
-            kopya["avatar"] = kullanici_avatarini_al(gonderen) if gonderen and gonderen != "Sistem" and not str(gonderen).startswith("📢") else ""
             filtrelenmis.append(kopya)
 
     aktif_siren_veri = None
