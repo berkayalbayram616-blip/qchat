@@ -25,7 +25,6 @@ import re
 from datetime import timedelta
 from email.message import EmailMessage
 import smtplib
-import base64
 
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
@@ -48,47 +47,6 @@ def verileri_kaydet(veriler):
         f.flush()
         os.fsync(f.fileno())
     os.replace(gecici, DOSYA)
-
-
-def yuklenen_fotograf_verisi(foto_dosyasi):
-    """Yüklenen resim dosyasını doğrular ve veri URL'sine çevirir."""
-    if not foto_dosyasi or not getattr(foto_dosyasi, "filename", ""):
-        return None, None, None
-
-    dosya_adi = (foto_dosyasi.filename or "").strip()
-    ham = foto_dosyasi.read()
-    try:
-        foto_dosyasi.stream.seek(0)
-    except Exception:
-        pass
-
-    if not ham:
-        return "Geçerli bir dosya yükleyin.", None, None
-
-    uzanti = os.path.splitext(dosya_adi)[1].lower()
-    mimetype = (getattr(foto_dosyasi, "mimetype", "") or "").lower()
-    izinli_uzantilar = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-
-    if not (mimetype.startswith("image/") or uzanti in izinli_uzantilar):
-        return "Geçerli bir dosya yükleyin.", None, None
-
-    if len(ham) > 8 * 1024 * 1024:
-        return "Fotoğraf çok büyük.", None, None
-
-    if not mimetype.startswith("image/"):
-        if uzanti in {".jpg", ".jpeg"}:
-            mimetype = "image/jpeg"
-        elif uzanti == ".png":
-            mimetype = "image/png"
-        elif uzanti == ".gif":
-            mimetype = "image/gif"
-        elif uzanti == ".webp":
-            mimetype = "image/webp"
-        else:
-            mimetype = "image/jpeg"
-
-    veri_url = f"data:{mimetype};base64,{base64.b64encode(ham).decode('ascii')}"
-    return None, veri_url, dosya_adi
 
 veriler = verileri_yukle()
 
@@ -374,7 +332,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
       {% for m in sorgu_mesajlar_gorunum %}
       <div class="chat-item">
         <div class="chat-head"><b>{{ m.gonderen }}</b> • {{ m.zaman }}</div>
-        <div class="chat-body">{{ m.mesaj }}{% if m.foto_veri %}<div style="margin-top:6px"><img src="{{ m.foto_veri }}" alt="Fotoğraf" style="max-width:220px;max-height:160px;border:1px solid #c9d7ea;border-radius:6px;display:block;"></div>{% endif %}</div>
+        <div class="chat-body">{{ m.mesaj }}</div>
       </div>
       {% endfor %}
     {% else %}
@@ -565,8 +523,6 @@ def admin_panel():
             m["gonderen"] = m.get("gonderen", "")
             m["mesaj"] = m.get("mesaj", "")
             m["zaman"] = _admin_guvenli_zaman(m.get("zaman"))
-            m["foto_veri"] = m.get("foto_veri", "")
-            m["foto_adi"] = m.get("foto_adi", "")
             son_mesajlar.append(m)
 
     geri_bildirim_gorunum = []
@@ -723,8 +679,6 @@ def admin_chat_api():
                 "mesaj": m.get("mesaj", ""),
                 "zaman": m.get("zaman", 0),
                 "tur": m.get("tur", ""),
-                "foto_veri": m.get("foto_veri", ""),
-                "foto_adi": m.get("foto_adi", ""),
             })
     return jsonify({"mesajlar": mesajlar[:100]})
 
@@ -2345,7 +2299,6 @@ mesaj_html = """
         .msg-sistem { color: #b8281f !important; font-weight: 700; }
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
-        .msg-photo { display:block; margin-top:6px; max-width:min(320px,100%); max-height:320px; border:1px solid #c9d7ea; border-radius:6px; }
 
         .msg-reply {
             margin: 4px 0 6px;
@@ -2785,8 +2738,6 @@ mesaj_html = """
                 </div>
                 <div class="input-row">
                     <input type="text" id="mesajInput" placeholder="Mesajınızı yazın..." maxlength="200" autocomplete="off" oninput="yaziyorBildir()" required>
-                    <button type="button" id="mesajFotoBtn" onclick="document.getElementById('mesajFoto').click()" title="Fotoğraf ekle" style="flex:0 0 auto; min-width:44px; padding:0 12px; border:1px solid #8fa9c4; border-radius:4px; background:#fff; color:#24465f; cursor:pointer; font-weight:700;">📷</button>
-                    <input type="file" id="mesajFoto" accept="image/*" style="display:none">
                     <div id="mentionList" class="mention-list"></div>
                 </div>
                 <button type="submit">GÖNDER</button>
@@ -4088,7 +4039,7 @@ function kullanicilariGuncelle() {
                                 reply.appendChild(replyFrom);
                                 const replyText = document.createElement('span');
                                 replyText.className = 'reply-text';
-                                replyText.textContent = m.reply_to.mesaj || (m.reply_to.foto_veri ? '📷 Fotoğraf' : '');
+                                replyText.textContent = m.reply_to.mesaj || '';
                                 reply.appendChild(replyText);
                                 div.appendChild(reply);
                             }
@@ -4147,14 +4098,6 @@ function kullanicilariGuncelle() {
                             const govde = document.createElement('div');
                             govde.className = 'msg-body';
                             mesajMetniRenderEt(govde, m.mesaj);
-                            if (m.foto_veri) {
-                                const foto = document.createElement('img');
-                                foto.className = 'msg-photo';
-                                foto.src = m.foto_veri;
-                                foto.alt = m.foto_adi || 'Yüklenen fotoğraf';
-                                foto.loading = 'lazy';
-                                govde.appendChild(foto);
-                            }
                             div.appendChild(govde);
 
                             if (!isDuyuru && m.gonderen) {
@@ -4205,46 +4148,35 @@ function kullanicilariGuncelle() {
         function mesajGonder(event) {
             event.preventDefault();
             const input = document.getElementById('mesajInput');
-            const fotoInput = document.getElementById('mesajFoto');
             const alici = document.getElementById('aliciSec').value;
             const mesaj = input.value.trim();
-            const foto = fotoInput && fotoInput.files && fotoInput.files[0] ? fotoInput.files[0] : null;
-            if(!mesaj && !foto) return;
+            if(!mesaj) return;
             const reply = yanitHedefi;
-            const body = foto ? new FormData() : new URLSearchParams();
-            body.append('mesaj', mesaj);
-            body.append('alici', alici);
-            body.append('oda', aktifOda);
+            let body = 'mesaj=' + encodeURIComponent(mesaj) + '&alici=' + encodeURIComponent(alici) + '&oda=' + encodeURIComponent(aktifOda);
             if (reply) {
-                body.append('reply_id', reply.id || '');
-                body.append('reply_gonderen', reply.gonderen || '');
-                body.append('reply_mesaj', reply.mesaj || '');
-                body.append('reply_alici', reply.alici || '');
-                body.append('reply_oda', reply.oda || '');
-                body.append('reply_foto_veri', reply.foto_veri || '');
-                body.append('reply_foto_adi', reply.foto_adi || '');
+                body += '&reply_id=' + encodeURIComponent(reply.id || '') +
+                        '&reply_gonderen=' + encodeURIComponent(reply.gonderen || '') +
+                        '&reply_mesaj=' + encodeURIComponent(reply.mesaj || '') +
+                        '&reply_alici=' + encodeURIComponent(reply.alici || '') +
+                        '&reply_oda=' + encodeURIComponent(reply.oda || '');
             }
-            if (foto) body.append('foto', foto);
             fetch('/api/gonder', {
                 method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: body
-            }).then(async res => {
+            }).then(res => {
                 if (res.status === 403) {
                     res.text().then(text => {
                         if(text === "Bakım" || text === "Kick") window.location.reload();
                         else alert("🚫 " + text);
                     });
-                } else if (!res.ok) {
-                    const txt = await res.text();
-                    alert("⚠️ " + (txt || 'Mesaj gönderilemedi.'));
                 } else {
                     gonderSesiCal();
                     input.value = '';
-                    if (fotoInput) fotoInput.value = '';
                     yanitTemizle();
                     mesajlariGuncelle();
                 }
-            }).catch(() => alert('⚠️ Mesaj gönderilirken bağlantı hatası oluştu.'));
+            });
         }
 
         function sikayetPenceresiAc(kullanici, ilgiliMesaj = null) {
@@ -5645,39 +5577,26 @@ def post_gonder():
             else:
                 susturulanlar.pop(kullanici, None)
 
-        mesaj = (request.form.get("mesaj", "") or "").strip()[:200]  # istemcideki maxlength=200 ile aynı sınır, sunucu tarafında da uygulanır
+        mesaj = request.form.get("mesaj", "").strip()[:200]  # istemcideki maxlength=200 ile aynı sınır, sunucu tarafında da uygulanır
         alici = request.form.get("alici", "Genel").strip()
-
-        foto_hata = None
-        foto_veri = None
-        foto_adi = ""
-        if "foto" in request.files:
-            foto_hata, foto_veri, foto_adi = yuklenen_fotograf_verisi(request.files.get("foto"))
-            if foto_hata:
-                return foto_hata, 400
 
         if kufur_filtresi and kullanici != "Sistem":
             mesaj = kufur_filtrele(mesaj)
 
-        if mesaj or foto_veri:
+        if mesaj:
             veri = {"id": secrets.token_hex(8), "gonderen": kullanici, "mesaj": mesaj, "alici": alici, "oda": oda, "zaman": simdi}
-            if foto_veri:
-                veri["foto_veri"] = foto_veri
-                veri["foto_adi"] = foto_adi
             reply_id = request.form.get("reply_id", "").strip()
             reply_gonderen = request.form.get("reply_gonderen", "").strip()
             reply_mesaj = request.form.get("reply_mesaj", "").strip()
             reply_alici = request.form.get("reply_alici", "").strip()
             reply_oda = request.form.get("reply_oda", "").strip()
-            if reply_id or reply_gonderen or reply_mesaj or request.form.get("reply_foto_veri", "").strip():
+            if reply_id or reply_gonderen or reply_mesaj:
                 veri["reply_to"] = {
                     "id": reply_id,
                     "gonderen": reply_gonderen,
                     "mesaj": reply_mesaj,
                     "alici": reply_alici,
-                    "oda": reply_oda,
-                    "foto_veri": request.form.get("reply_foto_veri", "").strip(),
-                    "foto_adi": request.form.get("reply_foto_adi", "").strip(),
+                    "oda": reply_oda
                 }
             sohbet_gecmisi.append(veri)
             mesaj_kuyrugu.put(veri)
