@@ -146,14 +146,7 @@ admin_login_html = """
 .card{width:360px;background:#f4f8fc;border:1px solid #5b8ac4;border-radius:9px;box-shadow:0 12px 32px rgba(20,60,110,.35);overflow:hidden}
 .title{background:linear-gradient(180deg,#79bdf7,#1c5fb0);color:#fff;padding:13px;font-weight:700}.body{padding:20px}
 .body h2{margin-top:0;color:#1c3d5c;font-size:19px}.body input{width:100%;box-sizing:border-box;padding:10px;margin:7px 0 12px;border:1px solid #8fa9c4;border-radius:4px}.btn{width:100%;padding:10px;border:1px solid #1c5fb0;border-radius:4px;background:#2d7fd6;color:#fff;font-weight:700;cursor:pointer}.error{background:#fdeaea;border:1px solid #e6a6a9;color:#a4141a;padding:8px;border-radius:4px;margin-bottom:10px}
-</style>
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
-</head><body><div class="card"><div class="title">🔐 QChat Yönetici Paneli</div><div class="body">
+</style></head><body><div class="card"><div class="title">🔐 QChat Yönetici Paneli</div><div class="body">
 <h2>Yönetici Girişi</h2>{% if hata %}<div class="error">{{ hata }}</div>{% endif %}
 <form method="post"><input name="kullanici" placeholder="Yönetici adı" required autocomplete="off"><input type="password" name="sifre" placeholder="Şifre" required autocomplete="off"><button class="btn">GİRİŞ YAP</button></form>
 </div></div></body></html>
@@ -189,13 +182,6 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 @media(max-width:1150px){.shell{grid-template-columns:190px 1fr}.stats{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:850px){.app{padding:9px}.shell{display:block}.sidebar{position:static;height:auto;margin-bottom:9px}.nav{grid-template-columns:repeat(4,1fr)}.nav button{text-align:center;padding:8px 5px;font-size:11px}.side-info,.side-actions{display:none}.grid,.grid3{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.topbar{align-items:flex-start}.topbar h1{font-size:15px}.top-actions{flex-wrap:wrap;justify-content:flex-end}.detail-grid,.form-grid{grid-template-columns:1fr}}
 @media(max-width:540px){.nav{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:1fr}.quick{grid-template-columns:1fr}.compose{grid-template-columns:1fr}}
-</style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
 </style>
 </head>
 <body>
@@ -1547,13 +1533,6 @@ bakim_html = """
         .win7-content h2 { margin: 0 0 10px; color: #1c3d5c; font-size: 19px; }
         .win7-content p { color: #33475c; font-size: 14px; line-height: 1.6; margin: 0; }
     </style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
 </head>
 <body>
     <div class="win7-window">
@@ -1663,13 +1642,6 @@ ban_html = """
             background: #ecfeff; border: 1px solid #67e8f9; color: #155e75;
         }
     </style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
 </head>
 <body>
     <div class="win7-window">
@@ -1795,13 +1767,6 @@ giris_html = """
         }
         .bot-dogrulama label { cursor: pointer; user-select: none; }
     </style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
 </head>
 <body>
     <div class="win7-window">
@@ -1888,13 +1853,6 @@ sifre_unuttum_html = """
         }
         button:hover { filter: brightness(1.03); }
     </style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
 </head>
 <body>
     <div class="win7-window">
@@ -2148,13 +2106,85 @@ mesaj_html = """
         @media (max-width: 420px) {
             .panel-row { flex-direction: column; }
         }
-    </style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
+    
+        /* QChat saf siyah-beyaz tema: yalnızca görünüm değişir. */
+        html, body {
+            background: #fff !important;
+            color: #000 !important;
+        }
+        .win7-window, .settings-card {
+            background: #fff !important;
+            border-color: #000 !important;
+            box-shadow: none !important;
+        }
+        .win7-titlebar, .settings-title, .chat-title {
+            background: #000 !important;
+            color: #fff !important;
+            border-color: #000 !important;
+            text-shadow: none !important;
+        }
+        .topbar, .panel-box, .room-create-panel, .settings-row, .chat-box,
+        .mention-list, .metric, .room, .detail, .modal-card {
+            background: #fff !important;
+            color: #000 !important;
+            border-color: #000 !important;
+            box-shadow: none !important;
+        }
+        .content, .settings-body, .modal-body {
+            color: #000 !important;
+        }
+        .user-info, .panel-box, .field-label, .typing-indicator, .msg-body,
+        .msg-time, .msg-reply, .mention-item, select, input[type="text"] {
+            color: #000 !important;
+        }
+        input[type="text"], select, input, textarea {
+            background: #fff !important;
+            color: #000 !important;
+            border-color: #000 !important;
+            box-shadow: none !important;
+        }
+        button, button[type="submit"], .small-btn, .logout-btn, .msg-action-btn,
+        .room-create-btn-row button, .sikayet-mesaj-btn, .sil-mesaj-btn,
+        .btn-ok, .btn-cancel {
+            background: #000 !important;
+            color: #fff !important;
+            border-color: #000 !important;
+            text-shadow: none !important;
+            box-shadow: none !important;
+        }
+        button:hover, .small-btn:hover, .logout-btn:hover, .msg-action-btn:hover {
+            background: #000 !important;
+            color: #fff !important;
+        }
+        .msg-item:hover, .msg-private:hover, .mention-item:hover, .mention-item.active {
+            background: #fff !important;
+            color: #000 !important;
+        }
+        .msg-private, .msg-reply, .msg-duyuru, .msg-sayac,
+        .pinned-banner, .oda-sonuc-bildirimi, .notice, .good, .danger-note {
+            background: #fff !important;
+            color: #000 !important;
+            border-color: #000 !important;
+        }
+        .msg-sistem, .msg-user, .msg-body, .msg-head, .msg-reply .reply-from,
+        .msg-duyuru, .msg-sayac, .pinned-banner, .notice, .good, .danger-note {
+            color: #000 !important;
+        }
+        .msg-action-btn, .chat-title {
+            border-radius: 3px !important;
+        }
+        .settings-overlay, .modal {
+            background: rgba(0,0,0,.75) !important;
+        }
+        .chat-box::-webkit-scrollbar-track {
+            background: #fff !important;
+        }
+        .chat-box::-webkit-scrollbar-thumb {
+            background: #000 !important;
+            border-color: #fff !important;
+        }
+        a { color: #000 !important; }
+        .logout-btn, .small-btn, button, button[type="submit"] { color: #fff !important; }
 </style>
 </head>
 <body>
@@ -3354,13 +3384,6 @@ zorunlu_sorgu_html = """
 .compose{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 14px 14px}.compose input{width:100%;padding:11px;border:1px solid #9fb9d1;border-radius:8px;outline:none}.compose button{min-width:120px;border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer}
 .foot{padding:0 14px 14px;text-align:center;color:#6b7d90;font-size:11px}@media(max-width:600px){.chat{height:55vh}.compose{grid-template-columns:1fr}.compose button{width:100%}}
 </style>
-
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
 </head>
 <body>
 <div class="wrap">
@@ -3713,14 +3736,7 @@ def sifre_unuttum():
     .box{background:#fff;border:1px solid #b9cfe4;border-radius:8px;padding:24px;max-width:420px;text-align:center;box-shadow:0 12px 32px rgba(20,60,110,.2)}
     h2{margin:0 0 10px;color:#1c3d5c} p{margin:0;color:#33475c;line-height:1.5}
     a{display:inline-block;margin-top:14px;color:#1c5fb0;font-weight:700;text-decoration:none}
-    </style>
-<style id="qchat-black-white-theme">
-/* QChat: mevcut tasarım ve JavaScript korunarak siyah-beyaz görünüm */
-html, body {
-  filter: grayscale(100%) !important;
-}
-</style>
-</head><body><div class="box">
+    </style></head><body><div class="box">
     <h2>Şifremi unuttum kapatıldı</h2>
     <p>E-posta ile işlem kaldırıldı. Şu an sadece kullanıcı adı ve şifre ile giriş yapılır.</p>
     <a href="/giris">Girişe dön</a>
