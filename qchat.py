@@ -142,10 +142,10 @@ admin_login_html = """
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>QChat Yönetici Girişi</title>
 <style>
-*{box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,sans-serif;background:#FFFFFF;min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
-.card{width:360px;background:#FFFFFF;border:1px solid #000000;border-radius:9px;box-shadow:0 12px 32px rgba(0,0,0,.35);overflow:hidden}
-.title{background:#000000;color:#FFFFFF;padding:13px;font-weight:700}.body{padding:20px}
-.body h2{margin-top:0;color:#000000;font-size:19px}.body input{width:100%;box-sizing:border-box;padding:10px;margin:7px 0 12px;border:1px solid #000000;border-radius:4px}.btn{width:100%;padding:10px;border:1px solid #000000;border-radius:4px;background:#000000;color:#FFFFFF;font-weight:700;cursor:pointer}.error{background:#FFFFFF;border:1px solid #000000;color:#000000;padding:8px;border-radius:4px;margin-bottom:10px}
+*{box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(180deg,#bcd6ee,#eaf2fa);min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
+.card{width:360px;background:#f4f8fc;border:1px solid #5b8ac4;border-radius:9px;box-shadow:0 12px 32px rgba(20,60,110,.35);overflow:hidden}
+.title{background:linear-gradient(180deg,#79bdf7,#1c5fb0);color:#fff;padding:13px;font-weight:700}.body{padding:20px}
+.body h2{margin-top:0;color:#1c3d5c;font-size:19px}.body input{width:100%;box-sizing:border-box;padding:10px;margin:7px 0 12px;border:1px solid #8fa9c4;border-radius:4px}.btn{width:100%;padding:10px;border:1px solid #1c5fb0;border-radius:4px;background:#2d7fd6;color:#fff;font-weight:700;cursor:pointer}.error{background:#fdeaea;border:1px solid #e6a6a9;color:#a4141a;padding:8px;border-radius:4px;margin-bottom:10px}
 </style></head><body><div class="card"><div class="title">🔐 QChat Yönetici Paneli</div><div class="body">
 <h2>Yönetici Girişi</h2>{% if hata %}<div class="error">{{ hata }}</div>{% endif %}
 <form method="post"><input name="kullanici" placeholder="Yönetici adı" required autocomplete="off"><input type="password" name="sifre" placeholder="Şifre" required autocomplete="off"><button class="btn">GİRİŞ YAP</button></form>
@@ -161,24 +161,24 @@ admin_html = """
 <title>QChat • Yönetim Merkezi</title>
 <style>
 *{box-sizing:border-box}
-:root{--bg:#FFFFFF;--panel:#FFFFFF;--line:#FFFFFF;--text:#000000;--muted:#000000;--blue:#000000;--blue2:#000000;--red:#000000;--green:#000000;--orange:#000000;--purple:#000000;--shadow:0 14px 34px rgba(0,0,0,.14)}
-html,body{margin:0;min-height:100%;font-family:"Segoe UI",Tahoma,sans-serif;color:var(--text);background:#FFFFFF}
+:root{--bg:#edf4fb;--panel:#ffffff;--line:#cfe0ef;--text:#20354a;--muted:#6b7d90;--blue:#2477cf;--blue2:#1558a7;--red:#c0392b;--green:#21853f;--orange:#c77b11;--purple:#6b56bd;--shadow:0 14px 34px rgba(39,76,112,.14)}
+html,body{margin:0;min-height:100%;font-family:"Segoe UI",Tahoma,sans-serif;color:var(--text);background:linear-gradient(145deg,#c9def2 0%,#eef5fb 55%,#e6eef6 100%)}
 button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1440px;margin:0 auto;padding:18px}.shell{display:grid;grid-template-columns:235px 1fr;min-height:calc(100vh - 36px);gap:14px}
-.sidebar{background:rgba(255,255,255,.96);border:1px solid #000000;border-radius:12px;box-shadow:var(--shadow);padding:12px;position:sticky;top:18px;height:calc(100vh - 36px);display:flex;flex-direction:column}
-.brand{padding:12px;border-radius:9px;background:#000000;color:#FFFFFF;box-shadow:inset 0 1px 0 rgba(0,0,0,.35);margin-bottom:12px}.brand strong{display:block;font-size:15px}.brand small{opacity:.86}
-.nav{display:grid;gap:5px}.nav button{border:1px solid transparent;background:transparent;color:#000000;text-align:left;padding:10px 11px;border-radius:8px;font-weight:700}.nav button:hover{background:#000000;border-color:#000000}.nav button.active{background:#000000;color:#FFFFFF;box-shadow:0 4px 10px rgba(0,0,0,.2)}
-.side-info{margin-top:auto;padding:10px;border-top:1px solid #000000;color:var(--muted);font-size:11px;line-height:1.55}.side-actions{display:grid;gap:6px;margin-top:10px}.side-actions a{display:block;text-decoration:none;text-align:center;padding:8px;border-radius:7px;border:1px solid #000000;background:#FFFFFF;color:#000000;font-weight:700}.side-actions a.logout{background:#000000;color:#FFFFFF;border-color:#000000}
-.main{min-width:0}.topbar{background:#000000;color:#FFFFFF;border:1px solid #000000;border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow)}.topbar h1{margin:0;font-size:18px}.topbar .meta{font-size:12px;opacity:.92}.top-actions{display:flex;gap:6px;align-items:center}.top-actions button{border:1px solid rgba(0,0,0,.45);background:rgba(0,0,0,.13);color:#FFFFFF;padding:7px 9px;border-radius:7px;font-weight:700}.top-actions button:hover{background:rgba(0,0,0,.22)}
-.content{margin-top:14px}.section{display:none}.section.active{display:block}.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}.stat{background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;padding:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}.stat:after{content:"";position:absolute;inset:auto 0 0 0;height:3px;background:#000000}.stat small{display:block;color:var(--muted);font-size:11px;font-weight:700}.stat b{display:block;font-size:22px;margin-top:3px}.stat em{font-style:normal;font-size:11px;color:var(--muted)}
-.grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.box{background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:10px;padding:13px;box-shadow:var(--shadow);min-width:0}.box h2,.box h3{margin:0 0 10px;color:#000000}.box h2{font-size:17px}.box h3{font-size:14px}.muted{color:var(--muted)}.notice{background:#FFFFFF;border:1px solid #000000;padding:9px;border-radius:8px;font-size:12px;line-height:1.45}.good{background:#FFFFFF;border:1px solid #000000}.danger-note{background:#FFFFFF;border:1px solid #000000}
-.toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.toolbar .grow{flex:1;min-width:210px}.toolbar input,.toolbar select,.field input,.field textarea,.field select{width:100%;padding:9px 10px;border:1px solid #000000;border-radius:7px;background:#FFFFFF;color:#000000;outline:none}.toolbar input:focus,.field input:focus,.field textarea:focus,.field select:focus{border-color:#000000;box-shadow:0 0 0 3px rgba(0,0,0,.12)}
-.btn{border:1px solid #000000;background:#000000;color:#FFFFFF;border-radius:7px;padding:7px 10px;font-weight:700}.btn:hover{filter:brightness(.97)}.red{background:#000000;border-color:#000000}.green{background:#000000;border-color:#000000}.orange{background:#000000;border-color:#000000}.dark{background:#000000;border-color:#000000}.purple{background:#000000;border-color:#000000}.light{background:#000000;color:#000000;border-color:#000000}
-.user-table-wrap,.table-wrap,.chat-wrap{overflow:auto;border:1px solid #000000;border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}.table th,.table td{padding:9px;border-bottom:1px solid #000000;text-align:left;vertical-align:middle}.table th{background:#FFFFFF;color:#000000;position:sticky;top:0;z-index:1}.table tr:hover td{background:#FFFFFF}.status{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:800}.online{background:#FFFFFF;color:#000000}.offline{background:#FFFFFF;color:#000000}.ban{background:#FFFFFF;color:#000000}.mute{background:#FFFFFF;color:#000000}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#FFFFFF;color:#000000;font-size:10px;font-weight:800}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions form{margin:0}.row-actions{white-space:nowrap}
-.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.quick form,.quick a{text-decoration:none}.quick .btn{width:100%}.metric-list{display:grid;gap:7px}.metric{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #000000;border-radius:7px;background:#FFFFFF}.metric span{color:var(--muted)}.barline{display:grid;grid-template-columns:100px 1fr 50px;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar{height:8px;border-radius:999px;background:#FFFFFF;overflow:hidden}.bar i{display:block;height:100%;background:#000000}
-.chat-stream{height:430px;overflow:auto;background:#000000;color:#FFFFFF;padding:10px;border-radius:8px;font-family:Consolas,monospace;font-size:11px}.chat-item{padding:7px 0;border-bottom:1px solid rgba(0,0,0,.08)}.chat-item:last-child{border-bottom:0}.chat-head{color:#FFFFFF}.chat-head b{color:#FFFFFF}.chat-body{white-space:pre-wrap;word-break:break-word;margin-top:2px}.mini-meta{font-size:10px;color:#000000}.compose{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:8px}.compose input{padding:10px;border:1px solid #000000;border-radius:7px}.compose button{min-width:110px}
-.room-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}.room{border:1px solid #000000;background:#FFFFFF;border-radius:8px;padding:10px}.room-top{display:flex;justify-content:space-between;gap:8px}.room strong{font-size:14px}.room .sub{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}.room form{margin-top:8px}
-.log{height:450px;overflow:auto;font-family:Consolas,monospace;font-size:11px;white-space:pre-wrap;background:#000000;color:#FFFFFF;border-radius:8px;padding:11px}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #000000;border-radius:8px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:40}.modal.open{display:flex}.modal-card{width:min(660px,100%);max-height:90vh;overflow:auto;background:#FFFFFF;border:1px solid #000000;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.22)}.modal-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;background:#000000;color:#FFFFFF}.modal-head h3{margin:0;color:#FFFFFF}.modal-close{border:0;background:rgba(255,255,255,.2);color:#FFFFFF;border-radius:7px;padding:6px 9px;font-weight:800}.modal-body{padding:14px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.detail{border:1px solid #000000;border-radius:8px;padding:9px;background:#FFFFFF}.detail b{display:block;font-size:10px;color:#000000;margin-bottom:3px}.detail span{font-size:13px;word-break:break-word}.field{margin-bottom:9px}.field label{display:block;font-size:11px;color:#000000;font-weight:800;margin-bottom:4px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.sidebar{background:rgba(247,251,255,.96);border:1px solid #7fa7cb;border-radius:12px;box-shadow:var(--shadow);padding:12px;position:sticky;top:18px;height:calc(100vh - 36px);display:flex;flex-direction:column}
+.brand{padding:12px;border-radius:9px;background:linear-gradient(180deg,#74b5ef,#1d5fab);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.35);margin-bottom:12px}.brand strong{display:block;font-size:15px}.brand small{opacity:.86}
+.nav{display:grid;gap:5px}.nav button{border:1px solid transparent;background:transparent;color:#29445d;text-align:left;padding:10px 11px;border-radius:8px;font-weight:700}.nav button:hover{background:#eaf3fb;border-color:#c9dced}.nav button.active{background:#2b7ed3;color:#fff;box-shadow:0 4px 10px rgba(30,100,175,.2)}
+.side-info{margin-top:auto;padding:10px;border-top:1px solid #d7e4ef;color:var(--muted);font-size:11px;line-height:1.55}.side-actions{display:grid;gap:6px;margin-top:10px}.side-actions a{display:block;text-decoration:none;text-align:center;padding:8px;border-radius:7px;border:1px solid #b9cfe4;background:#f4f8fc;color:#2b557b;font-weight:700}.side-actions a.logout{background:#c0392b;color:#fff;border-color:#8f241a}
+.main{min-width:0}.topbar{background:linear-gradient(180deg,#79bdf7 0%,#3184dc 48%,#1c5fb0 100%);color:#fff;border:1px solid #4c84b8;border-radius:12px;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow)}.topbar h1{margin:0;font-size:18px}.topbar .meta{font-size:12px;opacity:.92}.top-actions{display:flex;gap:6px;align-items:center}.top-actions button{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.13);color:#fff;padding:7px 9px;border-radius:7px;font-weight:700}.top-actions button:hover{background:rgba(255,255,255,.22)}
+.content{margin-top:14px}.section{display:none}.section.active{display:block}.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:12px}.stat{background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;padding:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}.stat:after{content:"";position:absolute;inset:auto 0 0 0;height:3px;background:linear-gradient(90deg,#2b7ed3,#86bdea)}.stat small{display:block;color:var(--muted);font-size:11px;font-weight:700}.stat b{display:block;font-size:22px;margin-top:3px}.stat em{font-style:normal;font-size:11px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.box{background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:10px;padding:13px;box-shadow:var(--shadow);min-width:0}.box h2,.box h3{margin:0 0 10px;color:#1d3c5b}.box h2{font-size:17px}.box h3{font-size:14px}.muted{color:var(--muted)}.notice{background:#fff8dc;border:1px solid #e2bf45;padding:9px;border-radius:8px;font-size:12px;line-height:1.45}.good{background:#edf9f0;border:1px solid #a8d8b3}.danger-note{background:#fff0ee;border:1px solid #e5b2ad}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.toolbar .grow{flex:1;min-width:210px}.toolbar input,.toolbar select,.field input,.field textarea,.field select{width:100%;padding:9px 10px;border:1px solid #9fb9d1;border-radius:7px;background:#fbfdff;color:#253d55;outline:none}.toolbar input:focus,.field input:focus,.field textarea:focus,.field select:focus{border-color:#4f91d2;box-shadow:0 0 0 3px rgba(79,145,210,.12)}
+.btn{border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:7px;padding:7px 10px;font-weight:700}.btn:hover{filter:brightness(.97)}.red{background:#c0392b;border-color:#8f241a}.green{background:#21853f;border-color:#17682e}.orange{background:#c77b11;border-color:#945d08}.dark{background:#46515d;border-color:#35404a}.purple{background:#6b56bd;border-color:#4f3f92}.light{background:#eef4fb;color:#2b557b;border-color:#b9cfe4}
+.user-table-wrap,.table-wrap,.chat-wrap{overflow:auto;border:1px solid #d7e4ef;border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}.table th,.table td{padding:9px;border-bottom:1px solid #e1eaf2;text-align:left;vertical-align:middle}.table th{background:#eef4fb;color:#385974;position:sticky;top:0;z-index:1}.table tr:hover td{background:#f8fbfe}.status{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:800}.online{background:#e8f7ec;color:#17733a}.offline{background:#eef1f4;color:#677584}.ban{background:#fdeceb;color:#a92a20}.mute{background:#fff4df;color:#9a6508}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#edf3fa;color:#42627d;font-size:10px;font-weight:800}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions form{margin:0}.row-actions{white-space:nowrap}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.quick form,.quick a{text-decoration:none}.quick .btn{width:100%}.metric-list{display:grid;gap:7px}.metric{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #dae6f0;border-radius:7px;background:#fbfdff}.metric span{color:var(--muted)}.barline{display:grid;grid-template-columns:100px 1fr 50px;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar{height:8px;border-radius:999px;background:#e6eef5;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#327fca,#7aaedb)}
+.chat-stream{height:430px;overflow:auto;background:#0e1721;color:#dce9f6;padding:10px;border-radius:8px;font-family:Consolas,monospace;font-size:11px}.chat-item{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)}.chat-item:last-child{border-bottom:0}.chat-head{color:#86bdea}.chat-head b{color:#fff}.chat-body{white-space:pre-wrap;word-break:break-word;margin-top:2px}.mini-meta{font-size:10px;color:#7f93a8}.compose{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:8px}.compose input{padding:10px;border:1px solid #9fb9d1;border-radius:7px}.compose button{min-width:110px}
+.room-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}.room{border:1px solid #d5e2ed;background:#fbfdff;border-radius:8px;padding:10px}.room-top{display:flex;justify-content:space-between;gap:8px}.room strong{font-size:14px}.room .sub{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}.room form{margin-top:8px}
+.log{height:450px;overflow:auto;font-family:Consolas,monospace;font-size:11px;white-space:pre-wrap;background:#0f1720;color:#dbeafe;border-radius:8px;padding:11px}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #c8d8e7;border-radius:8px}
+.modal{position:fixed;inset:0;background:rgba(13,31,48,.5);display:none;align-items:center;justify-content:center;padding:18px;z-index:40}.modal.open{display:flex}.modal-card{width:min(660px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #87a8c7;border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.22)}.modal-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 14px;background:linear-gradient(180deg,#79bdf7,#2d7fd6);color:#fff}.modal-head h3{margin:0;color:#fff}.modal-close{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:6px 9px;font-weight:800}.modal-body{padding:14px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.detail{border:1px solid #dae6f0;border-radius:8px;padding:9px;background:#fbfdff}.detail b{display:block;font-size:10px;color:#6c8093;margin-bottom:3px}.detail span{font-size:13px;word-break:break-word}.field{margin-bottom:9px}.field label{display:block;font-size:11px;color:#4b6983;font-weight:800;margin-bottom:4px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 @media(max-width:1150px){.shell{grid-template-columns:190px 1fr}.stats{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:850px){.app{padding:9px}.shell{display:block}.sidebar{position:static;height:auto;margin-bottom:9px}.nav{grid-template-columns:repeat(4,1fr)}.nav button{text-align:center;padding:8px 5px;font-size:11px}.side-info,.side-actions{display:none}.grid,.grid3{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.topbar{align-items:flex-start}.topbar h1{font-size:15px}.top-actions{flex-wrap:wrap;justify-content:flex-end}.detail-grid,.form-grid{grid-template-columns:1fr}}
 @media(max-width:540px){.nav{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:1fr}.quick{grid-template-columns:1fr}.compose{grid-template-columns:1fr}}
@@ -348,7 +348,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 <div class="box"><h2>✍️ Admin olarak yaz</h2><p class="muted">Gönderilen mesaj mevcut sohbet akışına <b>Admin</b> kimliğiyle eklenir ve mesaj kuyruğuna iletilir.</p><form class="compose" method="post" action="/admin/admin_mesaj_form"><input name="mesaj" maxlength="500" placeholder="Kullanıcılara gönderilecek mesaj…" required><button class="btn">📤 Gönder</button></form><div class="notice" style="margin-top:10px">Bu alan ayrı bir veritabanı kullanmaz; mevcut <b>sohbet_gecmisi</b> üzerinde çalışır.</div></div></div></section>
 
 <section id="rooms" class="section"><div class="grid"><div class="box"><h2>🏠 Odalar</h2><div class="room-grid">{% for oda in odalar %}<div class="room"><div class="room-top"><strong>{{ oda.ad }}</strong><span class="pill">{{ '🔒 Şifreli' if oda.sifre else '🔓 Açık' }}</span></div><div class="sub">Lider: <b>{{ oda.lider }}</b><br>Mesaj: {{ oda.mesaj_sayisi }}</div>{% if oda.ad != 'Genel' %}<form method="post" action="/admin/islem" onsubmit="return confirm('{{ oda.ad }} odasını silmek istiyor musun?')"><input type="hidden" name="hedef_oda" value="{{ oda.ad }}"><input type="hidden" name="islem" value="oda_sil"><button class="btn red">🗑️ Odayı Sil</button></form>{% else %}<div class="notice" style="margin-top:8px">Genel oda sistem tarafından korunur.</div>{% endif %}</div>{% endfor %}</div></div>
-<div class="box"><h2>➕ Oda Oluştur / Düzenle</h2><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_kur"><div class="field"><label>Oda adı</label><input name="oda_adi" maxlength="15" required></div><div class="field"><label>Şifre (boş = açık)</label><input name="oda_sifre" maxlength="15"></div><button class="btn green">➕ Oda Oluştur</button></form><hr style="border:0;border-top:1px solid #000000;margin:14px 0"><h3>✏️ Oda düzenle</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_duzenle"><div class="field"><label>Mevcut oda</label><select name="eski_oda">{% for oda in odalar if oda.ad != 'Genel' %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="field"><label>Yeni ad (boş = aynı)</label><input name="yeni_oda" maxlength="15"></div><div class="field"><label>Yeni şifre</label><input name="yeni_oda_sifre" maxlength="15"></div><button class="btn">💾 Güncelle</button></form></div></div></section>
+<div class="box"><h2>➕ Oda Oluştur / Düzenle</h2><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_kur"><div class="field"><label>Oda adı</label><input name="oda_adi" maxlength="15" required></div><div class="field"><label>Şifre (boş = açık)</label><input name="oda_sifre" maxlength="15"></div><button class="btn green">➕ Oda Oluştur</button></form><hr style="border:0;border-top:1px solid #dce7f0;margin:14px 0"><h3>✏️ Oda düzenle</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="oda_duzenle"><div class="field"><label>Mevcut oda</label><select name="eski_oda">{% for oda in odalar if oda.ad != 'Genel' %}<option value="{{ oda.ad }}">{{ oda.ad }}</option>{% endfor %}</select></div><div class="field"><label>Yeni ad (boş = aynı)</label><input name="yeni_oda" maxlength="15"></div><div class="field"><label>Yeni şifre</label><input name="yeni_oda_sifre" maxlength="15"></div><button class="btn">💾 Güncelle</button></form></div></div></section>
 
 
 <section id="roomrequests" class="section">
@@ -951,7 +951,7 @@ def _tum_hatalari_yakala(e):
         return jsonify({"basarili": False, "hata": f"Sunucu hatası: {e}"}), kod
     if request.path.startswith("/admin"):
         return (
-            "<h2 style='font-family:sans-serif;color:#000000'>QChat Yönetim Paneli Hatası</h2>"
+            "<h2 style='font-family:sans-serif;color:#b91c1c'>QChat Yönetim Paneli Hatası</h2>"
             "<p style='font-family:sans-serif'>Panel yüklenirken bir veri hatası oluştu. "
             "Sunucu konsolundaki traceback gerçek hatayı gösterir.</p>",
             kod,
@@ -1515,23 +1515,23 @@ bakim_html = """
         * { box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
-            background: #FFFFFF;
+            background: linear-gradient(180deg, #bcd6ee 0%, #d8e6f5 45%, #eaf2fa 100%);
             min-height: 100vh; margin: 0; display: flex;
             align-items: center; justify-content: center; padding: 20px;
         }
         .win7-window {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,.5) inset;
+            background: #f4f8fc; border: 1px solid #5b8ac4; border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(20,60,110,0.35), 0 0 0 1px rgba(255,255,255,.5) inset;
             width: 100%; max-width: 420px; overflow: hidden;
         }
         .win7-titlebar {
-            background: #000000;
-            color: #FFFFFF; font-weight: 600; font-size: 13px; padding: 10px 14px;
-            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #000000;
+            background: linear-gradient(180deg,#79bdf7 0%, #3a8ee6 45%, #1c5fb0 55%, #2d7fd6 100%);
+            color: #fff; font-weight: 600; font-size: 13px; padding: 10px 14px;
+            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #14417f;
         }
         .win7-content { padding: 30px 24px; text-align: center; }
-        .win7-content h2 { margin: 0 0 10px; color: #000000; font-size: 19px; }
-        .win7-content p { color: #000000; font-size: 14px; line-height: 1.6; margin: 0; }
+        .win7-content h2 { margin: 0 0 10px; color: #1c3d5c; font-size: 19px; }
+        .win7-content p { color: #33475c; font-size: 14px; line-height: 1.6; margin: 0; }
     </style>
 </head>
 <body>
@@ -1604,42 +1604,42 @@ ban_html = """
         * { box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
-            background: #FFFFFF;
+            background: linear-gradient(180deg, #bcd6ee 0%, #d8e6f5 45%, #eaf2fa 100%);
             min-height: 100vh; margin: 0; display: flex;
             align-items: center; justify-content: center; padding: 20px;
         }
         .win7-window {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,.5) inset;
+            background: #f4f8fc; border: 1px solid #5b8ac4; border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(20,60,110,0.35), 0 0 0 1px rgba(255,255,255,.5) inset;
             width: 100%; max-width: 460px; overflow: hidden;
         }
         .win7-titlebar {
-            background: #FFFFFF;
-            color: #FFFFFF; font-weight: 700; padding: 10px 14px; font-size: 15px;
+            background: linear-gradient(180deg,#79bdf7 0%,#3d8ede 100%);
+            color: #fff; font-weight: 700; padding: 10px 14px; font-size: 15px;
         }
-        .win7-content { padding: 18px; color: #000000; }
-        h2 { margin: 0 0 10px; color: #000000; }
+        .win7-content { padding: 18px; color: #223; }
+        h2 { margin: 0 0 10px; color: #b91c1c; }
         p { margin: 0 0 14px; line-height: 1.5; }
         .btn {
-            appearance: none; border: 1px solid #000000; background: #000000; color: #FFFFFF;
+            appearance: none; border: 1px solid #1d4ed8; background: #2563eb; color: white;
             border-radius: 6px; padding: 9px 12px; font-weight: 700; cursor: pointer;
         }
         .panel {
-            margin-top: 12px; display: none; border: 1px solid #000000; background: #FFFFFF;
+            margin-top: 12px; display: none; border: 1px solid #c9d7ea; background: #fff;
             border-radius: 8px; padding: 12px;
         }
         textarea {
-            width: 100%; min-height: 110px; resize: vertical; border: 1px solid #000000;
+            width: 100%; min-height: 110px; resize: vertical; border: 1px solid #c9d7ea;
             border-radius: 6px; padding: 10px; font: inherit; margin-top: 8px;
         }
         .row { display: flex; gap: 8px; margin-top: 10px; }
-        .secondary { background: #FFFFFF; border-color: #000000; }
+        .secondary { background: #94a3b8; border-color: #64748b; }
         .note {
-            margin-top: 10px; font-size: 13px; color: #000000;
+            margin-top: 10px; font-size: 13px; color: #475569;
         }
         .status {
             margin-top: 10px; padding: 10px 12px; border-radius: 6px;
-            background: #FFFFFF; border: 1px solid #000000; color: #000000;
+            background: #ecfeff; border: 1px solid #67e8f9; color: #155e75;
         }
     </style>
 </head>
@@ -1656,7 +1656,7 @@ ban_html = """
 
             {% if not gonderildi %}
             <form class="panel" method="post" action="/ban-geri-bildirim" style="display:block;">
-                <label for="mesaj" style="font-weight:700; color:#000000;">Neler oldu?</label>
+                <label for="mesaj" style="font-weight:700; color:#334155;">Neler oldu?</label>
                 <textarea id="mesaj" name="mesaj" placeholder="Örneğin: 'Yanlışlıkla engellendiğimi düşünüyorum.' veya 'Kuralların hangi kısmını ihlal ettiğimi öğrenmek istiyorum.'"></textarea>
                 <div class="row">
                     <button class="btn" type="submit">Gönder</button>
@@ -1715,55 +1715,55 @@ giris_html = """
         * { box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
-            background: #FFFFFF;
+            background: linear-gradient(180deg, #bcd6ee 0%, #d8e6f5 45%, #eaf2fa 100%);
             min-height: 100vh; margin: 0; display: flex;
             align-items: center; justify-content: center; padding: 20px;
         }
         .win7-window {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,.5) inset;
+            background: #f4f8fc; border: 1px solid #5b8ac4; border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(20,60,110,0.35), 0 0 0 1px rgba(255,255,255,.5) inset;
             width: 100%; max-width: 380px; overflow: hidden;
         }
         .win7-titlebar {
-            background: #000000;
-            color: #FFFFFF; font-weight: 600; font-size: 13px; padding: 10px 14px;
-            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #000000;
+            background: linear-gradient(180deg,#79bdf7 0%, #3a8ee6 45%, #1c5fb0 55%, #2d7fd6 100%);
+            color: #fff; font-weight: 600; font-size: 13px; padding: 10px 14px;
+            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #14417f;
             display: flex; align-items: center; gap: 6px;
         }
         .win7-content { padding: 24px 22px; }
-        .win7-content h3 { text-align: center; margin: 0 0 18px; color: #000000; font-size: 16px; }
-        .field-label { font-size: 12px; font-weight: 600; color: #000000; margin: 0 0 4px 2px; display: block; }
+        .win7-content h3 { text-align: center; margin: 0 0 18px; color: #1c3d5c; font-size: 16px; }
+        .field-label { font-size: 12px; font-weight: 600; color: #3a5a7a; margin: 0 0 4px 2px; display: block; }
         input {
             width: 100%; padding: 9px 10px; font-size: 14px; font-family: inherit;
-            border: 1px solid #000000; border-radius: 4px; margin-bottom: 14px; outline: none;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,.12); background: #FFFFFF; color: #000000;
+            border: 1px solid #8fa9c4; border-radius: 4px; margin-bottom: 14px; outline: none;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,.12); background: #fff; color: #1c2b3a;
             transition: border-color .15s, box-shadow .15s;
         }
-        input:focus { border-color: #000000; box-shadow: 0 0 0 3px rgba(0,0,0,.25) inset, inset 0 1px 3px rgba(0,0,0,.08); }
+        input:focus { border-color: #3a8ee6; box-shadow: 0 0 0 3px rgba(58,142,230,.25) inset, inset 0 1px 3px rgba(0,0,0,.08); }
         button {
             width: 100%; padding: 10px; font-size: 14px; font-weight: 600; font-family: inherit;
-            border: 1px solid #000000; border-radius: 4px; cursor: pointer;
-            color: #FFFFFF; text-shadow: 0 1px 1px rgba(0,0,0,.25);
-            background: #000000;
-            box-shadow: 0 1px 0 rgba(0,0,0,.5) inset;
+            border: 1px solid #1c5fb0; border-radius: 4px; cursor: pointer;
+            color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.25);
+            background: linear-gradient(180deg, #79bdf7 0%, #3a8ee6 48%, #1f74d6 52%, #1c5fb0 100%);
+            box-shadow: 0 1px 0 rgba(255,255,255,.5) inset;
         }
-        button:hover { background: #000000; }
-        button:active { background: #000000; box-shadow: inset 0 2px 4px rgba(0,0,0,.25); }
+        button:hover { background: linear-gradient(180deg, #8ec8fb 0%, #4a99ec 48%, #2c80de 52%, #2468bd 100%); }
+        button:active { background: linear-gradient(180deg, #2c80de 0%, #1c5fb0 100%); box-shadow: inset 0 2px 4px rgba(0,0,0,.25); }
         .error {
-            color: #000000; font-weight: 600; font-size: 12.5px; margin: 0 0 14px;
-            text-align: center; background: #FFFFFF; border: 1px solid #000000; border-radius: 4px; padding: 6px 8px;
+            color: #a4141a; font-weight: 600; font-size: 12.5px; margin: 0 0 14px;
+            text-align: center; background: #fdeaea; border: 1px solid #e6a6a9; border-radius: 4px; padding: 6px 8px;
         }
         .sifre-ipucu {
-            font-size: 11px; color: #000000; margin: -10px 0 14px 2px;
+            font-size: 11px; color: #5a7a9a; margin: -10px 0 14px 2px;
         }
         .bot-dogrulama {
-            display: flex; align-items: center; gap: 8px; background: #FFFFFF;
-            border: 1px solid #000000; border-radius: 4px; padding: 10px 12px;
-            margin: 0 0 16px; font-size: 13px; color: #000000;
+            display: flex; align-items: center; gap: 8px; background: #eef4fb;
+            border: 1px solid #b9cfe6; border-radius: 4px; padding: 10px 12px;
+            margin: 0 0 16px; font-size: 13px; color: #2c4a68;
         }
         .bot-dogrulama input[type="checkbox"] {
             width: 18px; height: 18px; margin: 0; flex-shrink: 0;
-            box-shadow: none; accent-color: #000000; cursor: pointer;
+            box-shadow: none; accent-color: #1c5fb0; cursor: pointer;
         }
         .bot-dogrulama label { cursor: pointer; user-select: none; }
     </style>
@@ -1788,7 +1788,7 @@ giris_html = """
                 <input type="text" name="guvenlik_kodu" placeholder="Ayarlar'daki 6 haneli giriş kodu" inputmode="numeric" maxlength="6" pattern="\\d{6}" autocomplete="off" autofocus>
                 {% endif %}
                 <div class="sifre-ipucu">Yeni hesap için: 7-15 karakter, en az 1 büyük harf ve 1 özel karakter (!@#$% vb.)</div>
-                {% if onay_mesaji %}<div class="error" style="color:#000000;background:#FFFFFF;border-color:#000000;">✅ {{ onay_mesaji }}</div>{% endif %}
+                {% if onay_mesaji %}<div class="error" style="color:#1d5d2a;background:#e7f7ea;border-color:#b9e3c1;">✅ {{ onay_mesaji }}</div>{% endif %}
                 <div class="bot-dogrulama">
                     <input type="checkbox" id="bot_dogrulama" name="bot_dogrulama" required>
                     <label for="bot_dogrulama">🤖 Robot değilim</label>
@@ -1816,39 +1816,39 @@ sifre_unuttum_html = """
         * { box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
-            background: #FFFFFF;
+            background: linear-gradient(180deg, #bcd6ee 0%, #d8e6f5 45%, #eaf2fa 100%);
             min-height: 100vh; margin: 0; display: flex;
             align-items: center; justify-content: center; padding: 20px;
         }
         .win7-window {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,.5) inset;
+            background: #f4f8fc; border: 1px solid #5b8ac4; border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(20,60,110,0.35), 0 0 0 1px rgba(255,255,255,.5) inset;
             width: 100%; max-width: 380px; overflow: hidden;
         }
         .win7-titlebar {
-            background: #000000;
-            color: #FFFFFF; font-weight: 600; font-size: 13px; padding: 10px 14px;
-            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #000000;
+            background: linear-gradient(180deg,#79bdf7 0%, #3a8ee6 45%, #1c5fb0 55%, #2d7fd6 100%);
+            color: #fff; font-weight: 600; font-size: 13px; padding: 10px 14px;
+            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #14417f;
         }
         .win7-content { padding: 18px 16px 16px; }
-        h3 { margin: 0 0 12px; color: #000000; text-align: center; }
+        h3 { margin: 0 0 12px; color: #1c3d5c; text-align: center; }
         .error {
-            background: #FFFFFF; border: 1px solid #000000; color: #000000;
+            background: #fff4f4; border: 1px solid #d9a6a6; color: #9b1c1c;
             padding: 10px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 13px;
             line-height: 1.35;
         }
         .field-label {
-            display:block; margin: 8px 0 4px; color:#000000; font-size:12px; font-weight:700;
+            display:block; margin: 8px 0 4px; color:#2a4a68; font-size:12px; font-weight:700;
         }
         input[type="text"], input[type="password"], input[type="email"] {
-            width:100%; padding: 8px 10px; border:1px solid #000000; border-radius:4px;
-            outline:none; font-family:inherit; font-size:13px; background:#FFFFFF;
+            width:100%; padding: 8px 10px; border:1px solid #8fa9c4; border-radius:4px;
+            outline:none; font-family:inherit; font-size:13px; background:#fff;
         }
-        .sifre-ipucu { margin-top: 8px; color:#000000; font-size:11.5px; line-height:1.35; }
+        .sifre-ipucu { margin-top: 8px; color:#53718f; font-size:11.5px; line-height:1.35; }
         button {
-            width:100%; margin-top: 10px; padding: 10px 12px; border:1px solid #000000;
-            border-radius:4px; color:#FFFFFF; cursor:pointer; font-weight:700; font-family:inherit;
-            background: #000000;
+            width:100%; margin-top: 10px; padding: 10px 12px; border:1px solid #1c5fb0;
+            border-radius:4px; color:#fff; cursor:pointer; font-weight:700; font-family:inherit;
+            background: linear-gradient(180deg,#79bdf7 0%, #3a8ee6 48%, #1f74d6 52%, #1c5fb0 100%);
             text-shadow: 0 1px 1px rgba(0,0,0,.25);
         }
         button:hover { filter: brightness(1.03); }
@@ -1860,7 +1860,7 @@ sifre_unuttum_html = """
         <div class="win7-content">
             <h3>Şifremi Unuttum</h3>
             {% if hata %}<div class="error">⚠️ {{ hata }}</div>{% endif %}
-            {% if onay_mesaji %}<div class="error" style="color:#000000;background:#FFFFFF;border-color:#000000;">✅ {{ onay_mesaji }}</div>{% endif %}
+            {% if onay_mesaji %}<div class="error" style="color:#1d5d2a;background:#e7f7ea;border-color:#b9e3c1;">✅ {{ onay_mesaji }}</div>{% endif %}
             <form method="POST">
                 <span class="field-label">Kullanıcı Adı</span>
                 <input type="text" name="kimlik" placeholder="Kullanıcı adınızı girin" maxlength="120" value="{{ kimlik|default('') }}" required autocomplete="off">
@@ -1873,10 +1873,10 @@ sifre_unuttum_html = """
                 <div class="sifre-ipucu">Kod kayıtlı e-posta adresinize gönderilir. Yeni şifre 7-15 karakter olmalı ve en az 1 büyük harf ile 1 özel karakter içermelidir.</div>
                 <button type="submit">{% if kod_gerekli %}ŞİFREYİ SIFIRLA{% else %}KOD GÖNDER{% endif %}</button>
                 {% if kod_gerekli %}
-                <button type="submit" name="kod_yenile" value="1" style="background:#000000; border-color:#000000;">KODU YENİDEN GÖNDER</button>
+                <button type="submit" name="kod_yenile" value="1" style="background:linear-gradient(180deg,#7fb8e0,#2a6ea8); border-color:#1c4a70;">KODU YENİDEN GÖNDER</button>
                 {% endif %}
                 <div style="text-align:center; margin-top:10px; font-size:12px;">
-                    <a href="/giris" style="color:#000000; font-weight:700; text-decoration:none;">← Girişe dön</a>
+                    <a href="/giris" style="color:#1c5fb0; font-weight:700; text-decoration:none;">← Girişe dön</a>
                 </div>
             </form>
         </div>
@@ -1896,56 +1896,56 @@ mesaj_html = """
         * { box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
-            background: #FFFFFF;
+            background: linear-gradient(180deg, #bcd6ee 0%, #d8e6f5 40%, #eaf2fa 100%);
             min-height: 100vh; margin: 0; padding: 3vh 12px; display: flex; justify-content: center;
         }
         .win7-window {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,.5) inset;
+            background: #f4f8fc; border: 1px solid #5b8ac4; border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(20,60,110,0.35), 0 0 0 1px rgba(255,255,255,.5) inset;
             width: 100%; max-width: 480px; overflow: hidden; height: fit-content;
         }
         .win7-titlebar {
-            background: #000000;
-            color: #FFFFFF; font-weight: 600; font-size: 13px; padding: 10px 14px;
-            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #000000;
+            background: linear-gradient(180deg,#79bdf7 0%, #3a8ee6 45%, #1c5fb0 55%, #2d7fd6 100%);
+            color: #fff; font-weight: 600; font-size: 13px; padding: 10px 14px;
+            text-shadow: 0 1px 1px rgba(0,0,0,.4); border-bottom: 1px solid #14417f;
             display: flex; align-items: center; gap: 6px;
         }
         .content { padding: 12px 14px 14px; }
 
         .topbar {
             display: flex; justify-content: space-between; align-items: center;
-            background: #000000;
-            border: 1px solid #000000; border-radius: 5px; padding: 6px 8px; margin-bottom: 8px;
+            background: linear-gradient(180deg,#eef4fb,#dde9f6);
+            border: 1px solid #b9cfe4; border-radius: 5px; padding: 6px 8px; margin-bottom: 8px;
         }
-        .user-info { font-size: 12.5px; font-weight: 700; color: #000000; display: flex; align-items: center; gap: 5px; }
+        .user-info { font-size: 12.5px; font-weight: 700; color: #1c3d5c; display: flex; align-items: center; gap: 5px; }
         .logout-btn {
-            background: #000000; color: #FFFFFF; text-decoration: none;
+            background: linear-gradient(180deg,#f28b82,#c0392b); color: #fff; text-decoration: none;
             font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 4px;
-            border: 1px solid #000000; text-shadow: 0 1px 1px rgba(0,0,0,.3);
+            border: 1px solid #8f241a; text-shadow: 0 1px 1px rgba(0,0,0,.3);
         }
         .logout-btn:active { filter: brightness(0.9); }
-        .settings-btn { background: #000000; border: 1px solid #000000; }
+        .settings-btn { background: linear-gradient(180deg,#7fb8e0,#2a6ea8); border: 1px solid #1c4a70; }
         .settings-btn:hover { filter: brightness(1.03); }
 
         .settings-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            position: fixed; inset: 0; background: rgba(12,24,38,0.45);
             display: none; align-items: center; justify-content: center; z-index: 9999;
             padding: 18px;
         }
         .settings-card {
-            width: 100%; max-width: 380px; background: #FFFFFF; border: 1px solid #000000;
-            border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,.5) inset;
+            width: 100%; max-width: 380px; background: #f4f8fc; border: 1px solid #5b8ac4;
+            border-radius: 10px; box-shadow: 0 12px 32px rgba(20,60,110,0.35), 0 0 0 1px rgba(255,255,255,.5) inset;
             overflow: hidden;
         }
         .settings-title {
-            background: #000000;
-            color: #FFFFFF; font-weight: 700; padding: 10px 14px; border-bottom: 1px solid #000000;
+            background: linear-gradient(180deg,#79bdf7 0%, #3a8ee6 45%, #1c5fb0 55%, #2d7fd6 100%);
+            color: #fff; font-weight: 700; padding: 10px 14px; border-bottom: 1px solid #14417f;
         }
         .settings-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
         .settings-row {
             display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 6px; padding: 8px 10px;
-            font-size: 12.5px; color: #000000;
+            background: #fff; border: 1px solid #b9cfe4; border-radius: 6px; padding: 8px 10px;
+            font-size: 12.5px; color: #24465f;
         }
         .settings-row label { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
         .settings-row input[type="range"] { width: 140px; }
@@ -1953,155 +1953,155 @@ mesaj_html = """
         .settings-actions .small-btn { flex: 1; min-width: 90px; }
 
         .pinned-banner {
-            background: #000000; border: 1px solid #000000; border-radius: 4px;
+            background: #fff6d0; border: 1px solid #e0b400; border-radius: 4px;
             padding: 6px 8px; margin-bottom: 8px; font-size: 12px; font-weight: 600;
-            display: none; color: #000000;
+            display: none; color: #6b5200;
         }
         .oda-sonuc-bildirimi {
             display: none; padding: 8px 10px; margin-bottom: 8px; border-radius: 5px;
             font-size: 12px; font-weight: 700; line-height: 1.4;
         }
         .oda-sonuc-bildirimi.onay {
-            background: #FFFFFF; border: 1px solid #000000; color: #000000;
+            background: #edf9f0; border: 1px solid #8fcea0; color: #17682e;
         }
         .oda-sonuc-bildirimi.red {
-            background: #000000; border: 1px solid #000000; color: #000000;
+            background: #fff0ee; border: 1px solid #dfaaa3; color: #9f2b20;
         }
 
         .panel-row {
             display: flex; gap: 6px; margin-bottom: 8px;
         }
         .panel-box {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 5px;
+            background: #fff; border: 1px solid #b9cfe4; border-radius: 5px;
             padding: 6px 8px; display: flex; align-items: center; gap: 6px;
-            font-size: 12px; font-weight: 700; color: #000000; flex: 1; min-width: 0;
+            font-size: 12px; font-weight: 700; color: #2a4a68; flex: 1; min-width: 0;
         }
         .panel-box.grow select { flex: 1; }
 
         select {
-            padding: 5px 6px; font-size: 12.5px; border: 1px solid #000000; border-radius: 3px;
-            outline: none; background: #FFFFFF; font-family: inherit; font-weight: 600; color: #000000;
+            padding: 5px 6px; font-size: 12.5px; border: 1px solid #8fa9c4; border-radius: 3px;
+            outline: none; background: #fbfdff; font-family: inherit; font-weight: 600; color: #1c2b3a;
             min-width: 0;
         }
 
         .small-btn {
             font-size: 11.5px; font-weight: 700; padding: 5px 9px; border-radius: 4px;
-            border: 1px solid #000000; cursor: pointer; white-space: nowrap; color: #FFFFFF;
+            border: 1px solid #1c5fb0; cursor: pointer; white-space: nowrap; color: #fff;
             text-shadow: 0 1px 1px rgba(0,0,0,.25);
-            background: #000000;
+            background: linear-gradient(180deg, #79bdf7 0%, #3a8ee6 48%, #1f74d6 52%, #1c5fb0 100%);
         }
         .small-btn:active { filter: brightness(0.9); }
 
         .room-create-panel {
-            display: none; background: #000000; border: 1px solid #000000; border-radius: 5px;
+            display: none; background: #fff; border: 1px solid #b9cfe4; border-radius: 5px;
             padding: 8px; margin-bottom: 8px; flex-direction: column; gap: 6px; font-size: 12px;
         }
-        .room-create-panel .field-label { font-size: 11.5px; font-weight: 700; color: #000000; }
+        .room-create-panel .field-label { font-size: 11.5px; font-weight: 700; color: #3a5a7a; }
         .room-create-panel input {
             width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px;
-            border: 1px solid #000000; border-radius: 3px; outline: none; font-family: inherit;
+            border: 1px solid #8fa9c4; border-radius: 3px; outline: none; font-family: inherit;
         }
         .room-create-btn-row { display: flex; gap: 6px; }
         .room-create-btn-row button {
             flex: 1; margin: 0; padding: 7px; font-size: 12px; font-weight: 700; border-radius: 4px;
-            cursor: pointer; border: 1px solid; color: #FFFFFF; text-shadow: 0 1px 1px rgba(0,0,0,.25);
+            cursor: pointer; border: 1px solid; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.25);
         }
-        .btn-ok { background: #000000; border-color: #000000; }
-        .btn-cancel { background: #000000; border-color: #000000; }
+        .btn-ok { background: linear-gradient(180deg,#7fd68a,#2e9e3f); border-color: #1f7a2e; }
+        .btn-cancel { background: linear-gradient(180deg,#f28b82,#c0392b); border-color: #8f241a; }
 
         select#aliciSec { width: 100%; margin-bottom: 8px; }
 
         .chat-title {
-            font-size: 11.5px; font-weight: 700; color: #FFFFFF; padding: 4px 8px;
+            font-size: 11.5px; font-weight: 700; color: #fff; padding: 4px 8px;
             display: inline-block; margin-top: 4px; margin-bottom: 4px; border-radius: 3px;
-            background: #000000;
+            background: linear-gradient(180deg,#4a4a4a,#2b2b2b);
         }
         .chat-box {
-            background: #FFFFFF; border: 1px solid #000000; border-radius: 5px;
+            background: #ffffff; border: 1px solid #b9cfe4; border-radius: 5px;
             height: 190px; overflow-y: auto; padding: 8px 10px; margin-bottom: 4px;
             display: flex; flex-direction: column-reverse; font-size: 13px;
         }
         .chat-box::-webkit-scrollbar { width: 10px; }
-        .chat-box::-webkit-scrollbar-track { background: #FFFFFF; }
-        .chat-box::-webkit-scrollbar-thumb { background: #FFFFFF; border-radius: 5px; border: 2px solid #000000; }
+        .chat-box::-webkit-scrollbar-track { background: #eef3f9; }
+        .chat-box::-webkit-scrollbar-thumb { background: #a9c3dd; border-radius: 5px; border: 2px solid #eef3f9; }
 
-        .typing-indicator { height: 18px; font-size: 11px; font-style: italic; color: #000000; font-weight: 600; margin-bottom: 6px; padding-left: 2px; }
+        .typing-indicator { height: 18px; font-size: 11px; font-style: italic; color: #4a6580; font-weight: 600; margin-bottom: 6px; padding-left: 2px; }
 
         .msg-item, .msg-private {
             margin-bottom: 5px; word-break: break-word; padding: 3px 5px; border-radius: 3px; line-height: 1.4;
         }
-        .msg-item:hover, .msg-private:hover { background: #FFFFFF; }
-        .msg-private { background: #FFFFFF; border-left: 3px solid #000000; }
+        .msg-item:hover, .msg-private:hover { background: #f2f7fc; }
+        .msg-private { background: #eef6ff; border-left: 3px solid #3a8ee6; }
         .msg-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
         .msg-user { font-weight: 700; }
-        .msg-sistem { color: #000000 !important; font-weight: 700; }
-        .msg-time { font-size: 10.5px; color: #FFFFFF; font-weight: 600; }
-        .msg-body { color: #000000; }
+        .msg-sistem { color: #b8281f !important; font-weight: 700; }
+        .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
+        .msg-body { color: #1c2b3a; }
 
         .msg-reply {
             margin: 4px 0 6px;
             padding: 5px 6px;
-            border-left: 3px solid #000000;
-            background: #FFFFFF;
+            border-left: 3px solid #3a8ee6;
+            background: #eef6ff;
             border-radius: 4px;
             font-size: 11.5px;
-            color: #000000;
+            color: #33475c;
         }
-        .msg-reply .reply-from { font-weight: 700; color: #000000; }
+        .msg-reply .reply-from { font-weight: 700; color: #1c3d5c; }
         .msg-reply .reply-text { display: block; margin-top: 2px; white-space: pre-wrap; word-break: break-word; }
 
-        .msg-duyuru { color: #000000; font-weight: 700; background: #FFFFFF; border: 1px dashed #000000; padding: 5px 6px; }
+        .msg-duyuru { color: #7a3d99; font-weight: 700; background: #f7ecff; border: 1px dashed #b07fd9; padding: 5px 6px; }
         .msg-sayac {
-            color: #FFFFFF !important; background: #000000 !important;
-            border: 1px solid #000000; border-radius: 3px; font-weight: 700; padding: 7px; font-size: 15px;
+            color: #fff200 !important; background: linear-gradient(180deg,#d3261a,#a01912) !important;
+            border: 1px solid #6e0f0a; border-radius: 3px; font-weight: 700; padding: 7px; font-size: 15px;
             text-align: center; margin-bottom: 5px; word-break: break-word;
         }
 
         .msg-action-btn {
             margin-left: auto; flex: 0 0 auto;
             font-size:10px; font-weight:700; padding:2px 5px; border-radius:3px;
-            color:#FFFFFF; cursor:pointer; white-space:nowrap; line-height:1.2;
+            color:#fff; cursor:pointer; white-space:nowrap; line-height:1.2;
         }
         .msg-action-btn + .msg-action-btn { margin-left: 2px; }
         .sikayet-mesaj-btn {
-            border:1px solid #000000;
-            background:#000000;
+            border:1px solid #8d2c22;
+            background:linear-gradient(180deg,#ef8b7d,#c0392b);
         }
         .sil-mesaj-btn {
-            border:1px solid #000000;
-            background:#FFFFFF;
+            border:1px solid #6d4a11;
+            background:linear-gradient(180deg,#e5be67,#b77c10);
         }
         .msg-action-btn:hover { filter: brightness(1.05); }
         .msg-action-btn:active { filter: brightness(0.9); }
         .mention-list {
             display: none; position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 4px;
-            max-height: 150px; overflow-y: auto; background: #FFFFFF; border: 1px solid #000000;
-            border-radius: 5px; box-shadow: 0 6px 18px rgba(0,0,0,.18); z-index: 5000;
+            max-height: 150px; overflow-y: auto; background: #fff; border: 1px solid #8fa9c4;
+            border-radius: 5px; box-shadow: 0 6px 18px rgba(20,60,110,.18); z-index: 5000;
         }
         .mention-item {
-            padding: 7px 9px; font-size: 13px; font-weight: 700; color: #000000; cursor: pointer;
-            border-bottom: 1px solid #000000;
+            padding: 7px 9px; font-size: 13px; font-weight: 700; color: #24465f; cursor: pointer;
+            border-bottom: 1px solid #eef3f8;
         }
         .mention-item:last-child { border-bottom: 0; }
-        .mention-item:hover, .mention-item.active { background: #FFFFFF; color: #000000; }
+        .mention-item:hover, .mention-item.active { background: #fff6d0; color: #6b5200; }
         .mention-highlight {
-            background: #FFFFFF; color: #000000; border-radius: 3px; padding: 0 2px; font-weight: 800;
+            background: #fff2a8; color: #7a5a00; border-radius: 3px; padding: 0 2px; font-weight: 800;
         }
         .input-row { display: flex; gap: 6px; position: relative; }
         input[type="text"] {
             flex: 1; padding: 8px 10px; font-size: 14px; font-family: inherit;
-            border: 1px solid #000000; border-radius: 4px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,.1);
+            border: 1px solid #8fa9c4; border-radius: 4px; outline: none; box-shadow: inset 0 1px 3px rgba(0,0,0,.1);
         }
-        input[type="text"]:focus { border-color: #000000; box-shadow: 0 0 0 3px rgba(0,0,0,.25) inset; }
+        input[type="text"]:focus { border-color: #3a8ee6; box-shadow: 0 0 0 3px rgba(58,142,230,.25) inset; }
 
         button[type="submit"] {
             width: 100%; padding: 9px; font-size: 14px; font-weight: 700; font-family: inherit;
-            border: 1px solid #000000; border-radius: 4px; cursor: pointer; margin-top: 6px;
-            color: #FFFFFF; text-shadow: 0 1px 1px rgba(0,0,0,.25);
-            background: #000000;
-            box-shadow: 0 1px 0 rgba(0,0,0,.5) inset;
+            border: 1px solid #1c5fb0; border-radius: 4px; cursor: pointer; margin-top: 6px;
+            color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.25);
+            background: linear-gradient(180deg, #79bdf7 0%, #3a8ee6 48%, #1f74d6 52%, #1c5fb0 100%);
+            box-shadow: 0 1px 0 rgba(255,255,255,.5) inset;
         }
-        button[type="submit"]:active { background: #000000; box-shadow: inset 0 2px 4px rgba(0,0,0,.25); }
+        button[type="submit"]:active { background: linear-gradient(180deg, #2c80de 0%, #1c5fb0 100%); box-shadow: inset 0 2px 4px rgba(0,0,0,.25); }
 
         @media (max-width: 420px) {
             .panel-row { flex-direction: column; }
@@ -2135,15 +2135,15 @@ mesaj_html = """
                             <button type="button" class="small-btn" onclick="ayarlarSifirla()">Sıfırla</button>
                             <button type="button" class="small-btn" onclick="ayarlarPenceresiKapat()">Kapat</button>
                         </div>
-                        <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:6px; border-top:1px solid #000000; padding-top:10px;">
+                        <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:6px; border-top:1px solid #d7e4ef; padding-top:10px;">
                             <label style="font-weight:700;">🔑 Giriş Kodu</label>
-                            <div style="font-size:11px; color:#000000; line-height:1.4;">Bu hesapta bir oturum açıkken başka bir cihazdan giriş yapılmaya çalışılırsa bu kod istenir.</div>
-                            <div id="girisKoduDeger" style="font-size:22px; font-weight:700; letter-spacing:4px; color:#000000; background:#FFFFFF; border:1px solid #000000; border-radius:6px; padding:8px 12px; width:100%; text-align:center;">------</div>
+                            <div style="font-size:11px; color:#5a7a9a; line-height:1.4;">Bu hesapta bir oturum açıkken başka bir cihazdan giriş yapılmaya çalışılırsa bu kod istenir.</div>
+                            <div id="girisKoduDeger" style="font-size:22px; font-weight:700; letter-spacing:4px; color:#1c3d5c; background:#eef4fb; border:1px solid #b9cfe6; border-radius:6px; padding:8px 12px; width:100%; text-align:center;">------</div>
                             <button type="button" class="small-btn" style="width:100%;" onclick="girisKoduYenile()">🔄 Kodu Yenile</button>
                         </div>
                         {% if kullanici != "Sistem" %}
                         <form method="POST" action="/hesap-sil" onsubmit="return confirm('Hesabın kalıcı olarak silinsin ve çıkış yapılsın mı?');" style="margin:0;">
-                            <button type="submit" class="small-btn" style="width:100%; background:#000000; border-color:#000000;">🗑️ Hesabı Sil ve Çıkış Yap</button>
+                            <button type="submit" class="small-btn" style="width:100%; background:linear-gradient(180deg,#f28b82,#c0392b); border-color:#8f241a;">🗑️ Hesabı Sil ve Çıkış Yap</button>
                         </form>
                         {% endif %}
                     </div>
@@ -2156,7 +2156,7 @@ mesaj_html = """
                     <select id="odaSec" onchange="odaDegistir()"><option value="Genel">Genel</option></select>
                 </div>
                 <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
-                <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:#000000; border-color:#000000;">🛡️ Oda Yönetimi</button>
+                <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
             </div>
 
             <div class="room-create-panel" id="odaKurPanel">
@@ -2164,7 +2164,7 @@ mesaj_html = """
                 <input type="text" id="yeniOdaAdi" placeholder="Örn: Oyun Odası" maxlength="15">
                 <span class="field-label">Şifre (İsteğe Bağlı)</span>
                 <input type="text" id="yeniOdaSifre" placeholder="Boş bırakılırsa şifresiz olur" maxlength="15">
-                <div id="odaIstekBilgi" style="font-size:11px;color:#000000;margin:4px 0;"></div>
+                <div id="odaIstekBilgi" style="font-size:11px;color:#556b7f;margin:4px 0;"></div>
                 <div class="room-create-btn-row">
                     <button type="button" class="btn-ok" id="odaKurActionBtn" onclick="yeniOdaKur()">Odayı Kur</button>
                     <button type="button" class="btn-cancel" onclick="document.getElementById('odaKurPanel').style.display='none';">İptal</button>
@@ -2173,7 +2173,7 @@ mesaj_html = """
 
             <div class="room-create-panel" id="odaYonetimPanel">
                 <span class="field-label" id="odaYonetimBaslik">🛡️ Oda Yönetimi</span>
-                <div id="odaYonetimYetkisiz" style="font-size:12px; color:#000000; display:none;">Bu odada yönetim yetkiniz yok.</div>
+                <div id="odaYonetimYetkisiz" style="font-size:12px; color:#7a3d3d; display:none;">Bu odada yönetim yetkiniz yok.</div>
                 <div id="odaYonetimIcerik" style="display:none; flex-direction:column; gap:6px;">
                     <span class="field-label">Kullanıcı Seç</span>
                     <select id="odaYonetimHedef"></select>
@@ -2186,16 +2186,16 @@ mesaj_html = """
                         <button type="button" class="btn-ok" onclick="odaRolVer()">Rol Ver</button>
                     </div>
                     <div class="room-create-btn-row" id="odaLiderYapSatiri" style="display:none;">
-                        <button type="button" class="btn-ok" onclick="odaLiderYap()" style="background:#000000; border-color:#000000;">👑 Lider Yap</button>
+                        <button type="button" class="btn-ok" onclick="odaLiderYap()" style="background:linear-gradient(180deg,#f7c948,#c78e1a); border-color:#8a5f10;">👑 Lider Yap</button>
                     </div>
                     <div id="odaSifreDegistirBlok" style="display:none;">
                         <span class="field-label">Oda Şifresini Değiştir (Boş = Şifresiz)</span>
                         <input type="text" id="odaYeniSifre" placeholder="Yeni şifre" maxlength="15">
                         <div class="room-create-btn-row">
-                            <button type="button" class="btn-ok" onclick="odaSifreDegistir()" style="background:#000000; border-color:#000000;">🔑 Şifreyi Değiştir</button>
+                            <button type="button" class="btn-ok" onclick="odaSifreDegistir()" style="background:linear-gradient(180deg,#7fb8e0,#2a6ea8); border-color:#1c4a70;">🔑 Şifreyi Değiştir</button>
                         </div>
                         <div class="room-create-btn-row" id="odaKapatSatiri" style="display:none;">
-                            <button type="button" class="btn-cancel" onclick="odaKapat()" style="background:#000000; border-color:#000000; color:#FFFFFF;">🚫 Odayı Kapat</button>
+                            <button type="button" class="btn-cancel" onclick="odaKapat()" style="background:linear-gradient(180deg,#e07f7f,#a82a2a); border-color:#701c1c; color:#fff;">🚫 Odayı Kapat</button>
                         </div>
                     </div>
                 </div>
@@ -2217,12 +2217,12 @@ mesaj_html = """
             <div class="typing-indicator" id="yaziyorBox"></div>
 
             <form id="mesajForm" onsubmit="mesajGonder(event)">
-                <div id="replyBar" style="display:none; margin:0 0 8px; padding:8px 10px; border:1px solid #000000; border-radius:6px; background:#FFFFFF; font-size:12px; color:#000000; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+                <div id="replyBar" style="display:none; margin:0 0 8px; padding:8px 10px; border:1px solid #b9cfe4; border-radius:6px; background:#eef6ff; font-size:12px; color:#24465f; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
                     <div style="min-width:0;">
                         <div><strong id="replyToName">Yanıt</strong></div>
-                        <div id="replyToText" style="margin-top:3px; font-size:11.5px; color:#000000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:360px;"></div>
+                        <div id="replyToText" style="margin-top:3px; font-size:11.5px; color:#44627c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:360px;"></div>
                     </div>
-                    <button type="button" onclick="yanitTemizle()" style="flex:0 0 auto; padding:4px 8px; border:1px solid #000000; border-radius:4px; background:#000000; color:#000000; cursor:pointer; font-weight:700;">İptal</button>
+                    <button type="button" onclick="yanitTemizle()" style="flex:0 0 auto; padding:4px 8px; border:1px solid #8fa9c4; border-radius:4px; background:#fff; color:#24465f; cursor:pointer; font-weight:700;">İptal</button>
                 </div>
                 <div class="input-row">
                     <input type="text" id="mesajInput" placeholder="Mesajınızı yazın..." maxlength="200" autocomplete="off" oninput="yaziyorBildir()" required>
@@ -2427,13 +2427,13 @@ mesaj_html = """
             modal.id = 'kullaniciBilgiModal';
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:10000;padding:12px;';
             modal.innerHTML = `
-                <div style="width:min(420px,100%);background:#FFFFFF;border:1px solid #000000;border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.35);overflow:hidden;">
-                    <div style="background:#000000;color:#FFFFFF;padding:9px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+                <div style="width:min(420px,100%);background:#f4f8fc;border:1px solid #5b8ac4;border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.35);overflow:hidden;">
+                    <div style="background:linear-gradient(180deg,#79bdf7 0%,#3a8ee6 45%,#1c5fb0 55%,#2d7fd6 100%);color:#fff;padding:9px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
                         <span>👤 Kullanıcı Bilgisi</span>
-                        <button type="button" id="kullaniciBilgiKapat" style="background:#000000;color:#FFFFFF;border:0;padding:3px 7px;border-radius:3px;cursor:pointer;">✕</button>
+                        <button type="button" id="kullaniciBilgiKapat" style="background:#c00;color:#fff;border:0;padding:3px 7px;border-radius:3px;cursor:pointer;">✕</button>
                     </div>
                     <div style="padding:12px;display:flex;flex-direction:column;gap:8px;">
-                        <div id="kullaniciBilgiIcerik" style="font-family:Segoe UI,Tahoma,sans-serif;color:#000000;line-height:1.5;">Yükleniyor...</div>
+                        <div id="kullaniciBilgiIcerik" style="font-family:Segoe UI,Tahoma,sans-serif;color:#1f2937;line-height:1.5;">Yükleniyor...</div>
                     </div>
                 </div>`;
             document.body.appendChild(modal);
@@ -2451,13 +2451,13 @@ mesaj_html = """
                         const alan = document.getElementById('kullaniciBilgiIcerik');
                         if (!alan) return;
                         if (!data.basarili) {
-                            alan.innerHTML = `<div style="color:#000000;font-weight:700;">⚠️ ${data.hata || 'Kullanıcı bilgisi alınamadı.'}</div>`;
+                            alan.innerHTML = `<div style="color:#b91c1c;font-weight:700;">⚠️ ${data.hata || 'Kullanıcı bilgisi alınamadı.'}</div>`;
                             return;
                         }
                         const onlineText = data.online ? 'Çevrim içi' : 'Çevrim dışı';
-                        const onlineColor = data.online ? '#000000' : '#000000';
+                        const onlineColor = data.online ? '#166534' : '#6b7280';
                         alan.innerHTML = `
-                            <div style="font-size:18px;font-weight:800;color:#000000;">${data.isim || kullanici}</div>
+                            <div style="font-size:18px;font-weight:800;color:#0f172a;">${data.isim || kullanici}</div>
                             <div style="margin-top:4px;color:${onlineColor};font-weight:700;">${onlineText}</div>
                             <div style="margin-top:8px;display:grid;gap:6px;">
                                 <div><strong>Hesap oluşturma:</strong> ${data.kayit_tarihi || 'Bilinmiyor'}</div>
@@ -2468,7 +2468,7 @@ mesaj_html = """
                     })
                     .catch(() => {
                         const alan = document.getElementById('kullaniciBilgiIcerik');
-                        if (alan) alan.innerHTML = '<div style="color:#000000;font-weight:700;">⚠️ Kullanıcı bilgisi alınamadı.</div>';
+                        if (alan) alan.innerHTML = '<div style="color:#b91c1c;font-weight:700;">⚠️ Kullanıcı bilgisi alınamadı.</div>';
                     });
             };
 
@@ -3189,22 +3189,22 @@ function kullanicilariGuncelle() {
             modal.id = 'sikayetModal';
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:9999;padding:12px;';
             modal.innerHTML = `
-                <div style="width:min(430px,100%);background:#FFFFFF;border:1px solid #000000;border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.35);overflow:hidden;">
-                    <div style="background:#000000;color:#FFFFFF;padding:9px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
+                <div style="width:min(430px,100%);background:#f4f8fc;border:1px solid #5b8ac4;border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.35);overflow:hidden;">
+                    <div style="background:linear-gradient(180deg,#79bdf7 0%,#3a8ee6 45%,#1c5fb0 55%,#2d7fd6 100%);color:#fff;padding:9px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center;">
                         <span>⚠️ ${kullanici} — Şikayet Et</span>
-                        <button type="button" id="sikayetKapat" style="background:#000000;color:#FFFFFF;border:0;padding:3px 7px;border-radius:3px;cursor:pointer;">✕</button>
+                        <button type="button" id="sikayetKapat" style="background:#c00;color:#fff;border:0;padding:3px 7px;border-radius:3px;cursor:pointer;">✕</button>
                     </div>
                     <div style="padding:12px;display:flex;flex-direction:column;gap:7px;">
-                        <label style="font-weight:700;font-size:12px;color:#000000;">Şikayet nedeni</label>
-                        <select id="sikayetNedeni" style="padding:7px;border:1px solid #000000;border-radius:4px;">${secenekler}</select>
-                        <label style="font-weight:700;font-size:12px;color:#000000;">İlgili mesaj (isteğe bağlı)</label>
-                        <select id="sikayetMesaj" style="padding:7px;border:1px solid #000000;border-radius:4px;"><option value="">Mesaj seçilmedi</option></select>
-                        <label style="font-weight:700;font-size:12px;color:#000000;">Açıklama <span style="font-weight:600;color:#000000;">(en az 30 karakter)</span></label>
-                        <textarea id="sikayetAciklama" maxlength="1000" rows="6" placeholder="Yaşanan durumu ayrıntılı şekilde açıklayın..." style="resize:vertical;padding:8px;border:1px solid #000000;border-radius:4px;font-family:inherit;"></textarea>
-                        <div id="sikayetKarakter" style="font-size:11px;color:#000000;text-align:right;">0 / 30 minimum</div>
+                        <label style="font-weight:700;font-size:12px;color:#3a5a7a;">Şikayet nedeni</label>
+                        <select id="sikayetNedeni" style="padding:7px;border:1px solid #8fa9c4;border-radius:4px;">${secenekler}</select>
+                        <label style="font-weight:700;font-size:12px;color:#3a5a7a;">İlgili mesaj (isteğe bağlı)</label>
+                        <select id="sikayetMesaj" style="padding:7px;border:1px solid #8fa9c4;border-radius:4px;"><option value="">Mesaj seçilmedi</option></select>
+                        <label style="font-weight:700;font-size:12px;color:#3a5a7a;">Açıklama <span style="font-weight:600;color:#777;">(en az 30 karakter)</span></label>
+                        <textarea id="sikayetAciklama" maxlength="1000" rows="6" placeholder="Yaşanan durumu ayrıntılı şekilde açıklayın..." style="resize:vertical;padding:8px;border:1px solid #8fa9c4;border-radius:4px;font-family:inherit;"></textarea>
+                        <div id="sikayetKarakter" style="font-size:11px;color:#777;text-align:right;">0 / 30 minimum</div>
                         <div style="display:flex;gap:6px;">
-                            <button type="button" id="sikayetGonderBtn" style="flex:1;background:#000000;color:#FFFFFF;border:1px solid #000000;padding:8px;border-radius:4px;font-weight:700;cursor:pointer;">Gönder</button>
-                            <button type="button" id="sikayetIptalBtn" style="flex:1;background:#000000;color:#FFFFFF;border:1px solid #000000;padding:8px;border-radius:4px;font-weight:700;cursor:pointer;">İptal</button>
+                            <button type="button" id="sikayetGonderBtn" style="flex:1;background:linear-gradient(180deg,#7fd68a,#2e9e3f);color:#fff;border:1px solid #1f7a2e;padding:8px;border-radius:4px;font-weight:700;cursor:pointer;">Gönder</button>
+                            <button type="button" id="sikayetIptalBtn" style="flex:1;background:linear-gradient(180deg,#f28b82,#c0392b);color:#fff;border:1px solid #8f241a;padding:8px;border-radius:4px;font-weight:700;cursor:pointer;">İptal</button>
                         </div>
                     </div>
                 </div>`;
@@ -3295,15 +3295,15 @@ zorunlu_sorgu_html = """
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>QChat • Zorunlu Görüşme</title>
 <style>
-*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI",Tahoma,sans-serif;background:#FFFFFF;color:#000000;display:flex;align-items:center;justify-content:center;padding:14px}
-.wrap{width:min(900px,100%);background:#FFFFFF;border:1px solid #000000;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.2);overflow:hidden}
-.head{background:#000000;color:#FFFFFF;padding:16px 18px}.head h1{margin:0;font-size:19px}.head p{margin:5px 0 0;font-size:12px;opacity:.92}
-.notice{margin:12px 14px 0;padding:11px 12px;border-radius:8px;background:#000000;border:1px solid #000000;font-size:12px;line-height:1.45}
-.chat{height:480px;overflow:auto;padding:10px 12px;background:#FFFFFF;border:1px solid #000000;margin:12px 14px;border-radius:6px;color:#000000;display:flex;flex-direction:column;gap:3px}
-.msg{padding:5px 7px;border-radius:4px;border-bottom:1px solid #000000;line-height:1.4}.msg:hover{background:#FFFFFF}.mh{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;color:#000000;font-size:10.5px;margin-bottom:2px}.mh b{color:#000000;font-size:12px}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px;color:#000000}
-.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#000000;font-size:13px}
-.compose{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 14px 14px}.compose input{width:100%;padding:11px;border:1px solid #000000;border-radius:8px;outline:none}.compose button{min-width:120px;border:1px solid #000000;background:#000000;color:#FFFFFF;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer}
-.foot{padding:0 14px 14px;text-align:center;color:#000000;font-size:11px}@media(max-width:600px){.chat{height:55vh}.compose{grid-template-columns:1fr}.compose button{width:100%}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:"Segoe UI",Tahoma,sans-serif;background:linear-gradient(145deg,#c9def2 0%,#eef5fb 55%,#e6eef6 100%);color:#20354a;display:flex;align-items:center;justify-content:center;padding:14px}
+.wrap{width:min(900px,100%);background:#fff;border:1px solid #7fa7cb;border-radius:12px;box-shadow:0 18px 50px rgba(39,76,112,.2);overflow:hidden}
+.head{background:linear-gradient(180deg,#79bdf7 0%,#3184dc 48%,#1c5fb0 100%);color:#fff;padding:16px 18px}.head h1{margin:0;font-size:19px}.head p{margin:5px 0 0;font-size:12px;opacity:.92}
+.notice{margin:12px 14px 0;padding:11px 12px;border-radius:8px;background:#fff8dc;border:1px solid #e2bf45;font-size:12px;line-height:1.45}
+.chat{height:480px;overflow:auto;padding:10px 12px;background:#fff;border:1px solid #b9cfe4;margin:12px 14px;border-radius:6px;color:#1c2b3a;display:flex;flex-direction:column;gap:3px}
+.msg{padding:5px 7px;border-radius:4px;border-bottom:1px solid #edf2f7;line-height:1.4}.msg:hover{background:#f2f7fc}.mh{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;color:#6f8295;font-size:10.5px;margin-bottom:2px}.mh b{color:#24527c;font-size:12px}.mb{white-space:pre-wrap;word-break:break-word;font-size:13px;color:#1c2b3a}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#708499;font-size:13px}
+.compose{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 14px 14px}.compose input{width:100%;padding:11px;border:1px solid #9fb9d1;border-radius:8px;outline:none}.compose button{min-width:120px;border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:8px;padding:10px 12px;font-weight:700;cursor:pointer}
+.foot{padding:0 14px 14px;text-align:center;color:#6b7d90;font-size:11px}@media(max-width:600px){.chat{height:55vh}.compose{grid-template-columns:1fr}.compose button{width:100%}}
 </style>
 </head>
 <body>
@@ -3472,7 +3472,7 @@ def hesap_sil():
     if not kullanici:
         return redirect("/giris")
     if kullanici == "Sistem":
-        return "<h2 style='font-family:sans-serif;color:#000000;text-align:center;'>Sistem hesabı silinemez.</h2>", 403
+        return "<h2 style='font-family:sans-serif;color:#b91c1c;text-align:center;'>Sistem hesabı silinemez.</h2>", 403
 
     with veri_kilidi:
         kullanici_db.pop(kullanici, None)
@@ -3567,7 +3567,7 @@ def giris():
                 return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
 
             if kullanici in engellenenler:
-                return "<h2 style='color:#000000; text-align:center;'>🚫 Bu kullanıcı engellenmiştir.</h2>", 403
+                return "<h2 style='color:red; text-align:center;'>🚫 Bu kullanıcı engellenmiştir.</h2>", 403
 
             kalan_kilit = giris_kilidini_kontrol_et(kullanici)
             if kalan_kilit is not None:
@@ -3653,10 +3653,10 @@ def sifre_unuttum():
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Devre Dışı</title>
     <style>
-    body{font-family:Segoe UI,Tahoma,sans-serif;background:#FFFFFF;min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
-    .box{background:#FFFFFF;border:1px solid #000000;border-radius:8px;padding:24px;max-width:420px;text-align:center;box-shadow:0 12px 32px rgba(0,0,0,.2)}
-    h2{margin:0 0 10px;color:#000000} p{margin:0;color:#000000;line-height:1.5}
-    a{display:inline-block;margin-top:14px;color:#000000;font-weight:700;text-decoration:none}
+    body{font-family:Segoe UI,Tahoma,sans-serif;background:#eaf2fa;min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
+    .box{background:#fff;border:1px solid #b9cfe4;border-radius:8px;padding:24px;max-width:420px;text-align:center;box-shadow:0 12px 32px rgba(20,60,110,.2)}
+    h2{margin:0 0 10px;color:#1c3d5c} p{margin:0;color:#33475c;line-height:1.5}
+    a{display:inline-block;margin-top:14px;color:#1c5fb0;font-weight:700;text-decoration:none}
     </style></head><body><div class="box">
     <h2>Şifremi unuttum kapatıldı</h2>
     <p>E-posta ile işlem kaldırıldı. Şu an sadece kullanıcı adı ve şifre ile giriş yapılır.</p>
@@ -4305,7 +4305,7 @@ def mesaj_goster(veri):
     pencere.title("Sistem Uyarısı")
     pencere.timer_id = None
 
-    bg_color = "#FFFFFF"
+    bg_color = "#F3F7FB"
     pencere.attributes("-topmost", True)
     pencere.overrideredirect(True)
     pencere.configure(bg=bg_color)
@@ -4316,7 +4316,7 @@ def mesaj_goster(veri):
     cerceve_ic = tk.Frame(cerceve_dis, bg=bg_color, bd=0, relief="flat")
     cerceve_ic.pack(fill="both", expand=True, padx=2, pady=2)
 
-    baslik_cubugu = tk.Frame(cerceve_ic, bg="#000000", height=34)
+    baslik_cubugu = tk.Frame(cerceve_ic, bg="#111827", height=34)
     baslik_cubugu.pack(fill="x", side="top")
 
     ust_container = tk.Frame(cerceve_ic, bg=bg_color)
@@ -4339,7 +4339,7 @@ def mesaj_goster(veri):
         btn_container,
         text="⛔ Banla",
         font=("Arial", 9, "bold"),
-        bg="#000000",
+        bg="#AA0000",
         fg="white",
         bd=2,
         relief="raised",
@@ -4351,7 +4351,7 @@ def mesaj_goster(veri):
         btn_container,
         text="Cevapla",
         font=("Arial", 9, "bold"),
-        bg="#000000",
+        bg="#CCCCCC",
         fg="black",
         bd=2,
         relief="raised"
@@ -4370,7 +4370,7 @@ def mesaj_goster(veri):
             pencere.destroy()
 
     cevap_giris.bind("<Return>", cevabi_gonder)
-    tk.Button(alt_panel, text="Gönder", font=("Arial", 10, "bold"), bg="#000000", bd=2, relief="raised", command=cevabi_gonder).pack(side="right", padx=(0, 12), pady=10)
+    tk.Button(alt_panel, text="Gönder", font=("Arial", 10, "bold"), bg="#CCCCCC", bd=2, relief="raised", command=cevabi_gonder).pack(side="right", padx=(0, 12), pady=10)
 
     geri_panel = tk.Frame(cerceve_ic, bg=bg_color)
     tk.Label(geri_panel, text="Neler oldu?", font=("Arial", 9, "bold"), bg=bg_color).pack(anchor="w", padx=12, pady=(10, 4))
@@ -4394,8 +4394,8 @@ def mesaj_goster(veri):
         log_ekle(f"'{kullanici}' geri bildirim gönderdi.")
         pencere.destroy()
 
-    tk.Button(geri_buton_satir, text="Gönder", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=geri_bildirim_gonder).pack(side="right")
-    tk.Button(geri_buton_satir, text="İptal", font=("Arial", 10, "bold"), bg="#000000", bd=2, relief="raised", command=pencere.destroy).pack(side="right", padx=(0, 8))
+    tk.Button(geri_buton_satir, text="Gönder", font=("Arial", 10, "bold"), bg="#2563eb", fg="white", bd=2, relief="raised", command=geri_bildirim_gonder).pack(side="right")
+    tk.Button(geri_buton_satir, text="İptal", font=("Arial", 10, "bold"), bg="#CCCCCC", bd=2, relief="raised", command=pencere.destroy).pack(side="right", padx=(0, 8))
 
     def cevapla_tiklandi():
         if pencere.timer_id:
@@ -4442,7 +4442,7 @@ def sistem_yazma_penceresi():
     sistem_win.title("Sistem Hızlı Mesaj")
     sistem_win.attributes("-topmost", True)
     sistem_win.overrideredirect(True)
-    bg_color = "#FFFFFF"
+    bg_color = "#F3F7FB"
     sistem_win.configure(bg=bg_color)
 
     cerceve_dis = tk.Frame(sistem_win, bg="black", bd=0)
@@ -4451,10 +4451,10 @@ def sistem_yazma_penceresi():
     cerceve_ic = tk.Frame(cerceve_dis, bg=bg_color, bd=0, relief="flat")
     cerceve_ic.pack(fill="both", expand=True, padx=2, pady=2)
 
-    baslik_cubugu = tk.Frame(cerceve_ic, bg="#000000", height=34)
+    baslik_cubugu = tk.Frame(cerceve_ic, bg="#111827", height=34)
     baslik_cubugu.pack(fill="x", side="top")
 
-    kapat_btn = tk.Button(baslik_cubugu, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=sistem_win.destroy)
+    kapat_btn = tk.Button(baslik_cubugu, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=sistem_win.destroy)
     kapat_btn.pack(side="right", padx=4, pady=2)
 
     alt_panel = tk.Frame(cerceve_ic, bg=bg_color)
@@ -4474,7 +4474,7 @@ def sistem_yazma_penceresi():
     cevap_giris.bind("<Return>", lambda e: cevabi_gonder())
     sistem_win.bind("<Escape>", lambda e: sistem_win.destroy())
 
-    tk.Button(alt_panel, text="Gönder", font=("Arial", 10, "bold"), bg="#000000", bd=2, relief="raised", command=cevabi_gonder).pack(side="right", padx=(0, 12))
+    tk.Button(alt_panel, text="Gönder", font=("Arial", 10, "bold"), bg="#CCCCCC", bd=2, relief="raised", command=cevabi_gonder).pack(side="right", padx=(0, 12))
 
     sistem_win.update_idletasks()
     pencere_genislik = 440
@@ -4498,14 +4498,14 @@ def sistem_sikayetler_penceresi(parent):
     win.title("Şikayetler")
     win.attributes("-topmost", True)
     win.overrideredirect(True)
-    bg = "#000000"
+    bg = "#DDDDDD"
     win.configure(bg=bg)
 
     outer = tk.Frame(win, bg="black"); outer.pack(fill="both", expand=True)
     inner = tk.Frame(outer, bg=bg, bd=2); inner.pack(fill="both", expand=True, padx=2, pady=2)
     title = tk.Frame(inner, bg="black", height=20); title.pack(fill="x")
     tk.Label(title, text="⚠️ Şikayetler", bg="black", fg="white", font=("Arial",9,"bold")).pack(side="left", padx=5)
-    tk.Button(title, text="✕", font=("Arial",8,"bold"), bg="#000000", fg="white", bd=0, command=win.destroy).pack(side="right", padx=4, pady=2)
+    tk.Button(title, text="✕", font=("Arial",8,"bold"), bg="#CC0000", fg="white", bd=0, command=win.destroy).pack(side="right", padx=4, pady=2)
 
     body = tk.Frame(inner, bg=bg); body.pack(fill="both", expand=True, padx=8, pady=8)
     left = tk.Frame(body, bg=bg); left.pack(side="left", fill="y")
@@ -4590,10 +4590,10 @@ def sistem_sikayetler_penceresi(parent):
         if not hedef or hedef=="Sistem": return
         kullanici_banla_ve_email(hedef); log_ekle(f"Şikayet üzerinden '{hedef}' banlandı."); durumu_kaydet()
 
-    tk.Button(action,text="💾 Durumu Kaydet",font=("Arial",8,"bold"),bg="#000000",fg="white",command=durum_kaydet).pack(side="right",padx=2)
-    tk.Button(action,text="🔇 Sustur",font=("Arial",8,"bold"),bg="#000000",fg="white",command=sustur).pack(side="right",padx=2)
-    tk.Button(action,text="👢 Uzaklaştır",font=("Arial",8,"bold"),bg="#000000",fg="white",command=kick).pack(side="right",padx=2)
-    tk.Button(action,text="⛔ Engelle",font=("Arial",8,"bold"),bg="#000000",fg="white",command=ban).pack(side="right",padx=2)
+    tk.Button(action,text="💾 Durumu Kaydet",font=("Arial",8,"bold"),bg="#0066CC",fg="white",command=durum_kaydet).pack(side="right",padx=2)
+    tk.Button(action,text="🔇 Sustur",font=("Arial",8,"bold"),bg="#5555AA",fg="white",command=sustur).pack(side="right",padx=2)
+    tk.Button(action,text="👢 Uzaklaştır",font=("Arial",8,"bold"),bg="#FF5500",fg="white",command=kick).pack(side="right",padx=2)
+    tk.Button(action,text="⛔ Engelle",font=("Arial",8,"bold"),bg="#AA0000",fg="white",command=ban).pack(side="right",padx=2)
 
     liste.bind("<<ListboxSelect>>", secim)
     yenile()
@@ -4610,19 +4610,19 @@ def sistem_yonetim_penceresi():
     panel.title("Sistem Yönetimi")
     panel.attributes("-topmost", True)
     panel.overrideredirect(True)
-    bg_color = "#FFFFFF"
-    panel.configure(bg="#000000")
+    bg_color = "#F3F7FB"
+    panel.configure(bg="#0F172A")
 
-    cerceve_dis = tk.Frame(panel, bg="#000000", bd=0)
+    cerceve_dis = tk.Frame(panel, bg="#0F172A", bd=0)
     cerceve_dis.pack(fill="both", expand=True)
 
     cerceve_ic = tk.Frame(cerceve_dis, bg=bg_color, bd=0, relief="flat")
     cerceve_ic.pack(fill="both", expand=True, padx=2, pady=2)
 
-    baslik_cubugu = tk.Frame(cerceve_ic, bg="#000000", height=34)
+    baslik_cubugu = tk.Frame(cerceve_ic, bg="#111827", height=34)
     baslik_cubugu.pack(fill="x", side="top")
-    tk.Label(baslik_cubugu, text="System 7 - Gelişmiş Yönetim Paneli", bg="#000000", fg="white", font=("Segoe UI", 10, "bold")).pack(side="left", padx=10)
-    kapat_btn = tk.Button(baslik_cubugu, text="✕", font=("Segoe UI", 9, "bold"), bg="#000000", fg="white", bd=0, activebackground="#000000", activeforeground="white", command=panel.destroy)
+    tk.Label(baslik_cubugu, text="System 7 - Gelişmiş Yönetim Paneli", bg="#111827", fg="white", font=("Segoe UI", 10, "bold")).pack(side="left", padx=10)
+    kapat_btn = tk.Button(baslik_cubugu, text="✕", font=("Segoe UI", 9, "bold"), bg="#DC2626", fg="white", bd=0, activebackground="#B91C1C", activeforeground="white", command=panel.destroy)
     kapat_btn.pack(side="right", padx=4, pady=2)
 
     def pencereyi_tasi(event):
@@ -4642,13 +4642,13 @@ def sistem_yonetim_penceresi():
     lbl_hesap = tk.Label(stats_frame, text="Hesaplar: 0", bg="white", font=("Segoe UI", 9, "bold"))
     lbl_hesap.pack(side="left", expand=True, pady=4)
 
-    lbl_online = tk.Label(stats_frame, text="Çevrim İçi: 0", bg="white", font=("Segoe UI", 9, "bold"), fg="#000000")
+    lbl_online = tk.Label(stats_frame, text="Çevrim İçi: 0", bg="white", font=("Segoe UI", 9, "bold"), fg="#16a34a")
     lbl_online.pack(side="left", expand=True, pady=4)
 
-    lbl_ban = tk.Label(stats_frame, text="Banlılar: 0", bg="white", font=("Segoe UI", 9, "bold"), fg="#000000")
+    lbl_ban = tk.Label(stats_frame, text="Banlılar: 0", bg="white", font=("Segoe UI", 9, "bold"), fg="#dc2626")
     lbl_ban.pack(side="left", expand=True, pady=4)
 
-    lbl_yavas = tk.Label(stats_frame, text="Yavaş Mod: Kapalı", bg="white", font=("Segoe UI", 9, "bold"), fg="#000000")
+    lbl_yavas = tk.Label(stats_frame, text="Yavaş Mod: Kapalı", bg="white", font=("Segoe UI", 9, "bold"), fg="#1d4ed8")
     lbl_yavas.pack(side="left", expand=True, pady=4)
 
     main_frame = tk.Frame(cerceve_ic, bg=bg_color)
@@ -4656,7 +4656,7 @@ def sistem_yonetim_penceresi():
 
     chat_frame = tk.Frame(main_frame, bg=bg_color)
     chat_frame.pack(side="left", fill="both", expand=True)
-    tk.Label(chat_frame, text="Canlı Sohbet Akışı (Çift Tıkla Mesaj Sil)", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#000000").pack(anchor="w")
+    tk.Label(chat_frame, text="Canlı Sohbet Akışı (Çift Tıkla Mesaj Sil)", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#b91c1c").pack(anchor="w")
     
     chat_container = tk.Frame(chat_frame, bg=bg_color)
     chat_container.pack(side="left", fill="both", expand=True, pady=(5,0))
@@ -4664,7 +4664,7 @@ def sistem_yonetim_penceresi():
     chat_scroll = tk.Scrollbar(chat_container)
     chat_scroll.pack(side="right", fill="y")
     
-    chat_text = tk.Text(chat_container, width=42, height=18, font=("Segoe UI", 9), bd=1, relief="solid", bg="white", fg="#000000", insertbackground="#000000", yscrollcommand=chat_scroll.set, state="disabled")
+    chat_text = tk.Text(chat_container, width=42, height=18, font=("Segoe UI", 9), bd=1, relief="solid", bg="white", fg="#111827", insertbackground="#111827", yscrollcommand=chat_scroll.set, state="disabled")
     chat_text.pack(side="left", fill="both", expand=True)
     chat_scroll.config(command=chat_text.yview)
 
@@ -4683,7 +4683,7 @@ def sistem_yonetim_penceresi():
     ctrl_frame = tk.Frame(main_frame, bg=bg_color)
     ctrl_frame.pack(side="right", fill="y", padx=(10, 0))
 
-    tk.Label(ctrl_frame, text="Kullanıcı Listesi", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#000000").pack(anchor="w")
+    tk.Label(ctrl_frame, text="Kullanıcı Listesi", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#0f172a").pack(anchor="w")
     
     list_container = tk.Frame(ctrl_frame, bg=bg_color)
     list_container.pack(side="top", fill="both", expand=True, pady=(5, 5))
@@ -4691,7 +4691,7 @@ def sistem_yonetim_penceresi():
     kul_scroll = tk.Scrollbar(list_container)
     kul_scroll.pack(side="right", fill="y")
     
-    kullanici_liste = tk.Listbox(list_container, width=26, height=7, font=("Segoe UI", 9), bd=1, relief="solid", bg="white", fg="#000000", yscrollcommand=kul_scroll.set)
+    kullanici_liste = tk.Listbox(list_container, width=26, height=7, font=("Segoe UI", 9), bd=1, relief="solid", bg="white", fg="#111827", yscrollcommand=kul_scroll.set)
     kullanici_liste.pack(side="left", fill="both", expand=True)
     kul_scroll.config(command=kullanici_liste.yview)
 
@@ -4707,7 +4707,7 @@ def sistem_yonetim_penceresi():
         }
         opts.update(kwargs)
         if "bg" not in opts:
-            opts["bg"] = "#000000"
+            opts["bg"] = "#2563eb"
         if "fg" not in opts:
             opts["fg"] = "white"
         return tk.Button(master, **opts)
@@ -4830,7 +4830,7 @@ def sistem_yonetim_penceresi():
             lst.selection_set(0)
             secim()
 
-        tk.Button(ana, text="Kapat", font=("Arial", 10, "bold"), bg="#000000", fg="white", command=win.destroy).pack(fill="x", pady=(10, 0))
+        tk.Button(ana, text="Kapat", font=("Arial", 10, "bold"), bg="#888888", fg="white", command=win.destroy).pack(fill="x", pady=(10, 0))
 
     def kullanici_duzenle_penceresi():
         secili = kullanici_liste.curselection()
@@ -4853,7 +4853,7 @@ def sistem_yonetim_penceresi():
         d_baslik = tk.Frame(d_ic, bg="black", height=20)
         d_baslik.pack(fill="x", side="top")
         tk.Label(d_baslik, text=f"✏️ {eski_isim} - Düzenle", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        tk.Button(d_baslik, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=duzen_win.destroy).pack(side="right", padx=4, pady=2)
+        tk.Button(d_baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=duzen_win.destroy).pack(side="right", padx=4, pady=2)
 
         icerik = tk.Frame(d_ic, bg=bg_color)
         icerik.pack(fill="both", expand=True, padx=10, pady=10)
@@ -4931,7 +4931,7 @@ def sistem_yonetim_penceresi():
             guncelle_veriler(zorla=True)
             duzen_win.destroy()
 
-        tk.Button(icerik, text="💾 Kaydet", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=kaydet).pack(fill="x")
+        tk.Button(icerik, text="💾 Kaydet", font=("Arial", 10, "bold"), bg="#008800", fg="white", bd=2, relief="raised", command=kaydet).pack(fill="x")
         
         duzen_win.update_idletasks()
         dw, dh = 300, 180
@@ -4959,7 +4959,7 @@ def sistem_yonetim_penceresi():
         s_baslik = tk.Frame(s_ic, bg="black", height=20)
         s_baslik.pack(fill="x", side="top")
         tk.Label(s_baslik, text=f"🔇 {k_isim} Sustur", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        tk.Button(s_baslik, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=s_win.destroy).pack(side="right", padx=4, pady=2)
+        tk.Button(s_baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=s_win.destroy).pack(side="right", padx=4, pady=2)
 
         s_content = tk.Frame(s_ic, bg=bg_color)
         s_content.pack(fill="both", expand=True, padx=10, pady=10)
@@ -4989,7 +4989,7 @@ def sistem_yonetim_penceresi():
             s_win.destroy()
 
         s_giris.bind("<Return>", sustur_onay)
-        tk.Button(s_content, text="Sustur", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=sustur_onay).pack(fill="x")
+        tk.Button(s_content, text="Sustur", font=("Arial", 10, "bold"), bg="#0066CC", fg="white", bd=2, relief="raised", command=sustur_onay).pack(fill="x")
 
         s_win.update_idletasks()
         sw, sh = 280, 180
@@ -5022,7 +5022,7 @@ def sistem_yonetim_penceresi():
             log_ekle(f"Sabit duyuru güncellendi: '{sabit_duyuru}'")
             duy_win.destroy()
 
-        tk.Button(ic, text="Kaydet / Güncelle", font=("Arial", 9, "bold"), bg="#000000", fg="white", command=kaydet).pack(fill="x")
+        tk.Button(ic, text="Kaydet / Güncelle", font=("Arial", 9, "bold"), bg="#008800", fg="white", command=kaydet).pack(fill="x")
 
     def yavas_mod_ayarla():
         global yavas_mod_saniye
@@ -5049,7 +5049,7 @@ def sistem_yonetim_penceresi():
             ym_win.destroy()
 
         e.bind("<Return>", lambda ev: kaydet())
-        tk.Button(ic, text="Ayarla", font=("Arial", 9, "bold"), bg="#000000", fg="white", command=kaydet).pack(fill="x")
+        tk.Button(ic, text="Ayarla", font=("Arial", 9, "bold"), bg="#0066CC", fg="white", command=kaydet).pack(fill="x")
 
         ym_win.update_idletasks()
         yw, yh = 260, 140
@@ -5067,7 +5067,7 @@ def sistem_yonetim_penceresi():
 
         tk.Label(ust, text="🏷️ Oda İzin İstekleri", font=("Segoe UI", 11, "bold"), bg=bg_color).pack(anchor="w")
         tk.Label(ust, text="Bekleyen oda kurma izni isteklerini buradan onaylayabilir veya reddedebilirsin.",
-                 font=("Segoe UI", 9), bg=bg_color, fg="#000000", justify="left", wraplength=560).pack(anchor="w", pady=(2, 8))
+                 font=("Segoe UI", 9), bg=bg_color, fg="#334155", justify="left", wraplength=560).pack(anchor="w", pady=(2, 8))
 
         orta = tk.Frame(ust, bg=bg_color)
         orta.pack(fill="both", expand=True)
@@ -5078,7 +5078,7 @@ def sistem_yonetim_penceresi():
         sag = tk.Frame(orta, bg=bg_color)
         sag.pack(side="right", fill="y")
 
-        tk.Label(sol, text="Bekleyen İstekler", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#000000").pack(anchor="w")
+        tk.Label(sol, text="Bekleyen İstekler", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#0f172a").pack(anchor="w")
         list_container = tk.Frame(sol, bg=bg_color)
         list_container.pack(fill="both", expand=True, pady=(5, 0))
         sb = tk.Scrollbar(list_container)
@@ -5087,7 +5087,7 @@ def sistem_yonetim_penceresi():
         liste.pack(side="left", fill="both", expand=True)
         sb.config(command=liste.yview)
 
-        detay_baslik = tk.Label(sag, text="Detay", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#000000")
+        detay_baslik = tk.Label(sag, text="Detay", bg=bg_color, font=("Segoe UI", 10, "bold"), fg="#0f172a")
         detay_baslik.pack(anchor="w")
         detay = tk.Text(sag, width=42, height=14, font=("Segoe UI", 9), bd=1, relief="solid", wrap="word")
         detay.pack(fill="both", expand=True, pady=(5, 8))
@@ -5172,8 +5172,8 @@ def sistem_yonetim_penceresi():
 
         btnler = tk.Frame(sag, bg=bg_color)
         btnler.pack(fill="x")
-        tk.Button(btnler, text="✅ İzin Ver", font=("Segoe UI", 9, "bold"), bg="#000000", fg="white", command=lambda: istek_cevapla(True)).pack(side="left", expand=True, fill="x", padx=(0, 4))
-        tk.Button(btnler, text="❌ Reddet", font=("Segoe UI", 9, "bold"), bg="#000000", fg="white", command=lambda: istek_cevapla(False)).pack(side="left", expand=True, fill="x", padx=(4, 0))
+        tk.Button(btnler, text="✅ İzin Ver", font=("Segoe UI", 9, "bold"), bg="#16a34a", fg="white", command=lambda: istek_cevapla(True)).pack(side="left", expand=True, fill="x", padx=(0, 4))
+        tk.Button(btnler, text="❌ Reddet", font=("Segoe UI", 9, "bold"), bg="#dc2626", fg="white", command=lambda: istek_cevapla(False)).pack(side="left", expand=True, fill="x", padx=(4, 0))
 
         liste.bind("<<ListboxSelect>>", secim)
         yenile()
@@ -5183,7 +5183,7 @@ def sistem_yonetim_penceresi():
     def toggle_kufur_filtresi():
         global kufur_filtresi
         kufur_filtresi = not kufur_filtresi
-        btn_kufur.config(text=f"🔞 Küfür Filtresi: {'AÇIK' if kufur_filtresi else 'KAPALI'}", bg="#000000" if kufur_filtresi else "#000000")
+        btn_kufur.config(text=f"🔞 Küfür Filtresi: {'AÇIK' if kufur_filtresi else 'KAPALI'}", bg="#008800" if kufur_filtresi else "#888888")
         log_ekle(f"Küfür filtresi {'açıldı' if kufur_filtresi else 'kapatıldı'}.")
 
     def alarm_gonder():
@@ -5202,7 +5202,7 @@ def sistem_yonetim_penceresi():
         a_baslik = tk.Frame(a_ic, bg="black", height=20)
         a_baslik.pack(fill="x", side="top")
         tk.Label(a_baslik, text="🚨 Sesli Siren Gönder", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        tk.Button(a_baslik, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=alarm_win.destroy).pack(side="right", padx=4, pady=2)
+        tk.Button(a_baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=alarm_win.destroy).pack(side="right", padx=4, pady=2)
 
         a_content = tk.Frame(a_ic, bg=bg_color)
         a_content.pack(fill="both", expand=True, padx=10, pady=10)
@@ -5223,7 +5223,7 @@ def sistem_yonetim_penceresi():
             alarm_win.destroy()
 
         a_giris.bind("<Return>", sireni_yolla)
-        tk.Button(a_content, text="🚨 Sireni Gönder", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=sireni_yolla).pack(fill="x")
+        tk.Button(a_content, text="🚨 Sireni Gönder", font=("Arial", 10, "bold"), bg="#AA0000", fg="white", bd=2, relief="raised", command=sireni_yolla).pack(fill="x")
 
         alarm_win.update_idletasks()
         aw, ah = 380, 140
@@ -5246,7 +5246,7 @@ def sistem_yonetim_penceresi():
         d_baslik = tk.Frame(d_ic, bg="black", height=20)
         d_baslik.pack(fill="x", side="top")
         tk.Label(d_baslik, text="📢 Duyuru Yayınla", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        tk.Button(d_baslik, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=duyuru_win.destroy).pack(side="right", padx=4, pady=2)
+        tk.Button(d_baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=duyuru_win.destroy).pack(side="right", padx=4, pady=2)
 
         d_content = tk.Frame(d_ic, bg=bg_color)
         d_content.pack(fill="both", expand=True, padx=10, pady=10)
@@ -5265,7 +5265,7 @@ def sistem_yonetim_penceresi():
             duyuru_win.destroy()
 
         d_giris.bind("<Return>", duyuruyu_yayinla)
-        tk.Button(d_content, text="Yayınla", font=("Arial", 10, "bold"), bg="#000000", fg="black", bd=2, relief="raised", command=duyuruyu_yayinla).pack(fill="x")
+        tk.Button(d_content, text="Yayınla", font=("Arial", 10, "bold"), bg="#CCCCCC", fg="black", bd=2, relief="raised", command=duyuruyu_yayinla).pack(fill="x")
 
         duyuru_win.update_idletasks()
         dw, dh = 360, 130
@@ -5288,7 +5288,7 @@ def sistem_yonetim_penceresi():
         s_baslik = tk.Frame(s_ic, bg="black", height=20)
         s_baslik.pack(fill="x", side="top")
         tk.Label(s_baslik, text="⏱️ Sayaç Başlat", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        tk.Button(s_baslik, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=sayac_win.destroy).pack(side="right", padx=4, pady=2)
+        tk.Button(s_baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=sayac_win.destroy).pack(side="right", padx=4, pady=2)
 
         s_content = tk.Frame(s_ic, bg=bg_color)
         s_content.pack(fill="both", expand=True, padx=10, pady=10)
@@ -5311,7 +5311,7 @@ def sistem_yonetim_penceresi():
             sayac_win.destroy()
 
         s_giris.bind("<Return>", sayaci_baslat)
-        tk.Button(s_content, text="Başlat", font=("Arial", 10, "bold"), bg="#000000", fg="#FFFFFF", bd=2, relief="raised", command=sayaci_baslat).pack(fill="x")
+        tk.Button(s_content, text="Başlat", font=("Arial", 10, "bold"), bg="#FF0000", fg="yellow", bd=2, relief="raised", command=sayaci_baslat).pack(fill="x")
 
         sayac_win.update_idletasks()
         sw, sh = 280, 130
@@ -5322,10 +5322,10 @@ def sistem_yonetim_penceresi():
         global bakim_modu
         bakim_modu = not bakim_modu
         if bakim_modu:
-            btn_bakim.config(text="🟢 Bakım Modunu Kapat", bg="#000000")
+            btn_bakim.config(text="🟢 Bakım Modunu Kapat", bg="#008800")
             log_ekle("Site bakım moduna alındı.")
         else:
-            btn_bakim.config(text="🛠️ Bakım Modunu Aç", bg="#FFFFFF")
+            btn_bakim.config(text="🛠️ Bakım Modunu Aç", bg="#FF8800")
             log_ekle("Site bakımdan çıkarıldı.")
         guncelle_veriler(zorla=True)
 
@@ -5334,7 +5334,7 @@ def sistem_yonetim_penceresi():
         oda_win.title("🏠 Oda Yönetimi")
         oda_win.attributes("-topmost", True)
         oda_win.overrideredirect(True)
-        bg_color = "#FFFFFF"
+        bg_color = "#F3F7FB"
         oda_win.configure(bg=bg_color)
 
         d_dis = tk.Frame(oda_win, bg="black", bd=0)
@@ -5346,7 +5346,7 @@ def sistem_yonetim_penceresi():
         d_baslik = tk.Frame(d_ic, bg="black", height=20)
         d_baslik.pack(fill="x", side="top")
         tk.Label(d_baslik, text="🏠 Oda Yönetimi", bg="black", fg="white", font=("Arial", 9, "bold")).pack(side="left", padx=5)
-        tk.Button(d_baslik, text="✕", font=("Arial", 8, "bold"), bg="#000000", fg="white", bd=0, command=oda_win.destroy).pack(side="right", padx=4, pady=2)
+        tk.Button(d_baslik, text="✕", font=("Arial", 8, "bold"), bg="#CC0000", fg="white", bd=0, command=oda_win.destroy).pack(side="right", padx=4, pady=2)
 
         icerik = tk.Frame(d_ic, bg=bg_color)
         icerik.pack(fill="both", expand=True, padx=10, pady=10)
@@ -5421,9 +5421,9 @@ def sistem_yonetim_penceresi():
                     log_ekle(f"Oda silindi: '{secilen}'")
                     listeyi_yenile()
 
-        tk.Button(sag_frame, text="➕ Oluştur", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=oda_kur).pack(fill="x", pady=2)
-        tk.Button(sag_frame, text="✏️ Düzenle", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=oda_duzenle).pack(fill="x", pady=2)
-        tk.Button(sag_frame, text="🗑️ Sil", font=("Arial", 10, "bold"), bg="#000000", fg="white", bd=2, relief="raised", command=oda_sil).pack(fill="x", pady=2)
+        tk.Button(sag_frame, text="➕ Oluştur", font=("Arial", 10, "bold"), bg="#008800", fg="white", bd=2, relief="raised", command=oda_kur).pack(fill="x", pady=2)
+        tk.Button(sag_frame, text="✏️ Düzenle", font=("Arial", 10, "bold"), bg="#0066CC", fg="white", bd=2, relief="raised", command=oda_duzenle).pack(fill="x", pady=2)
+        tk.Button(sag_frame, text="🗑️ Sil", font=("Arial", 10, "bold"), bg="#AA0000", fg="white", bd=2, relief="raised", command=oda_sil).pack(fill="x", pady=2)
 
         def oda_secildi(event):
             secili = oda_liste.curselection()
@@ -5444,14 +5444,14 @@ def sistem_yonetim_penceresi():
         oda_win.geometry(f"{ow}x{oh}+{((ekran_g-ow)//2)}+{((ekran_y-oh)//2)}")
 
     panel_btn(btn_frame, text="✏️ İsim/Hesap Düzenle", command=kullanici_duzenle_penceresi).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="📝 Geri Bildirimler", bg="#000000", command=geri_bildirimler_goster).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="📝 Geri Bildirimler", bg="#16a34a", command=geri_bildirimler_goster).pack(fill="x", pady=1)
 
-    panel_btn(btn_frame, text="⛔ Banla", bg="#000000", command=banla).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="⛔ Banla", bg="#dc2626", command=banla).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🔇 Sustur", command=sustur_penceresi).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="👢 Kick At", bg="#000000", command=oturum_kapat_kick).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="👢 Kick At", bg="#f97316", command=oturum_kapat_kick).pack(fill="x", pady=1)
 
-    panel_btn(btn_frame, text="✅ Ban/Mute Kaldır", bg="#000000", command=ban_ac).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="❌ Hesabı Tamamen Sil", bg="#000000", command=kisiyi_sil).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="✅ Ban/Mute Kaldır", bg="#16a34a", command=ban_ac).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="❌ Hesabı Tamamen Sil", bg="#991b1b", command=kisiyi_sil).pack(fill="x", pady=1)
 
     tk.Frame(btn_frame, height=2, bg="black").pack(fill="x", pady=4)
 
@@ -5468,23 +5468,23 @@ def sistem_yonetim_penceresi():
                     log_ekle(f"'{k_isim}' kullanıcısına oda kurma izni verildi.")
                 durumu_kaydet()
 
-    panel_btn(btn_frame, text="⚠️ Şikayetler", bg="#000000", command=lambda: sistem_sikayetler_penceresi(panel)).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="⚠️ Şikayetler", bg="#b45309", command=lambda: sistem_sikayetler_penceresi(panel)).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🏠 Oda Yönetimi", command=oda_yonetim_isteme).pack(fill="x", pady=1)
     panel_btn(btn_frame, text="🏷️ Oda Kurma İzni Ver/Al", command=oda_kurma_izni_toggle).pack(fill="x", pady=1)
-    btn_bakim = panel_btn(btn_frame, text="🟢 Bakım Kapalı" if not bakim_modu else "🛠️ Bakım Açık", bg="#000000" if not bakim_modu else "#000000", command=toggle_bakim)
+    btn_bakim = panel_btn(btn_frame, text="🟢 Bakım Kapalı" if not bakim_modu else "🛠️ Bakım Açık", bg="#16a34a" if not bakim_modu else "#f97316", command=toggle_bakim)
     btn_bakim.pack(fill="x", pady=1)
 
-    panel_btn(btn_frame, text="📢 Duyuru Yap", bg="#FFFFFF", fg="#000000", command=duyuru_gonder_penceresi).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="⏱️ Sayaç Başlat", bg="#000000", fg="white", command=sayac_baslat_penceresi).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="📢 Duyuru Yap", bg="#eab308", fg="#111827", command=duyuru_gonder_penceresi).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="⏱️ Sayaç Başlat", bg="#ef4444", fg="white", command=sayac_baslat_penceresi).pack(fill="x", pady=1)
 
-    panel_btn(btn_frame, text="📌 Sabit Duyuru", bg="#000000", command=sabit_duyuru_ayarla).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="⏳ Yavaş Mod", bg="#000000", command=yavas_mod_ayarla).pack(fill="x", pady=1)
-    btn_kufur = panel_btn(btn_frame, text=f"🔞 Küfür Filtresi: {'AÇIK' if kufur_filtresi else 'KAPALI'}", bg="#000000" if kufur_filtresi else "#000000", command=toggle_kufur_filtresi)
+    panel_btn(btn_frame, text="📌 Sabit Duyuru", bg="#475569", command=sabit_duyuru_ayarla).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="⏳ Yavaş Mod", bg="#475569", command=yavas_mod_ayarla).pack(fill="x", pady=1)
+    btn_kufur = panel_btn(btn_frame, text=f"🔞 Küfür Filtresi: {'AÇIK' if kufur_filtresi else 'KAPALI'}", bg="#16a34a" if kufur_filtresi else "#64748b", command=toggle_kufur_filtresi)
     btn_kufur.pack(fill="x", pady=1)
 
-    panel_btn(btn_frame, text="🚨 Sesli Siren Gönder", bg="#000000", command=alarm_gonder).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="🏷️ Oda İzin İstekleri", bg="#000000", command=oda_izin_istekleri_penceresi).pack(fill="x", pady=1)
-    panel_btn(btn_frame, text="🗑️ Chati Temizle", bg="#000000", command=temizle).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="🚨 Sesli Siren Gönder", bg="#dc2626", command=alarm_gonder).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="🏷️ Oda İzin İstekleri", bg="#334155", command=oda_izin_istekleri_penceresi).pack(fill="x", pady=1)
+    panel_btn(btn_frame, text="🗑️ Chati Temizle", bg="#64748b", command=temizle).pack(fill="x", pady=1)
 
     _panel_onbellek = {"mesaj_sayisi": None, "kullanici_satirlari": None, "durumlar": None}
 
