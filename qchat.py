@@ -1876,6 +1876,34 @@ giris_html = """
             box-shadow: none; accent-color: #1c5fb0; cursor: pointer;
         }
         .bot-dogrulama label { cursor: pointer; user-select: none; }
+        .cihaz-secimi {
+            margin: 0 0 16px;
+        }
+        .cihaz-baslik {
+            display:block; font-size:12px; font-weight:700; color:#3a5a7a; margin:0 0 7px 2px;
+        }
+        .cihaz-secenekleri {
+            display:grid; grid-template-columns:1fr 1fr; gap:8px;
+        }
+        .cihaz-secenek {
+            position:relative;
+        }
+        .cihaz-secenek input {
+            position:absolute; opacity:0; pointer-events:none;
+        }
+        .cihaz-karti {
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
+            min-height:76px; padding:10px; border:1px solid #b9cfe6; border-radius:6px;
+            background:linear-gradient(180deg,#ffffff,#eef4fb); color:#2c4a68; cursor:pointer;
+            font-size:12px; font-weight:700; text-align:center; transition:.12s;
+        }
+        .cihaz-karti .ikon { font-size:25px; line-height:1; }
+        .cihaz-secenek input:checked + .cihaz-karti {
+            border-color:#1c5fb0; background:linear-gradient(180deg,#dcebfa,#c6ddf2);
+            box-shadow:0 0 0 2px rgba(28,95,176,.14), inset 0 1px 0 rgba(255,255,255,.8);
+            color:#163e66;
+        }
+        .cihaz-karti:hover { border-color:#5b8ac4; transform:translateY(-1px); }
     </style>
 </head>
 <body>
@@ -1903,9 +1931,18 @@ giris_html = """
                     <input type="checkbox" id="bot_dogrulama" name="bot_dogrulama" required>
                     <label for="bot_dogrulama">🤖 Robot değilim</label>
                 </div>
-                <div class="bot-dogrulama" style="margin-top:-6px;">
-                    <input type="checkbox" id="beni_hatirla" name="beni_hatirla" checked>
-                    <label for="beni_hatirla">🔒 Beni hatırla</label>
+                <div class="cihaz-secimi">
+                    <span class="cihaz-baslik">💻 Bu oturumda hangi cihazı kullanıyorsunuz?</span>
+                    <div class="cihaz-secenekleri">
+                        <label class="cihaz-secenek">
+                            <input type="radio" name="cihaz" value="telefon" {% if (cihaz|default('telefon')) == 'telefon' %}checked{% endif %}>
+                            <span class="cihaz-karti"><span class="ikon">📱</span><span>Telefon</span><small>Mobil görünüm</small></span>
+                        </label>
+                        <label class="cihaz-secenek">
+                            <input type="radio" name="cihaz" value="bilgisayar" {% if (cihaz|default('telefon')) == 'bilgisayar' %}checked{% endif %}>
+                            <span class="cihaz-karti"><span class="ikon">💻</span><span>Bilgisayar</span><small>Masaüstü görünüm</small></span>
+                        </label>
+                    </div>
                 </div>
                 <button type="submit">GİRİŞ YAP / KAYDOL</button>
             </form>
@@ -2213,14 +2250,119 @@ mesaj_html = """
         }
         button[type="submit"]:active { background: linear-gradient(180deg, #2c80de 0%, #1c5fb0 100%); box-shadow: inset 0 2px 4px rgba(0,0,0,.25); }
 
+        /* ==================== BİLGİSAYAR GÖRÜNÜMÜ ==================== */
+        .desktop-layout { min-height:0; }
+        .desktop-sidebar { display:none; }
+        .desktop-main { min-width:0; min-height:0; }
+        .desktop-room-button {
+            width:100%; border:1px solid #2b5d87; border-radius:6px;
+            background:linear-gradient(180deg,#f7fbff,#e7f0f8); color:#24465f;
+            padding:9px 10px; text-align:left; font-weight:700; cursor:pointer;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.85);
+        }
+        .desktop-room-button:hover { background:linear-gradient(180deg,#fff,#edf5fc); }
+        .desktop-room-button.active {
+            background:linear-gradient(180deg,#dcecff,#c6dcf2); border-color:#1c5fb0;
+            box-shadow:0 0 0 2px rgba(28,95,176,.12), inset 0 1px 0 rgba(255,255,255,.9);
+        }
+        .desktop-room-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .desktop-room-meta { display:block; margin-top:3px; font-size:10px; color:#6d8499; font-weight:600; }
+        .desktop-sidebar-title {
+            display:flex; align-items:center; justify-content:space-between; gap:8px;
+            color:#24465f; font-size:11px; font-weight:800; letter-spacing:.3px; margin:14px 2px 7px;
+        }
+        .desktop-user-card {
+            background:linear-gradient(180deg,#ffffff,#eef4fb); border:1px solid #b9cfe4;
+            border-radius:8px; padding:10px; color:#1c3d5c;
+        }
+        .desktop-user-card .name { font-weight:800; font-size:14px; }
+        .desktop-user-card .state { margin-top:4px; font-size:10px; color:#21853f; font-weight:700; }
+        .desktop-room-list { display:flex; flex-direction:column; gap:5px; overflow:auto; min-height:0; flex:1; padding-right:2px; }
+        .desktop-side-actions { display:grid; grid-template-columns:1fr; gap:6px; margin-top:9px; }
+        .desktop-side-actions .small-btn { width:100%; }
+        .desktop-side-footer { margin-top:9px; padding-top:9px; border-top:1px solid #cbdbe9; }
+        .desktop-side-footer a {
+            display:block; text-decoration:none; text-align:center; padding:8px; border-radius:6px;
+            background:linear-gradient(180deg,#f28b82,#c0392b); border:1px solid #8f241a;
+            color:#fff; font-size:12px; font-weight:800; text-shadow:0 1px 1px rgba(0,0,0,.2);
+        }
+        .desktop-side-badge {
+            font-size:10px; padding:2px 6px; border-radius:999px; background:#dfeaf5; color:#4b6983;
+        }
+
+        .desktop-mode { background:linear-gradient(145deg,#c8dbed 0%,#eaf2fa 52%,#d8e5f2 100%); padding:0; display:block; overflow:hidden; }
+        .desktop-mode .win7-window {
+            width:100%; max-width:none; height:100vh; min-height:100vh; margin:0;
+            border-radius:0; box-shadow:none; display:flex; flex-direction:column; overflow:hidden;
+        }
+        .desktop-mode .win7-titlebar { flex:0 0 auto; padding:11px 16px; }
+        .desktop-mode .desktop-layout {
+            display:grid; grid-template-columns:250px minmax(0,1fr); flex:1; min-height:0;
+        }
+        .desktop-mode .desktop-sidebar {
+            display:flex; flex-direction:column; min-height:0; padding:12px;
+            background:linear-gradient(180deg,#f7fbff,#e7eff7); border-right:1px solid #9fb9d1;
+        }
+        .desktop-mode .desktop-main { overflow:auto; background:rgba(239,246,252,.72); }
+        .desktop-mode .content { max-width:none; min-height:100%; padding:14px 18px 18px; }
+        .desktop-mode .topbar {
+            position:sticky; top:0; z-index:20; margin-bottom:12px;
+            border-radius:7px; box-shadow:0 4px 14px rgba(48,83,117,.12);
+        }
+        .desktop-mode .topbar .logout-btn { font-size:12px; padding:6px 12px; }
+        .desktop-mode .panel-row { display:none; }
+        .desktop-mode .chat-title { font-size:12px; padding:6px 10px; margin-top:6px; }
+        .desktop-mode .chat-box { height:calc(100vh - 350px); min-height:280px; max-height:none; padding:12px 14px; border-radius:7px; font-size:14px; }
+        .desktop-mode .dm-box { height:150px; }
+        .desktop-mode .msg-item, .desktop-mode .msg-private {
+            margin-bottom:7px; padding:7px 9px; border-radius:6px; line-height:1.45;
+        }
+        .desktop-mode .msg-body { font-size:14px; }
+        .desktop-mode select#aliciSec { width:auto; min-width:220px; margin:0 0 8px; }
+        .desktop-mode #mesajForm {
+            position:sticky; bottom:0; z-index:15; background:rgba(239,246,252,.96);
+            padding-top:8px; margin-top:8px; backdrop-filter:blur(4px);
+        }
+        .desktop-mode #mesajForm .input-row { gap:8px; }
+        .desktop-mode #mesajForm #mesajInput { padding:11px 12px; font-size:14px; border-radius:6px; }
+        .desktop-mode #mesajForm > button[type="submit"] { width:auto; min-width:120px; margin-top:7px; float:right; padding:10px 18px; }
+        .desktop-mode #mesajForm::after { content:""; display:block; clear:both; }
+        .desktop-mode .settings-card { max-width:460px; }
+        .desktop-mode .room-create-panel { max-width:700px; }
+        .desktop-mode .pinned-banner { font-size:13px; }
+        .desktop-mode #odaYonetimPanel, .desktop-mode #odaKurPanel {
+            box-shadow:0 10px 30px rgba(48,83,117,.14); border-radius:8px;
+        }
+        .desktop-mode .typing-indicator { height:20px; }
+        @media (max-width: 900px) {
+            .desktop-mode .desktop-layout { grid-template-columns:205px minmax(0,1fr); }
+            .desktop-mode .desktop-sidebar { padding:9px; }
+            .desktop-mode .content { padding:10px 12px 14px; }
+        }
+
         @media (max-width: 420px) {
             .panel-row { flex-direction: column; }
         }
     </style>
 </head>
-<body>
+<body class="{{ 'desktop-mode' if cihaz|default('telefon') == 'bilgisayar' else 'phone-mode' }}">
     <div class="win7-window">
-        <div class="win7-titlebar"><span>💬</span><span>Konuşma</span></div>
+        <div class="win7-titlebar"><span>💬</span><span>{{ 'QChat — Bilgisayar' if cihaz|default('telefon') == 'bilgisayar' else 'Konuşma' }}</span></div>
+        <div class="desktop-layout">
+            <aside class="desktop-sidebar">
+                <div class="desktop-user-card">
+                    <div class="name">👤 {{ kullanici }}</div>
+                    <div class="state">● Çevrim içi • Aynı QChat sunucusu</div>
+                </div>
+                <div class="desktop-sidebar-title"><span>🏠 ODALAR</span><span class="desktop-side-badge" id="desktopRoomCount">0</span></div>
+                <div class="desktop-room-list" id="desktopRoomList"></div>
+                <div class="desktop-side-actions">
+                    <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
+                    <button type="button" class="small-btn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
+                </div>
+                <div class="desktop-side-footer"><a href="/cikis">🚪 Çıkış Yap</a></div>
+            </aside>
+            <main class="desktop-main">
         <div class="content">
             <div id="pinnedBanner" class="pinned-banner">📌 <span id="pinnedText"></span></div>
             <div id="odaSonucBildirimi" class="oda-sonuc-bildirimi"><span id="odaSonucMetni"></span></div>
@@ -2376,6 +2518,8 @@ mesaj_html = """
                 <button type="submit">GÖNDER</button>
             </form>
         </div>
+            </main>
+        </div>
     </div>
 
     <script>
@@ -2393,6 +2537,7 @@ mesaj_html = """
         let odaGirisBekleyenSifre = "";
         let odaGirisBeklemeTimer = null;
 
+        // Sayfa açıldığında hem telefon seçicisini hem bilgisayar kenar çubuğunu doldururuz.
         function ayarlarYukle() {
             try {
                 const ham = localStorage.getItem(AYARLAR_KEY);
@@ -2719,10 +2864,45 @@ mesaj_html = """
             }
         }
         
+        function desktopOdaListesiGuncelle(data) {
+            const liste = document.getElementById('desktopRoomList');
+            const sayac = document.getElementById('desktopRoomCount');
+            if (!liste) return;
+            liste.innerHTML = '';
+            if (sayac) sayac.textContent = String((data || []).length);
+            (data || []).forEach(o => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'desktop-room-button' + (o.ad === aktifOda ? ' active' : '');
+                btn.dataset.room = o.ad;
+                const name = document.createElement('span');
+                name.className = 'desktop-room-name';
+                name.textContent = (o.ad === 'Genel' ? '📢 ' : '🏠 ') + o.ad + (o.kilitli ? ' 🔒' : '');
+                const meta = document.createElement('span');
+                meta.className = 'desktop-room-meta';
+                meta.textContent = o.ad === 'Genel' ? 'Genel sohbet' : (o.kilitli ? 'Şifreli oda' : 'Açık oda');
+                btn.appendChild(name);
+                btn.appendChild(meta);
+                btn.addEventListener('click', () => {
+                    const sec = document.getElementById('odaSec');
+                    if (sec) sec.value = o.ad;
+                    odaDegistir();
+                });
+                liste.appendChild(btn);
+            });
+        }
+
+        function desktopAktifOdaGuncelle() {
+            document.querySelectorAll('.desktop-room-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.room === aktifOda);
+            });
+        }
+
         function odalariGuncelle() {
             fetch('/api/odalar')
                 .then(r => r.json())
                 .then(data => {
+                    desktopOdaListesiGuncelle(data);
                     const sec = document.getElementById('odaSec');
                     const val = sec.value;
                     sec.innerHTML = '';
@@ -2738,6 +2918,7 @@ mesaj_html = """
                     if(!odayiBulduk && aktifOda !== "Genel") {
                         aktifOda = "Genel";
                         document.getElementById('aktifOdaBaslik').textContent = "📢 Genel Odası";
+                        desktopAktifOdaGuncelle();
                         mesajlariGuncelle(true);
                     }
                 });
@@ -2756,6 +2937,7 @@ mesaj_html = """
             odaGirisBeklemeDurdur();
             aktifOda = oda;
             document.getElementById('aktifOdaBaslik').textContent = "📢 " + oda + " Odası";
+            desktopAktifOdaGuncelle();
             mesajlariGuncelle(true);
             odaYetkiYukle();
         }
@@ -3233,6 +3415,7 @@ function kullanicilariGuncelle() {
                         aktifOda = "Genel";
                         document.getElementById('odaSec').value = "Genel";
                         document.getElementById('aktifOdaBaslik').textContent = "📢 Genel Odası";
+                        desktopAktifOdaGuncelle();
                         mesajlariGuncelle(true);
                         return;
                     }
@@ -3724,7 +3907,10 @@ def ana_sayfa():
         return redirect("/giris")
     if session["kullanici"] in aktif_sorgular:
         return redirect("/sorgu")
-    return render_template_string(mesaj_html, kullanici=session["kullanici"])
+    cihaz = session.get("cihaz", "telefon")
+    if cihaz not in ("telefon", "bilgisayar"):
+        cihaz = "telefon"
+    return render_template_string(mesaj_html, kullanici=session["kullanici"], cihaz=cihaz)
 
 @app.route("/cikis", methods=["GET"])
 def cikis():
@@ -3733,6 +3919,7 @@ def cikis():
         oturum_suresini_guncelle(kullanici)
         aktif_oturumlar[kullanici] = False
     session.pop("kullanici", None)
+    session.pop("cihaz", None)
     return redirect("/giris")
 
 @app.route("/hesap-sil", methods=["POST"])
@@ -3822,7 +4009,9 @@ def giris():
         sifre = request.form.get("sifre", "").strip()
         kod = request.form.get("dogrulama_kodu", "").strip()
         guvenlik_kodu = request.form.get("guvenlik_kodu", "").strip()
-        remember = request.form.get("beni_hatirla") == "on"
+        cihaz = request.form.get("cihaz", "telefon").strip().lower()
+        if cihaz not in ("telefon", "bilgisayar"):
+            cihaz = "telefon"
 
         form_kullanici = kullanici
         form_email = email
@@ -3830,19 +4019,19 @@ def giris():
         if kullanici and sifre:
             if request.form.get("bot_dogrulama") != "on":
                 hata = "🤖 Lütfen robot olmadığınızı doğrulayın."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             if len(kullanici) > 15:
                 hata = "❌ Kullanıcı adı çok uzun (en fazla 15 karakter)."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             if len(sifre) > 20:
                 hata = "❌ Şifre çok uzun (en fazla 20 karakter)."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             if kullanici_adi_rezerve_mi(kullanici):
                 hata = "❌ Bu kullanıcı adı kullanılamaz."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             if kullanici in engellenenler:
                 return "<h2 style='color:red; text-align:center;'>🚫 Bu kullanıcı engellenmiştir.</h2>", 403
@@ -3851,7 +4040,7 @@ def giris():
             if kalan_kilit is not None:
                 kalan_dk = max(1, int(kalan_kilit // 60) + 1)
                 hata = f"🔒 Çok fazla hatalı deneme! Bu giriş ekranı {kalan_dk} dakika kilitli."
-                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             if kullanici in kullanici_db:
                 if sifre_dogrula(kullanici, sifre):
@@ -3859,14 +4048,15 @@ def giris():
                         kayitli_guvenlik_kodu = kullanici_giris_kodunu_al(kullanici)
                         if not guvenlik_kodu:
                             onay_mesaji = "🔐 Bu hesapta zaten açık bir oturum var. Devam etmek için Ayarlar'daki 6 haneli giriş kodunu girin."
-                            return render_template_string(giris_html, hata=hata, kod_gerekli=False, guvenlik_kodu_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                            return render_template_string(giris_html, hata=hata, kod_gerekli=False, guvenlik_kodu_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
                         if guvenlik_kodu != kayitli_guvenlik_kodu:
                             hata = "❌ Giriş kodu hatalı."
-                            return render_template_string(giris_html, hata=hata, kod_gerekli=False, guvenlik_kodu_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                            return render_template_string(giris_html, hata=hata, kod_gerekli=False, guvenlik_kodu_gerekli=True, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
                     giris_denemesini_temizle(kullanici)
                     session["kullanici"] = kullanici
-                    session.permanent = remember
+                    session["cihaz"] = cihaz
+                    session.permanent = True
                     son_aktiflik[kullanici] = time.time()
                     kullanici_oturum_son_kayit[kullanici] = time.time()
                     aktif_oturumlar[kullanici] = True
@@ -3879,13 +4069,14 @@ def giris():
                     else:
                         kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[_giris_koruma_anahtari()]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
-                    return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                    return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             if kullanici in kullanici_db:
                 if sifre_dogrula(kullanici, sifre):
                     giris_denemesini_temizle(kullanici)
                     session["kullanici"] = kullanici
-                    session.permanent = remember
+                    session["cihaz"] = cihaz
+                    session.permanent = True
                     son_aktiflik[kullanici] = time.time()
                     kullanici_oturum_son_kayit[kullanici] = time.time()
                     log_ekle(f"'{kullanici}' oturum açtı.")
@@ -3897,18 +4088,19 @@ def giris():
                     else:
                         kalan_hak = GIRIS_MAKS_DENEME - giris_hatali_deneme[_giris_koruma_anahtari()]["sayi"]
                         hata = f"❌ Hatalı şifre girdiniz! ({kalan_hak} deneme hakkınız kaldı)"
-                    return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+                    return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             gecerli, hata_mesaji = sifre_guclu_mu(sifre)
             if not gecerli:
                 hata = hata_mesaji
-                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email)
+                return render_template_string(giris_html, hata=hata, kod_gerekli=False, onay_mesaji=None, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
             kullanici_db[kullanici] = sifre_hashle(sifre)
             kullanici_kayit_zamani[kullanici] = time.time()
             kullanici_giris_kodunu_al(kullanici)  # yeni hesap için 6 haneli giriş kodu oluşturulur
             session["kullanici"] = kullanici
-            session.permanent = remember
+            session["cihaz"] = cihaz
+            session.permanent = True
             son_aktiflik[kullanici] = time.time()
             kullanici_oturum_son_kayit[kullanici] = time.time()
             aktif_oturumlar[kullanici] = True
@@ -3922,7 +4114,7 @@ def giris():
         kod_gerekli = True
         onay_mesaji = "Doğrulama kodu gönderildi. Lütfen e-postanıza bakın."
 
-    return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, guvenlik_kodu_gerekli=guvenlik_kodu_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email)
+    return render_template_string(giris_html, hata=hata, kod_gerekli=kod_gerekli, guvenlik_kodu_gerekli=guvenlik_kodu_gerekli, onay_mesaji=onay_mesaji, kullanici=form_kullanici, email=form_email, cihaz=cihaz)
 
 @app.route("/sifre-unuttum", methods=["GET", "POST"])
 def sifre_unuttum():
