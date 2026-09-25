@@ -14,8 +14,6 @@ import subprocess
 import shutil
 import json
 import os
-import base64
-from io import BytesIO
 import sys
 import logging
 import urllib.parse
@@ -27,6 +25,7 @@ import re
 from datetime import timedelta
 from email.message import EmailMessage
 import smtplib
+import base64
 
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
@@ -49,6 +48,47 @@ def verileri_kaydet(veriler):
         f.flush()
         os.fsync(f.fileno())
     os.replace(gecici, DOSYA)
+
+
+def yuklenen_fotograf_verisi(foto_dosyasi):
+    """Yüklenen resim dosyasını doğrular ve veri URL'sine çevirir."""
+    if not foto_dosyasi or not getattr(foto_dosyasi, "filename", ""):
+        return None, None, None
+
+    dosya_adi = (foto_dosyasi.filename or "").strip()
+    ham = foto_dosyasi.read()
+    try:
+        foto_dosyasi.stream.seek(0)
+    except Exception:
+        pass
+
+    if not ham:
+        return "Geçerli bir dosya yükleyin.", None, None
+
+    uzanti = os.path.splitext(dosya_adi)[1].lower()
+    mimetype = (getattr(foto_dosyasi, "mimetype", "") or "").lower()
+    izinli_uzantilar = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+    if not (mimetype.startswith("image/") or uzanti in izinli_uzantilar):
+        return "Geçerli bir dosya yükleyin.", None, None
+
+    if len(ham) > 8 * 1024 * 1024:
+        return "Fotoğraf çok büyük.", None, None
+
+    if not mimetype.startswith("image/"):
+        if uzanti in {".jpg", ".jpeg"}:
+            mimetype = "image/jpeg"
+        elif uzanti == ".png":
+            mimetype = "image/png"
+        elif uzanti == ".gif":
+            mimetype = "image/gif"
+        elif uzanti == ".webp":
+            mimetype = "image/webp"
+        else:
+            mimetype = "image/jpeg"
+
+    veri_url = f"data:{mimetype};base64,{base64.b64encode(ham).decode('ascii')}"
+    return None, veri_url, dosya_adi
 
 veriler = verileri_yukle()
 
@@ -334,7 +374,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
       {% for m in sorgu_mesajlar_gorunum %}
       <div class="chat-item">
         <div class="chat-head"><b>{{ m.gonderen }}</b> • {{ m.zaman }}</div>
-        <div class="chat-body">{{ m.mesaj }}</div>
+        <div class="chat-body">{{ m.mesaj }}{% if m.foto_veri %}<div style="margin-top:6px"><img src="{{ m.foto_veri }}" alt="Fotoğraf" style="max-width:220px;max-height:160px;border:1px solid #c9d7ea;border-radius:6px;display:block;"></div>{% endif %}</div>
       </div>
       {% endfor %}
     {% else %}
@@ -525,6 +565,8 @@ def admin_panel():
             m["gonderen"] = m.get("gonderen", "")
             m["mesaj"] = m.get("mesaj", "")
             m["zaman"] = _admin_guvenli_zaman(m.get("zaman"))
+            m["foto_veri"] = m.get("foto_veri", "")
+            m["foto_adi"] = m.get("foto_adi", "")
             son_mesajlar.append(m)
 
     geri_bildirim_gorunum = []
@@ -681,6 +723,8 @@ def admin_chat_api():
                 "mesaj": m.get("mesaj", ""),
                 "zaman": m.get("zaman", 0),
                 "tur": m.get("tur", ""),
+                "foto_veri": m.get("foto_veri", ""),
+                "foto_adi": m.get("foto_adi", ""),
             })
     return jsonify({"mesajlar": mesajlar[:100]})
 
@@ -1325,7 +1369,6 @@ kullanici_db = veriler.get("kullanici_db", {})
 odalar_db = veriler.get("odalar_db", {"Genel": ""}) 
 
 kullanici_emailleri = veriler.get("kullanici_emailleri", {})
-kullanici_avatarlari = veriler.get("kullanici_avatarlari", {})  # {kullanici: data:image/jpeg;base64,...}
 email_hesaplari = veriler.get("email_hesaplari", {})
 banli_emailler = set(veriler.get("banli_emailler", []))
 
@@ -1570,10 +1613,6 @@ def kullanici_oturum_toplamini_al(kullanici, simdi=None):
             toplam += int(simdi - son)
         return max(0, toplam)
 
-def kullanici_avatarini_al(kullanici):
-    veri = kullanici_avatarlari.get(kullanici, "")
-    return veri if isinstance(veri, str) else ""
-
 def kullanici_bilgi_hazirla(kullanici):
     simdi = time.time()
     mesaj_sayisi = sum(1 for m in sohbet_gecmisi if m.get("gonderen") == kullanici)
@@ -1581,7 +1620,6 @@ def kullanici_bilgi_hazirla(kullanici):
     return {
         "isim": kullanici,
         "email": kullanici_emailleri.get(kullanici),
-        "avatar": kullanici_avatarini_al(kullanici),
         "kayit_zamani": kayit_ts,
         "kayit_tarihi": time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(kayit_ts)) if kayit_ts else None,
         "mesaj_sayisi": mesaj_sayisi,
@@ -1669,7 +1707,6 @@ def durumu_kaydet():
             "kullanici_giris_kodlari": dict(kullanici_giris_kodlari),
             "aktif_oturumlar": dict(aktif_oturumlar),
             "kullanici_emailleri": dict(kullanici_emailleri),
-            "kullanici_avatarlari": dict(kullanici_avatarlari),
             "email_hesaplari": dict(email_hesaplari),
             "banli_emailler": list(banli_emailler),
             "odalar_db": dict(odalar_db),
@@ -2308,6 +2345,7 @@ mesaj_html = """
         .msg-sistem { color: #b8281f !important; font-weight: 700; }
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
+        .msg-photo { display:block; margin-top:6px; max-width:min(320px,100%); max-height:320px; border:1px solid #c9d7ea; border-radius:6px; }
 
         .msg-reply {
             margin: 4px 0 6px;
@@ -2388,10 +2426,6 @@ mesaj_html = """
             border:1px solid #8fa9c4; border-radius:5px; outline:none;
             background:#fff; color:#1c2b3a; font-family:inherit; font-size:13px;
         }
-        .profile-avatar { width:42px; height:42px; border-radius:50%; object-fit:cover; flex:0 0 42px; border:1px solid #8fa9c4; background:#dcecff; display:block; }
-        .profile-avatar-large { width:78px; height:78px; border-radius:50%; object-fit:cover; border:2px solid #7fa7cb; background:#dcecff; display:block; }
-        .profile-avatar-fallback { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#dcecff; border:1px solid #9fb9d1; color:#24465f; font-size:20px; }
-        .profile-preview-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
         .dm-search:focus { border-color:#3a8ee6; box-shadow:0 0 0 3px rgba(58,142,230,.18); }
         .dm-kisi-listesi {
             min-height:80px; max-height:52vh; overflow-y:auto; display:flex;
@@ -2542,10 +2576,9 @@ mesaj_html = """
         <div class="win7-titlebar"><span>💬</span><span>{{ 'QChat — Bilgisayar' if cihaz|default('telefon') == 'bilgisayar' else 'Konuşma' }}</span></div>
         <div class="desktop-layout">
             <aside class="desktop-sidebar">
-                <div class="desktop-user-card" style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="profilPenceresiAc();">
-                    {% if profil_avatar %}<img class="profile-avatar" id="desktopProfileAvatar" src="{{ profil_avatar }}" alt="Profil">{% else %}<div class="profile-avatar-fallback" id="desktopProfileAvatarFallback">👤</div>{% endif %}
-                    <div><div class="name">{{ kullanici }}</div>
-                    <div class="state">● Çevrim içi • Aynı QChat sunucusu</div></div>
+                <div class="desktop-user-card">
+                    <div class="name">👤 {{ kullanici }}</div>
+                    <div class="state">● Çevrim içi • Aynı QChat sunucusu</div>
                 </div>
                 <div class="desktop-sidebar-title"><span>🏠 ODALAR</span><span class="desktop-side-badge" id="desktopRoomCount">0</span></div>
                 <div class="desktop-room-list" id="desktopRoomList"></div>
@@ -2562,32 +2595,10 @@ mesaj_html = """
             <div id="odaSonucBildirimi" class="oda-sonuc-bildirimi"><span id="odaSonucMetni"></span></div>
 
             <div class="topbar">
-                <div class="user-info" style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="profilPenceresiAc();">{% if profil_avatar %}<img class="profile-avatar" style="width:32px;height:32px;flex-basis:32px;" id="topProfileAvatar" src="{{ profil_avatar }}" alt="Profil">{% else %}<span class="profile-avatar-fallback" style="width:32px;height:32px;font-size:16px;" id="topProfileAvatarFallback">👤</span>{% endif %}<span>{{ kullanici }}</span></div>
+                <div class="user-info">👤 {{ kullanici }}</div>
                 <div style="display:flex; gap:6px; align-items:center;">
-                    <button type="button" class="logout-btn settings-btn" onclick="profilPenceresiAc()">👤 Profil</button>
                     <button type="button" class="logout-btn settings-btn" onclick="ayarlarPenceresiAc()">⚙️ Ayarlar</button>
                     <a href="/cikis" class="logout-btn">Çıkış Yap</a>
-                </div>
-            </div>
-
-            <div class="settings-overlay" id="profilOverlay" onclick="if(event.target===this) profilPenceresiKapat();">
-                <div class="settings-card" style="max-width:460px;">
-                    <div class="settings-title">👤 Profil</div>
-                    <div class="settings-body">
-                        <div class="profile-preview-row">
-                            {% if profil_avatar %}<img class="profile-avatar-large" id="profilOnizleme" src="{{ profil_avatar }}" alt="Profil">{% else %}<div class="profile-avatar-large" id="profilOnizleme" style="display:flex;align-items:center;justify-content:center;font-size:34px;">👤</div>{% endif %}
-                            <div style="min-width:0;flex:1;"><div style="font-size:18px;font-weight:800;color:#1c3d5c;">{{ kullanici }}</div><div style="font-size:11px;color:#6b7d90;margin-top:3px;">Profil fotoğrafın diğer kullanıcıların DM listesinde ve kullanıcı bilgilerinde görünür.</div></div>
-                        </div>
-                        <input type="file" id="profilFotoInput" accept="image/png,image/jpeg,image/webp,image/gif" style="width:100%;padding:8px;border:1px solid #9fb9d1;border-radius:7px;background:#fbfdff;">
-                        <div style="display:flex;gap:7px;margin-top:8px;">
-                            <button type="button" class="small-btn" style="flex:1;" onclick="profilFotoYukle();">📷 Fotoğrafı Kaydet</button>
-                            <button type="button" class="small-btn" style="flex:1;background:linear-gradient(180deg,#f28b82,#c0392b);border-color:#8f241a;" onclick="profilFotoKaldir();">🗑 Kaldır</button>
-                        </div>
-                        <div id="profilFotoDurum" style="font-size:11px;color:#556b7f;margin-top:8px;text-align:center;"></div>
-                        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-                            <button type="button" class="small-btn" onclick="profilPenceresiKapat();">Kapat</button>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -2774,6 +2785,8 @@ mesaj_html = """
                 </div>
                 <div class="input-row">
                     <input type="text" id="mesajInput" placeholder="Mesajınızı yazın..." maxlength="200" autocomplete="off" oninput="yaziyorBildir()" required>
+                    <button type="button" id="mesajFotoBtn" onclick="document.getElementById('mesajFoto').click()" title="Fotoğraf ekle" style="flex:0 0 auto; min-width:44px; padding:0 12px; border:1px solid #8fa9c4; border-radius:4px; background:#fff; color:#24465f; cursor:pointer; font-weight:700;">📷</button>
+                    <input type="file" id="mesajFoto" accept="image/*" style="display:none">
                     <div id="mentionList" class="mention-list"></div>
                 </div>
                 <button type="submit">GÖNDER</button>
@@ -2804,7 +2817,6 @@ mesaj_html = """
         let sirenTimer = null;
         let aktifDM = null;
         let dmKullanicilari = [];
-        let dmAvatarlar = {};
         const oturumKullanici = {{ kullanici|tojson }};
 
         // Ana sohbet sayfasında kullanılan güvenli HTML kaçış yardımcısı.
@@ -2813,74 +2825,6 @@ mesaj_html = """
             return String(v ?? '').replace(/[&<>'"]/g, m => ({
                 '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
             }[m]));
-        }
-
-        function profilAvatarUygula(veri) {
-            const top = document.getElementById('topProfileAvatar');
-            const topFallback = document.getElementById('topProfileAvatarFallback');
-            const side = document.getElementById('desktopProfileAvatar');
-            const sideFallback = document.getElementById('desktopProfileAvatarFallback');
-            const preview = document.getElementById('profilOnizleme');
-            const setImg = (imgId, fallbackId, value, sizeStyle='') => {
-                const img = imgId ? document.getElementById(imgId) : null;
-                const fb = fallbackId ? document.getElementById(fallbackId) : null;
-                if (value) {
-                    if (fb) fb.outerHTML = '<img class="profile-avatar"'+(sizeStyle ? ' style="'+sizeStyle+'"' : '')+' id="'+imgId+'" src="'+escapeHtml(value)+'" alt="Profil">';
-                    else if (img) img.src = value;
-                } else {
-                    if (img) img.outerHTML = '<span class="profile-avatar-fallback"'+(sizeStyle ? ' style="'+sizeStyle+'"' : '')+' id="'+fallbackId+'">👤</span>';
-                    else if (fb) fb.style.display='flex';
-                }
-            };
-            setImg('topProfileAvatar','topProfileAvatarFallback',veri,'width:32px;height:32px;flex-basis:32px;');
-            setImg('desktopProfileAvatar','desktopProfileAvatarFallback',veri,'');
-            if (preview) {
-                if (preview.tagName === 'IMG') {
-                    if (veri) preview.src = veri;
-                    else preview.outerHTML = '<div class="profile-avatar-large" id="profilOnizleme" style="display:flex;align-items:center;justify-content:center;font-size:34px;">👤</div>';
-                } else if (veri) {
-                    preview.outerHTML = '<img class="profile-avatar-large" id="profilOnizleme" src="'+escapeHtml(veri)+'" alt="Profil">';
-                }
-            }
-        }
-
-        function profilPenceresiAc() {
-            const o = document.getElementById('profilOverlay');
-            if (o) o.style.display = 'flex';
-        }
-        function profilPenceresiKapat() {
-            const o = document.getElementById('profilOverlay');
-            if (o) o.style.display = 'none';
-            const d = document.getElementById('profilFotoDurum');
-            if (d) d.textContent = '';
-        }
-        async function profilFotoYukle() {
-            const input = document.getElementById('profilFotoInput');
-            const durum = document.getElementById('profilFotoDurum');
-            if (!input || !input.files || !input.files[0]) { if (durum) durum.textContent = 'Önce bir fotoğraf seçin.'; return; }
-            const fd = new FormData(); fd.append('foto', input.files[0]);
-            if (durum) durum.textContent = 'Yükleniyor...';
-            try {
-                const r = await fetch('/api/profil_avatar',{method:'POST',body:fd});
-                const d = await r.json();
-                if (!d.basarili) { if (durum) durum.textContent = '⚠️ ' + (d.hata || 'Fotoğraf yüklenemedi.'); return; }
-                profilAvatarUygula(d.avatar || '');
-                input.value = '';
-                if (durum) durum.textContent = '✅ Profil fotoğrafı kaydedildi.';
-                if (typeof dmKisileriFiltrele === 'function') dmKisileriFiltrele();
-            } catch(e) { if (durum) durum.textContent = '⚠️ Fotoğraf yüklenemedi.'; }
-        }
-        async function profilFotoKaldir() {
-            const durum = document.getElementById('profilFotoDurum');
-            if (!confirm('Profil fotoğrafını kaldırmak istiyor musun?')) return;
-            try {
-                const r = await fetch('/api/profil_avatar',{method:'DELETE'});
-                const d = await r.json();
-                if (!d.basarili) { if (durum) durum.textContent = '⚠️ ' + (d.hata || 'İşlem başarısız.'); return; }
-                profilAvatarUygula('');
-                if (durum) durum.textContent = '✅ Profil fotoğrafı kaldırıldı.';
-                if (typeof dmKisileriFiltrele === 'function') dmKisileriFiltrele();
-            } catch(e) { if (durum) durum.textContent = '⚠️ İşlem başarısız.'; }
         }
 
         function ayarlarPenceresiAc() {
@@ -3059,10 +3003,8 @@ mesaj_html = """
                         }
                         const onlineText = data.online ? 'Çevrim içi' : 'Çevrim dışı';
                         const onlineColor = data.online ? '#166534' : '#6b7280';
-                        const avatarHtml = data.avatar ? `<img class="profile-avatar-large" src="${escapeHtml(data.avatar)}" alt="Profil" style="margin:0 auto 8px;">` : `<div class="profile-avatar-large" style="margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:34px;">👤</div>`;
                         alan.innerHTML = `
-                            ${avatarHtml}
-                            <div style="font-size:18px;font-weight:800;color:#0f172a;text-align:center;">${escapeHtml(data.isim || kullanici)}</div>
+                            <div style="font-size:18px;font-weight:800;color:#0f172a;">${data.isim || kullanici}</div>
                             <div style="margin-top:4px;color:${onlineColor};font-weight:700;">${onlineText}</div>
                             <div style="margin-top:8px;display:grid;gap:6px;">
                                 <div><strong>Hesap oluşturma:</strong> ${data.kayit_tarihi || 'Bilinmiyor'}</div>
@@ -3854,14 +3796,6 @@ function kullanicilariGuncelle() {
                 .catch(err => console.log(err));
         }
 
-        async function dmAvatarlariYukle() {
-            try {
-                const r = await fetch('/api/profil_avatarlari',{cache:'no-store'});
-                const d = await r.json();
-                if (d && d.basarili) { dmAvatarlar = d.avatarlari || {}; }
-            } catch(e) {}
-        }
-
         function dmPenceresiAc() {
             const overlay = document.getElementById('dmOverlay');
             if (!overlay) return;
@@ -3872,9 +3806,8 @@ function kullanicilariGuncelle() {
             // Kişiler her durumda sunucudan güncel gelsin.
             fetch('/api/kullanicilar', {cache:'no-store'})
                 .then(r => r.json())
-                .then(async data => {
+                .then(data => {
                     dmKullanicilari = Array.isArray(data) ? data.filter(k => k && k !== oturumKullanici) : [];
-                    await dmAvatarlariYukle();
                     dmKisileriFiltrele();
                 })
                 .catch(() => {});
@@ -3911,18 +3844,9 @@ function kullanicilariGuncelle() {
                 btn.className = 'dm-kisi-item';
                 btn.onclick = () => dmKisiSec(k);
 
-                let avatar;
-                if (dmAvatarlar[k]) {
-                    avatar = document.createElement('img');
-                    avatar.className = 'dm-kisi-avatar';
-                    avatar.src = dmAvatarlar[k];
-                    avatar.alt = 'Profil';
-                    avatar.style.objectFit = 'cover';
-                } else {
-                    avatar = document.createElement('span');
-                    avatar.className = 'dm-kisi-avatar';
-                    avatar.textContent = '👤';
-                }
+                const avatar = document.createElement('span');
+                avatar.className = 'dm-kisi-avatar';
+                avatar.textContent = '👤';
 
                 const ad = document.createElement('span');
                 ad.className = 'dm-kisi-adi';
@@ -4164,7 +4088,7 @@ function kullanicilariGuncelle() {
                                 reply.appendChild(replyFrom);
                                 const replyText = document.createElement('span');
                                 replyText.className = 'reply-text';
-                                replyText.textContent = m.reply_to.mesaj || '';
+                                replyText.textContent = m.reply_to.mesaj || (m.reply_to.foto_veri ? '📷 Fotoğraf' : '');
                                 reply.appendChild(replyText);
                                 div.appendChild(reply);
                             }
@@ -4223,6 +4147,14 @@ function kullanicilariGuncelle() {
                             const govde = document.createElement('div');
                             govde.className = 'msg-body';
                             mesajMetniRenderEt(govde, m.mesaj);
+                            if (m.foto_veri) {
+                                const foto = document.createElement('img');
+                                foto.className = 'msg-photo';
+                                foto.src = m.foto_veri;
+                                foto.alt = m.foto_adi || 'Yüklenen fotoğraf';
+                                foto.loading = 'lazy';
+                                govde.appendChild(foto);
+                            }
                             div.appendChild(govde);
 
                             if (!isDuyuru && m.gonderen) {
@@ -4273,35 +4205,46 @@ function kullanicilariGuncelle() {
         function mesajGonder(event) {
             event.preventDefault();
             const input = document.getElementById('mesajInput');
+            const fotoInput = document.getElementById('mesajFoto');
             const alici = document.getElementById('aliciSec').value;
             const mesaj = input.value.trim();
-            if(!mesaj) return;
+            const foto = fotoInput && fotoInput.files && fotoInput.files[0] ? fotoInput.files[0] : null;
+            if(!mesaj && !foto) return;
             const reply = yanitHedefi;
-            let body = 'mesaj=' + encodeURIComponent(mesaj) + '&alici=' + encodeURIComponent(alici) + '&oda=' + encodeURIComponent(aktifOda);
+            const body = foto ? new FormData() : new URLSearchParams();
+            body.append('mesaj', mesaj);
+            body.append('alici', alici);
+            body.append('oda', aktifOda);
             if (reply) {
-                body += '&reply_id=' + encodeURIComponent(reply.id || '') +
-                        '&reply_gonderen=' + encodeURIComponent(reply.gonderen || '') +
-                        '&reply_mesaj=' + encodeURIComponent(reply.mesaj || '') +
-                        '&reply_alici=' + encodeURIComponent(reply.alici || '') +
-                        '&reply_oda=' + encodeURIComponent(reply.oda || '');
+                body.append('reply_id', reply.id || '');
+                body.append('reply_gonderen', reply.gonderen || '');
+                body.append('reply_mesaj', reply.mesaj || '');
+                body.append('reply_alici', reply.alici || '');
+                body.append('reply_oda', reply.oda || '');
+                body.append('reply_foto_veri', reply.foto_veri || '');
+                body.append('reply_foto_adi', reply.foto_adi || '');
             }
+            if (foto) body.append('foto', foto);
             fetch('/api/gonder', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: body
-            }).then(res => {
+            }).then(async res => {
                 if (res.status === 403) {
                     res.text().then(text => {
                         if(text === "Bakım" || text === "Kick") window.location.reload();
                         else alert("🚫 " + text);
                     });
+                } else if (!res.ok) {
+                    const txt = await res.text();
+                    alert("⚠️ " + (txt || 'Mesaj gönderilemedi.'));
                 } else {
                     gonderSesiCal();
                     input.value = '';
+                    if (fotoInput) fotoInput.value = '';
                     yanitTemizle();
                     mesajlariGuncelle();
                 }
-            });
+            }).catch(() => alert('⚠️ Mesaj gönderilirken bağlantı hatası oluştu.'));
         }
 
         function sikayetPenceresiAc(kullanici, ilgiliMesaj = null) {
@@ -4585,7 +4528,7 @@ def ana_sayfa():
     cihaz = session.get("cihaz", "telefon")
     if cihaz not in ("telefon", "bilgisayar"):
         cihaz = "telefon"
-    return render_template_string(mesaj_html, kullanici=session["kullanici"], cihaz=cihaz, profil_avatar=kullanici_avatarini_al(session["kullanici"]))
+    return render_template_string(mesaj_html, kullanici=session["kullanici"], cihaz=cihaz)
 
 @app.route("/cikis", methods=["GET"])
 def cikis():
@@ -4629,7 +4572,6 @@ def hesap_sil():
         kullanici_oturum_toplam_saniye.pop(kullanici, None)
         kullanici_oturum_son_kayit.pop(kullanici, None)
         kullanici_renames.pop(kullanici, None)
-        kullanici_avatarlari.pop(kullanici, None)
         giris_hatali_deneme.pop(kullanici, None)
         giris_kilitli.pop(kullanici, None)
         zorla_cikis.discard(kullanici)
@@ -4854,69 +4796,6 @@ def kullanici_bilgi():
     bilgi = kullanici_bilgi_hazirla(hedef)
     bilgi["basarili"] = True
     return jsonify(bilgi)
-
-@app.route("/api/profil_avatar", methods=["GET", "POST", "DELETE"])
-def profil_avatar():
-    kullanici = session.get("kullanici")
-    if not kullanici or kullanici not in kullanici_db:
-        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-
-    if request.method == "GET":
-        return jsonify({"basarili": True, "avatar": kullanici_avatarini_al(kullanici)})
-
-    with veri_kilidi:
-        if request.method == "DELETE":
-            kullanici_avatarlari.pop(kullanici, None)
-            durumu_kaydet()
-            log_ekle(f"'{kullanici}' profil fotoğrafını kaldırdı.")
-            return jsonify({"basarili": True, "avatar": ""})
-
-        dosya = request.files.get("foto")
-        if not dosya or not dosya.filename:
-            return jsonify({"basarili": False, "hata": "Bir profil fotoğrafı seçin."}), 400
-
-        mime = (dosya.mimetype or "").lower()
-        izinli = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-        if mime not in izinli:
-            return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
-
-        ham = dosya.read()
-        if not ham:
-            return jsonify({"basarili": False, "hata": "Dosya boş."}), 400
-        if len(ham) > 2 * 1024 * 1024:
-            return jsonify({"basarili": False, "hata": "Profil fotoğrafı en fazla 2 MB olabilir."}), 400
-
-        # Pillow ile gerçek görseli doğrula ve küçük bir JPEG olarak sakla.
-        try:
-            from PIL import Image, ImageOps
-            img = Image.open(BytesIO(ham))
-            img = ImageOps.exif_transpose(img)
-            img.thumbnail((256, 256))
-            if img.mode not in ("RGB", "RGBA"):
-                img = img.convert("RGBA")
-            if img.mode == "RGBA":
-                bg = Image.new("RGB", img.size, "white")
-                bg.paste(img, mask=img.getchannel("A"))
-                img = bg
-            else:
-                img = img.convert("RGB")
-            out = BytesIO()
-            img.save(out, format="JPEG", quality=84, optimize=True)
-            veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
-        except Exception:
-            return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin."}), 400
-
-        kullanici_avatarlari[kullanici] = veri
-        durumu_kaydet()
-
-    log_ekle(f"'{kullanici}' profil fotoğrafını güncelledi.")
-    return jsonify({"basarili": True, "avatar": veri})
-
-@app.route("/api/profil_avatarlari", methods=["GET"])
-def profil_avatarlari():
-    if "kullanici" not in session:
-        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-    return jsonify({"basarili": True, "avatarlari": {k: kullanici_avatarini_al(k) for k in kullanici_db.keys()}})
 
 @app.route("/api/sikayet_mesajlari", methods=["GET"])
 def sikayet_mesajlari():
@@ -5766,26 +5645,39 @@ def post_gonder():
             else:
                 susturulanlar.pop(kullanici, None)
 
-        mesaj = request.form.get("mesaj", "").strip()[:200]  # istemcideki maxlength=200 ile aynı sınır, sunucu tarafında da uygulanır
+        mesaj = (request.form.get("mesaj", "") or "").strip()[:200]  # istemcideki maxlength=200 ile aynı sınır, sunucu tarafında da uygulanır
         alici = request.form.get("alici", "Genel").strip()
+
+        foto_hata = None
+        foto_veri = None
+        foto_adi = ""
+        if "foto" in request.files:
+            foto_hata, foto_veri, foto_adi = yuklenen_fotograf_verisi(request.files.get("foto"))
+            if foto_hata:
+                return foto_hata, 400
 
         if kufur_filtresi and kullanici != "Sistem":
             mesaj = kufur_filtrele(mesaj)
 
-        if mesaj:
+        if mesaj or foto_veri:
             veri = {"id": secrets.token_hex(8), "gonderen": kullanici, "mesaj": mesaj, "alici": alici, "oda": oda, "zaman": simdi}
+            if foto_veri:
+                veri["foto_veri"] = foto_veri
+                veri["foto_adi"] = foto_adi
             reply_id = request.form.get("reply_id", "").strip()
             reply_gonderen = request.form.get("reply_gonderen", "").strip()
             reply_mesaj = request.form.get("reply_mesaj", "").strip()
             reply_alici = request.form.get("reply_alici", "").strip()
             reply_oda = request.form.get("reply_oda", "").strip()
-            if reply_id or reply_gonderen or reply_mesaj:
+            if reply_id or reply_gonderen or reply_mesaj or request.form.get("reply_foto_veri", "").strip():
                 veri["reply_to"] = {
                     "id": reply_id,
                     "gonderen": reply_gonderen,
                     "mesaj": reply_mesaj,
                     "alici": reply_alici,
-                    "oda": reply_oda
+                    "oda": reply_oda,
+                    "foto_veri": request.form.get("reply_foto_veri", "").strip(),
+                    "foto_adi": request.form.get("reply_foto_adi", "").strip(),
                 }
             sohbet_gecmisi.append(veri)
             mesaj_kuyrugu.put(veri)
@@ -6388,8 +6280,6 @@ def sistem_yonetim_penceresi():
                 kullanici_db[yeni_isim] = kullanici_db.pop(eski_isim)
                 
                 kullanici_renames[eski_isim] = yeni_isim
-                if eski_isim in kullanici_avatarlari:
-                    kullanici_avatarlari[yeni_isim] = kullanici_avatarlari.pop(eski_isim)
                 if eski_isim in son_aktiflik:
                     son_aktiflik[yeni_isim] = son_aktiflik.pop(eski_isim)
                 if eski_isim in kullanici_kayit_zamani:
