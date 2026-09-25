@@ -2140,8 +2140,22 @@ mesaj_html = """
         .small-btn:active { filter: brightness(0.9); }
 
         .room-create-panel {
-            display: none; background: #fff; border: 1px solid #b9cfe4; border-radius: 5px;
-            padding: 8px; margin-bottom: 8px; flex-direction: column; gap: 6px; font-size: 12px;
+            display: none; background: #fff; border: 1px solid #b9cfe4; border-radius: 8px;
+            padding: 10px; margin-bottom: 8px; flex-direction: column; gap: 6px; font-size: 12px;
+        }
+        .room-modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 1200;
+            align-items: center; justify-content: center; padding: 20px;
+            background: rgba(25, 45, 65, .34); backdrop-filter: blur(2px);
+        }
+        .room-modal-overlay.open { display: flex; }
+        .room-modal-overlay .room-create-panel {
+            display: flex; width: min(560px, calc(100vw - 40px));
+            max-height: min(82vh, 760px); overflow: auto; margin: 0;
+            box-shadow: 0 18px 55px rgba(20, 45, 70, .30);
+        }
+        .room-modal-overlay #odaYonetimPanel {
+            width: min(720px, calc(100vw - 40px));
         }
         .room-create-panel .field-label { font-size: 11.5px; font-weight: 700; color: #3a5a7a; }
         .room-create-panel input {
@@ -2290,10 +2304,10 @@ mesaj_html = """
             font-size:10px; padding:2px 6px; border-radius:999px; background:#dfeaf5; color:#4b6983;
         }
 
-        .desktop-mode { background:linear-gradient(145deg,#c8dbed 0%,#eaf2fa 52%,#d8e5f2 100%); padding:0; display:block; overflow:hidden; }
+        .desktop-mode { background:linear-gradient(145deg,#c8dbed 0%,#eaf2fa 52%,#d8e5f2 100%); padding:3vh 1.5vw; display:flex; align-items:center; justify-content:center; overflow:hidden; }
         .desktop-mode .win7-window {
-            width:100%; max-width:none; height:100vh; min-height:100vh; margin:0;
-            border-radius:0; box-shadow:none; display:flex; flex-direction:column; overflow:hidden;
+            width:97vw; max-width:1500px; height:94vh; min-height:0; margin:0;
+            border-radius:10px; box-shadow:0 18px 55px rgba(31,62,92,.24); display:flex; flex-direction:column; overflow:hidden;
         }
         .desktop-mode .win7-titlebar { flex:0 0 auto; padding:11px 16px; }
         .desktop-mode .desktop-layout {
@@ -2335,6 +2349,8 @@ mesaj_html = """
         }
         .desktop-mode .typing-indicator { height:20px; }
         @media (max-width: 900px) {
+            .desktop-mode { padding:0; }
+            .desktop-mode .win7-window { width:100vw; height:100vh; max-width:none; border-radius:0; box-shadow:none; }
             .desktop-mode .desktop-layout { grid-template-columns:205px minmax(0,1fr); }
             .desktop-mode .desktop-sidebar { padding:9px; }
             .desktop-mode .content { padding:10px 12px 14px; }
@@ -2411,6 +2427,7 @@ mesaj_html = """
                 <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
             </div>
 
+            <div class="room-modal-overlay" id="odaKurOverlay" onclick="odaKurDis(event)">
             <div class="room-create-panel" id="odaKurPanel">
                 <span class="field-label">Yeni Oda Adı</span>
                 <input type="text" id="yeniOdaAdi" placeholder="Örn: Oyun Odası" maxlength="15">
@@ -2419,10 +2436,12 @@ mesaj_html = """
                 <div id="odaIstekBilgi" style="font-size:11px;color:#556b7f;margin:4px 0;"></div>
                 <div class="room-create-btn-row">
                     <button type="button" class="btn-ok" id="odaKurActionBtn" onclick="yeniOdaKur()">Odayı Kur</button>
-                    <button type="button" class="btn-cancel" onclick="document.getElementById('odaKurPanel').style.display='none';">İptal</button>
+                    <button type="button" class="btn-cancel" onclick="odaKurKapat();">İptal</button>
                 </div>
             </div>
+            </div>
 
+            <div class="room-modal-overlay" id="odaYonetimOverlay" onclick="odaYonetimDis(event)">
             <div class="room-create-panel" id="odaYonetimPanel">
                 <span class="field-label" id="odaYonetimBaslik">🛡️ Oda Yönetimi</span>
                 <div id="odaYonetimYetkisiz" style="font-size:12px; color:#7a3d3d; display:none;">Bu odada yönetim yetkiniz yok.</div>
@@ -2487,8 +2506,9 @@ mesaj_html = """
                     </div>
                 </div>
                 <div class="room-create-btn-row">
-                    <button type="button" class="btn-cancel" onclick="document.getElementById('odaYonetimPanel').style.display='none';">Kapat</button>
+                    <button type="button" class="btn-cancel" onclick="odaYonetimKapat();">Kapat</button>
                 </div>
+            </div>
             </div>
 
             <select id="aliciSec">
@@ -3007,10 +3027,22 @@ mesaj_html = """
 
         // ==================== ODA LİDERLİK / ROL / YETKİ PANELİ ====================
         function odaYonetimAcKapat() {
-            const panel = document.getElementById('odaYonetimPanel');
-            const acik = panel.style.display === 'flex';
-            panel.style.display = acik ? 'none' : 'flex';
-            if (!acik) odaYetkiYukle();
+            const overlay = document.getElementById('odaYonetimOverlay');
+            if (!overlay) return;
+            const acik = overlay.classList.contains('open');
+            if (acik) { odaYonetimKapat(); return; }
+            odaKurKapat();
+            overlay.classList.add('open');
+            odaYetkiYukle();
+        }
+
+        function odaYonetimKapat() {
+            const overlay = document.getElementById('odaYonetimOverlay');
+            if (overlay) overlay.classList.remove('open');
+        }
+
+        function odaYonetimDis(event) {
+            if (event.target && event.target.id === 'odaYonetimOverlay') odaYonetimKapat();
         }
 
         function odaYetkiYukle() {
@@ -3185,7 +3217,7 @@ mesaj_html = """
             }).then(r => r.json()).then(res => {
                 if (res.basarili) {
                     alert("Oda kapatıldı.");
-                    document.getElementById('odaYonetimPanel').style.display = 'none';
+                    odaYonetimKapat();
                     aktifOda = "Genel";
                     document.getElementById('aktifOdaBaslik').textContent = "📢 Genel Odası";
                     odalariGuncelle();
@@ -3198,8 +3230,10 @@ mesaj_html = """
         // ============================================================================
 
         function odaKurAc() {
-            const panel = document.getElementById('odaKurPanel');
-            panel.style.display = 'flex';
+            const overlay = document.getElementById('odaKurOverlay');
+            if (!overlay) return;
+            odaYonetimKapat();
+            overlay.classList.add('open');
             fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda))
                 .then(r => r.json()).then(data => {
                     const btn = document.getElementById('odaKurActionBtn');
@@ -3222,6 +3256,15 @@ mesaj_html = """
                         btn.disabled = false;
                     }
                 }).catch(() => {});
+        }
+
+        function odaKurKapat() {
+            const overlay = document.getElementById('odaKurOverlay');
+            if (overlay) overlay.classList.remove('open');
+        }
+
+        function odaKurDis(event) {
+            if (event.target && event.target.id === 'odaKurOverlay') odaKurKapat();
         }
 
         function yeniOdaKur() {
@@ -3265,7 +3308,7 @@ mesaj_html = """
                         alert("Oda '" + ad + "' başarıyla kuruldu!");
                         adInput.value = '';
                         sifreInput.value = '';
-                        document.getElementById('odaKurPanel').style.display = 'none';
+                        odaKurKapat();
                         aktifOda = ad;
                         document.getElementById('aktifOdaBaslik').textContent = "📢 " + ad + " Odası";
                         odalariGuncelle();
@@ -3278,6 +3321,10 @@ mesaj_html = """
                 })
                 .catch(err => alert("İşlem sırasında hata oluştu: " + err));
         }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { odaKurKapat(); odaYonetimKapat(); }
+        });
 
         function odaSonucBildirimiGoster(durum, mesaj, oda) {
             const kutu = document.getElementById('odaSonucBildirimi');
