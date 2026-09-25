@@ -1334,9 +1334,99 @@ oda_roller = veriler.get("oda_roller", {})                # {oda_adi: {kullanici
 oda_yasaklari = veriler.get("oda_yasaklari", {})           # {oda_adi: [kullanici_adi, ...]}  (kalıcı banlar)
 oda_gecici_banlar = veriler.get("oda_gecici_banlar", {})   # {oda_adi: {kullanici_adi: bitis_zamani}}  (süreli banlar)
 oda_kurma_izni = set(veriler.get("oda_kurma_izni", []))    # oda kurma yetkisi verilmiş kullanıcılar
+oda_ayarlar = veriler.get("oda_ayarlar", {})                # {oda_adi: {yavas_mod_saniye, sadece_davetliler, giris_onayi, maks_kullanici}}
+oda_davetlileri = veriler.get("oda_davetlileri", {})        # {oda_adi: [kullanici_adi, ...]}
+oda_giris_istekleri = veriler.get("oda_giris_istekleri", {}) # {oda_adi: {kullanici_adi: zaman}}
+oda_onayli_girisler = veriler.get("oda_onayli_girisler", {}) # {oda_adi: {kullanici_adi: zaman}} - tek girişlik onaylar
+oda_aktiflik = {}                                           # {kullanici: {oda, zaman}}
 
 if "Genel" not in oda_liderleri:
     oda_liderleri["Genel"] = "Sistem"
+
+ODA_AYAR_VARSAYILANLARI = {
+    "yavas_mod_saniye": 0,
+    "sadece_davetliler": False,
+    "giris_onayi": False,
+    "maks_kullanici": 0,  # 0 = sınırsız
+}
+
+def oda_ayarlarini_al(oda):
+    ayar = oda_ayarlar.get(oda)
+    if not isinstance(ayar, dict):
+        ayar = {}
+    sonuc = dict(ODA_AYAR_VARSAYILANLARI)
+    for anahtar in sonuc:
+        if anahtar in ayar:
+            sonuc[anahtar] = ayar[anahtar]
+    try:
+        sonuc["yavas_mod_saniye"] = max(0, min(3600, int(sonuc.get("yavas_mod_saniye", 0) or 0)))
+    except (TypeError, ValueError):
+        sonuc["yavas_mod_saniye"] = 0
+    sonuc["sadece_davetliler"] = bool(sonuc.get("sadece_davetliler", False))
+    sonuc["giris_onayi"] = bool(sonuc.get("giris_onayi", False))
+    try:
+        sonuc["maks_kullanici"] = max(0, min(500, int(sonuc.get("maks_kullanici", 0) or 0)))
+    except (TypeError, ValueError):
+        sonuc["maks_kullanici"] = 0
+    return sonuc
+
+def oda_ayarlarini_baslat(oda):
+    oda_ayarlar[oda] = oda_ayarlarini_al(oda)
+    oda_davetlileri.setdefault(oda, [])
+    oda_giris_istekleri.setdefault(oda, {})
+    oda_onayli_girisler.setdefault(oda, {})
+
+def oda_mod_yavas_saniye(oda):
+    return oda_ayarlarini_al(oda).get("yavas_mod_saniye", 0)
+
+def oda_yonetici_mi(oda, kullanici):
+    return bool(kullanici) and oda_rolunu_al(oda, kullanici) == "yonetici"
+
+def oda_giris_izni_var_mi(oda, kullanici):
+    if not kullanici:
+        return False
+    if oda == "Genel":
+        return True
+    if oda not in odalar_db or oda_banli_mi(oda, kullanici):
+        return False
+    if oda_lideri_mi(oda, kullanici) or oda_yonetici_mi(oda, kullanici):
+        return True
+    # Bir kez onaylanıp odaya giren kullanıcı, aktif kaldığı oturum boyunca içeride kalır.
+    aktif_bilgi = oda_aktiflik.get(kullanici)
+    if isinstance(aktif_bilgi, dict) and aktif_bilgi.get("oda") == oda:
+        try:
+            if time.time() - float(aktif_bilgi.get("zaman", 0) or 0) < 15:
+                return True
+        except (TypeError, ValueError):
+            pass
+    ayar = oda_ayarlarini_al(oda)
+    if not ayar["sadece_davetliler"] and not ayar["giris_onayi"]:
+        return True
+    return kullanici in oda_davetlileri.get(oda, [])
+
+def oda_aktif_kullanici_sayisi(oda):
+    simdi = time.time()
+    sayi = 0
+    for bilgi in oda_aktiflik.values():
+        if not isinstance(bilgi, dict):
+            continue
+        try:
+            if bilgi.get("oda") == oda and simdi - float(bilgi.get("zaman", 0) or 0) < 15:
+                sayi += 1
+        except (TypeError, ValueError):
+            pass
+    return sayi
+
+def oda_giris_kapasitesi_dolu_mu(oda, kullanici=None):
+    limit = oda_ayarlarini_al(oda).get("maks_kullanici", 0)
+    if limit <= 0:
+        return False
+    aktif = oda_aktif_kullanici_sayisi(oda)
+    mevcut_bu_odada = isinstance(oda_aktiflik.get(kullanici), dict) and oda_aktiflik.get(kullanici, {}).get("oda") == oda
+    return (aktif >= limit) and not mevcut_bu_odada
+
+for _oda_adi in list(odalar_db.keys()):
+    oda_ayarlarini_baslat(_oda_adi)
 
 def oda_rolunu_al(oda, kullanici):
     """Kullanıcının bir odadaki rolünü döndürür: 'lider', 'yonetici' veya 'uye'."""
@@ -1385,6 +1475,10 @@ def oda_olustur_kaydi(oda_adi, kurucu):
     oda_roller[oda_adi] = {}
     oda_yasaklari[oda_adi] = []
     oda_gecici_banlar[oda_adi] = {}
+    oda_ayarlar[oda_adi] = dict(ODA_AYAR_VARSAYILANLARI)
+    oda_davetlileri[oda_adi] = []
+    oda_giris_istekleri[oda_adi] = {}
+    oda_onayli_girisler[oda_adi] = {}
 
 def kullanicinin_oda_sayisi(kullanici):
     """Kullanıcının lideri olduğu özel oda sayısı."""
@@ -1411,6 +1505,10 @@ def oda_kaydini_sil(oda_adi):
     oda_roller.pop(oda_adi, None)
     oda_yasaklari.pop(oda_adi, None)
     oda_gecici_banlar.pop(oda_adi, None)
+    oda_ayarlar.pop(oda_adi, None)
+    oda_davetlileri.pop(oda_adi, None)
+    oda_giris_istekleri.pop(oda_adi, None)
+    oda_onayli_girisler.pop(oda_adi, None)
 
 def oda_kaydini_tasi(eski_oda, yeni_oda):
     if eski_oda in oda_liderleri:
@@ -1421,6 +1519,14 @@ def oda_kaydini_tasi(eski_oda, yeni_oda):
         oda_yasaklari[yeni_oda] = oda_yasaklari.pop(eski_oda)
     if eski_oda in oda_gecici_banlar:
         oda_gecici_banlar[yeni_oda] = oda_gecici_banlar.pop(eski_oda)
+    if eski_oda in oda_ayarlar:
+        oda_ayarlar[yeni_oda] = oda_ayarlar.pop(eski_oda)
+    if eski_oda in oda_davetlileri:
+        oda_davetlileri[yeni_oda] = oda_davetlileri.pop(eski_oda)
+    if eski_oda in oda_giris_istekleri:
+        oda_giris_istekleri[yeni_oda] = oda_giris_istekleri.pop(eski_oda)
+    if eski_oda in oda_onayli_girisler:
+        oda_onayli_girisler[yeni_oda] = oda_onayli_girisler.pop(eski_oda)
 
 def oturum_suresini_guncelle(kullanici, simdi=None):
     """Kullanıcının aktif oturum süresini toplam süreye işler."""
@@ -1487,6 +1593,10 @@ def durumu_kaydet():
             "oda_yasaklari": {k: list(v) for k, v in oda_yasaklari.items()},
             "oda_gecici_banlar": {k: dict(v) for k, v in oda_gecici_banlar.items()},
             "oda_kurma_izni": list(oda_kurma_izni),
+            "oda_ayarlar": {k: dict(v) for k, v in oda_ayarlar.items()},
+            "oda_davetlileri": {k: list(v) for k, v in oda_davetlileri.items()},
+            "oda_giris_istekleri": {k: dict(v) for k, v in oda_giris_istekleri.items()},
+            "oda_onayli_girisler": {k: dict(v) for k, v in oda_onayli_girisler.items()},
             "geri_bildirimler": list(geri_bildirimler),
             "kullanici_kayit_zamani": dict(kullanici_kayit_zamani),
             "kullanici_oturum_toplam_saniye": dict(kullanici_oturum_toplam_saniye),
@@ -2175,7 +2285,7 @@ mesaj_html = """
                 <span class="field-label" id="odaYonetimBaslik">🛡️ Oda Yönetimi</span>
                 <div id="odaYonetimYetkisiz" style="font-size:12px; color:#7a3d3d; display:none;">Bu odada yönetim yetkiniz yok.</div>
                 <div id="odaYonetimIcerik" style="display:none; flex-direction:column; gap:6px;">
-                    <span class="field-label">Kullanıcı Seç</span>
+                    <span class="field-label">👥 Kullanıcı / Rol</span>
                     <select id="odaYonetimHedef"></select>
                     <span class="field-label">Rol</span>
                     <select id="odaYonetimRol">
@@ -2188,7 +2298,42 @@ mesaj_html = """
                     <div class="room-create-btn-row" id="odaLiderYapSatiri" style="display:none;">
                         <button type="button" class="btn-ok" onclick="odaLiderYap()" style="background:linear-gradient(180deg,#f7c948,#c78e1a); border-color:#8a5f10;">👑 Lider Yap</button>
                     </div>
-                    <div id="odaSifreDegistirBlok" style="display:none;">
+
+                    <div style="border-top:1px solid #d7e4ef; margin-top:5px; padding-top:8px;">
+                        <span class="field-label">⚙️ Oda Ayarları</span>
+                        <div id="odaAyarAktifBilgi" style="font-size:11px;color:#556b7f;margin-bottom:6px;">Aktif kullanıcı: 0</div>
+                        <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin:5px 0;">
+                            <input type="checkbox" id="odaAyarYavas"> Yavaş mod
+                        </label>
+                        <input type="number" id="odaAyarYavasSaniye" min="0" max="3600" value="0" placeholder="Yavaş mod saniyesi (0 = kapalı)">
+                        <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin:8px 0 5px;">
+                            <input type="checkbox" id="odaAyarDavet"> Sadece davetliler
+                        </label>
+                        <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin:5px 0;">
+                            <input type="checkbox" id="odaAyarOnay"> Odaya giriş onayı
+                        </label>
+                        <span class="field-label" style="margin-top:6px;">Maksimum kullanıcı (0 = sınırsız)</span>
+                        <input type="number" id="odaAyarMaks" min="0" max="500" value="0">
+                        <div class="room-create-btn-row" style="margin-top:6px;">
+                            <button type="button" class="btn-ok" onclick="odaAyarlariKaydet()">💾 Ayarları Kaydet</button>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #d7e4ef; margin-top:5px; padding-top:8px;">
+                        <span class="field-label">👥 Davetli Kullanıcılar</span>
+                        <select id="odaDavetliHedef"></select>
+                        <div class="room-create-btn-row" style="margin-top:6px;">
+                            <button type="button" class="btn-ok" onclick="odaDavetliDegistir(true)">➕ Davet Et</button>
+                            <button type="button" class="btn-cancel" onclick="odaDavetliDegistir(false)">➖ Daveti Kaldır</button>
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid #d7e4ef; margin-top:5px; padding-top:8px;">
+                        <span class="field-label">📨 Bekleyen Giriş İstekleri</span>
+                        <div id="odaGirisIstekleri" style="font-size:11px;color:#556b7f;">Bekleyen istek yok.</div>
+                    </div>
+
+                    <div id="odaSifreDegistirBlok" style="display:none; border-top:1px solid #d7e4ef; margin-top:5px; padding-top:8px;">
                         <span class="field-label">Oda Şifresini Değiştir (Boş = Şifresiz)</span>
                         <input type="text" id="odaYeniSifre" placeholder="Yeni şifre" maxlength="15">
                         <div class="room-create-btn-row">
@@ -2244,6 +2389,9 @@ mesaj_html = """
         let kullaniciAyarlar = { sesler: true };
         let mentionKullanicilari = [];
         let mentionAcik = false;
+        let odaGirisBekleyen = null;
+        let odaGirisBekleyenSifre = "";
+        let odaGirisBeklemeTimer = null;
 
         function ayarlarYukle() {
             try {
@@ -2595,40 +2743,84 @@ mesaj_html = """
                 });
         }
         
+        function odaGirisBeklemeDurdur() {
+            if (odaGirisBeklemeTimer) {
+                clearInterval(odaGirisBeklemeTimer);
+                odaGirisBeklemeTimer = null;
+            }
+            odaGirisBekleyen = null;
+            odaGirisBekleyenSifre = "";
+        }
+
+        function odaBasariylaAc(oda) {
+            odaGirisBeklemeDurdur();
+            aktifOda = oda;
+            document.getElementById('aktifOdaBaslik').textContent = "📢 " + oda + " Odası";
+            mesajlariGuncelle(true);
+            odaYetkiYukle();
+        }
+
+        function odaGirisBeklemeBaslat(oda, sifre) {
+            odaGirisBeklemeDurdur();
+            odaGirisBekleyen = oda;
+            odaGirisBekleyenSifre = sifre || "";
+            odaGirisBeklemeTimer = setInterval(() => {
+                if (odaGirisBekleyen !== oda) return;
+                fetch('/api/oda_giris_durumu?oda=' + encodeURIComponent(oda), {cache:'no-store'})
+                    .then(r => r.json()).then(durum => {
+                        if (durum.onayli) {
+                            fetch('/api/oda_giris', {
+                                method: 'POST',
+                                headers: {'Content-Type':'application/x-www-form-urlencoded'},
+                                body: 'oda=' + encodeURIComponent(oda) + '&sifre=' + encodeURIComponent(odaGirisBekleyenSifre)
+                            }).then(r => r.json()).then(res => {
+                                if (res.basarili) {
+                                    odaBasariylaAc(oda);
+                                } else if (res.kapasite_dolu) {
+                                    odaGirisBeklemeDurdur();
+                                    document.getElementById('odaSec').value = aktifOda;
+                                    alert('🚫 ' + (res.hata || 'Oda kapasitesi dolu.'));
+                                }
+                            });
+                        } else if (!durum.bekliyor) {
+                            odaGirisBeklemeDurdur();
+                            document.getElementById('odaSec').value = aktifOda;
+                            alert('🚫 Odaya giriş isteğiniz reddedildi veya iptal edildi.');
+                        }
+                    }).catch(() => {});
+            }, 2000);
+        }
+
         function odaDegistir() {
             const sec = document.getElementById('odaSec');
             const secilen = sec.value;
             if(secilen === aktifOda) return;
-            
-            fetch('/api/oda_kontrol?oda=' + encodeURIComponent(secilen))
+
+            fetch('/api/oda_kontrol?oda=' + encodeURIComponent(secilen), {cache:'no-store'})
             .then(r => r.json()).then(data => {
-                if (data.kilitli && secilen !== "Genel") {
-                    const pass = prompt(secilen + " odası şifreli. Şifreyi girin:");
-                    if(pass === null) {
-                        sec.value = aktifOda;
-                        return;
-                    }
-                    fetch('/api/oda_giris', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: 'oda=' + encodeURIComponent(secilen) + '&sifre=' + encodeURIComponent(pass)
-                    }).then(r => r.json()).then(res => {
-                        if(res.basarili) {
-                            aktifOda = secilen;
-                            document.getElementById('aktifOdaBaslik').textContent = "📢 " + secilen + " Odası";
-                            mesajlariGuncelle(true);
-                        } else {
-                            alert("Yanlış şifre!");
-                            sec.value = aktifOda;
-                        }
-                    });
-                } else {
-                    aktifOda = secilen;
-                    document.getElementById('aktifOdaBaslik').textContent = "📢 " + secilen + " Odası";
-                    mesajlariGuncelle(true);
+                let sifre = '';
+                if (data.kilitli && secilen !== 'Genel') {
+                    const pass = prompt(secilen + ' odası şifreli. Şifreyi girin:');
+                    if(pass === null) { sec.value = aktifOda; return; }
+                    sifre = pass;
                 }
-                odaYetkiYukle();
-            });
+                fetch('/api/oda_giris', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+                    body: 'oda=' + encodeURIComponent(secilen) + '&sifre=' + encodeURIComponent(sifre)
+                }).then(r => r.json()).then(res => {
+                    if(res.basarili) {
+                        odaBasariylaAc(secilen);
+                    } else if(res.onay_bekliyor) {
+                        sec.value = aktifOda;
+                        alert('📨 ' + (res.hata || 'Odaya giriş onayı bekleniyor.'));
+                        odaGirisBeklemeBaslat(secilen, sifre);
+                    } else {
+                        sec.value = aktifOda;
+                        alert('🚫 ' + (res.hata || 'Odaya giriş yapılamadı.'));
+                    }
+                });
+            }).catch(() => { sec.value = aktifOda; alert('⚠️ Oda bilgileri alınamadı.'); });
         }
 
         // ==================== ODA LİDERLİK / ROL / YETKİ PANELİ ====================
@@ -2640,7 +2832,7 @@ mesaj_html = """
         }
 
         function odaYetkiYukle() {
-            fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda))
+            fetch('/api/oda_yetki?oda=' + encodeURIComponent(aktifOda), {cache:'no-store'})
                 .then(r => r.json())
                 .then(data => {
                     document.getElementById('odaYonetimBaslik').textContent = "🛡️ " + aktifOda + " Odası — Lider: " + (data.lider || "-");
@@ -2661,12 +2853,47 @@ mesaj_html = """
                             opt.value = u.isim;
                             let etiket = u.isim;
                             if (u.isim === data.lider) etiket += " (Lider)";
-                            else if (u.rol === "yonetici") etiket += " (Yönetici)";
+                            else if (u.rol === "yonetici") etiket += " (Moderatör)";
                             if (u.banli) etiket += u.ban_kalan_dk ? ` (Banlı: ${u.ban_kalan_dk}dk)` : " (Atılmış)";
                             opt.textContent = etiket;
                             if (u.isim === secili) opt.selected = true;
                             hedefSec.appendChild(opt);
                         });
+
+                        const davetSec = document.getElementById('odaDavetliHedef');
+                        const davetSecili = davetSec.value;
+                        davetSec.innerHTML = '';
+                        (data.uyeler || []).forEach(u => {
+                            if (u.isim === "{{ kullanici }}") return;
+                            const opt = document.createElement('option');
+                            opt.value = u.isim;
+                            opt.textContent = u.isim + ((data.davetliler || []).includes(u.isim) ? ' ✅ Davetli' : '');
+                            if (u.isim === davetSecili) opt.selected = true;
+                            davetSec.appendChild(opt);
+                        });
+
+                        const ayar = data.ayarlar || {};
+                        document.getElementById('odaAyarYavas').checked = !!ayar.yavas_mod_saniye;
+                        document.getElementById('odaAyarYavasSaniye').value = Number(ayar.yavas_mod_saniye || 0);
+                        document.getElementById('odaAyarDavet').checked = !!ayar.sadece_davetliler;
+                        document.getElementById('odaAyarOnay').checked = !!ayar.giris_onayi;
+                        document.getElementById('odaAyarMaks').value = Number(ayar.maks_kullanici || 0);
+                        document.getElementById('odaAyarAktifBilgi').textContent = 'Aktif kullanıcı: ' + (data.aktif_kullanici || 0) + (Number(ayar.maks_kullanici || 0) ? ' / ' + ayar.maks_kullanici : ' / sınırsız');
+
+                        const istekKutu = document.getElementById('odaGirisIstekleri');
+                        const istekler = data.giris_istekleri || [];
+                        if (!istekler.length) {
+                            istekKutu.textContent = 'Bekleyen istek yok.';
+                        } else {
+                            istekKutu.innerHTML = istekler.map(i => `
+                                <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;border:1px solid #d7e4ef;border-radius:5px;padding:5px;margin:4px 0;background:#fbfdff;">
+                                    <span><b>${escapeHtml(i.isim)}</b><br><small>${escapeHtml(i.zaman_gorunum || '')}</small></span>
+                                    <span style="display:flex;gap:4px;">
+                                        <button type="button" class="btn-ok" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',true)">✅</button>
+                                        <button type="button" class="btn-cancel" style="padding:4px 6px;" onclick="odaGirisIstekCevap('${encodeURIComponent(i.isim)}',false)">❌</button>
+                                    </span>
+                                </div>`).join('');
+                        }
 
                         document.getElementById('odaLiderYapSatiri').style.display = data.lider_mi ? 'flex' : 'none';
                         document.getElementById('odaSifreDegistirBlok').style.display = data.lider_mi ? 'block' : 'none';
@@ -2677,6 +2904,48 @@ mesaj_html = """
                     }
                 })
                 .catch(err => console.log(err));
+        }
+
+        function odaAyarlariKaydet() {
+            const yavasAktif = document.getElementById('odaAyarYavas').checked;
+            const yavas = yavasAktif ? Number(document.getElementById('odaAyarYavasSaniye').value || 0) : 0;
+            const maks = Number(document.getElementById('odaAyarMaks').value || 0);
+            if (!Number.isInteger(yavas) || yavas < 0 || yavas > 3600) { alert('⚠️ Yavaş mod 0-3600 saniye arasında olmalı.'); return; }
+            if (!Number.isInteger(maks) || maks < 0 || maks > 500) { alert('⚠️ Maksimum kullanıcı 0-500 arasında olmalı.'); return; }
+            const fd = new URLSearchParams();
+            fd.set('oda', aktifOda);
+            fd.set('yavas_mod_saniye', String(yavas));
+            fd.set('sadece_davetliler', document.getElementById('odaAyarDavet').checked ? '1' : '0');
+            fd.set('giris_onayi', document.getElementById('odaAyarOnay').checked ? '1' : '0');
+            fd.set('maks_kullanici', String(maks));
+            fetch('/api/oda_ayar_guncelle', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
+                .then(r=>r.json()).then(res=>{
+                    if(res.basarili){ alert('✅ Oda ayarları kaydedildi.'); odaYetkiYukle(); odalariGuncelle(); }
+                    else alert('⚠️ ' + (res.hata || 'Ayarlar kaydedilemedi.'));
+                }).catch(()=>alert('⚠️ Oda ayarları kaydedilirken bağlantı hatası oluştu.'));
+        }
+
+        function odaDavetliDegistir(izin) {
+            const hedef = document.getElementById('odaDavetliHedef').value;
+            if (!hedef) return;
+            const fd = new URLSearchParams();
+            fd.set('oda', aktifOda); fd.set('hedef', hedef); fd.set('izin', izin ? '1' : '0');
+            fetch('/api/oda_davetli', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
+                .then(r=>r.json()).then(res=>{
+                    if(res.basarili) odaYetkiYukle();
+                    else alert('⚠️ ' + (res.hata || 'Davet işlemi başarısız.'));
+                });
+        }
+
+        function odaGirisIstekCevap(hedefKod, onay) {
+            const hedef = decodeURIComponent(hedefKod);
+            const fd = new URLSearchParams();
+            fd.set('oda', aktifOda); fd.set('hedef', hedef); fd.set('cevap', onay ? 'onay' : 'red');
+            fetch('/api/oda_giris_istegi_cevap', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
+                .then(r=>r.json()).then(res=>{
+                    if(res.basarili) odaYetkiYukle();
+                    else alert('⚠️ ' + (res.hata || 'İstek işlenemedi.'));
+                });
         }
 
         function odaRolVer() {
@@ -3514,6 +3783,15 @@ def hesap_sil():
                 except ValueError:
                     pass
             oda_gecici_banlar.get(oda_adi, {}).pop(kullanici, None)
+            if kullanici in oda_davetlileri.get(oda_adi, []):
+                try:
+                    oda_davetlileri[oda_adi].remove(kullanici)
+                except ValueError:
+                    pass
+            oda_giris_istekleri.get(oda_adi, {}).pop(kullanici, None)
+            oda_onayli_girisler.get(oda_adi, {}).pop(kullanici, None)
+
+        oda_aktiflik.pop(kullanici, None)
 
         for msg in sohbet_gecmisi:
             if msg.get("gonderen") == kullanici:
@@ -3773,7 +4051,18 @@ def sikayet_olustur():
 
 @app.route("/api/odalar", methods=["GET"])
 def get_odalar():
-    return jsonify([{"ad": k, "kilitli": bool(v)} for k, v in odalar_db.items()])
+    liste = []
+    for k, v in odalar_db.items():
+        ayar = oda_ayarlarini_al(k)
+        liste.append({
+            "ad": k,
+            "kilitli": bool(v),
+            "sadece_davetliler": ayar["sadece_davetliler"],
+            "giris_onayi": ayar["giris_onayi"],
+            "maks_kullanici": ayar["maks_kullanici"],
+            "aktif_kullanici": oda_aktif_kullanici_sayisi(k),
+        })
+    return jsonify(liste)
 
 @app.route("/api/oda_olustur", methods=["POST"])
 def post_oda_olustur():
@@ -3863,23 +4152,176 @@ def get_oda_izin_durumu():
 def get_oda_kontrol():
     oda = request.args.get("oda", "Genel")
     kullanici = session.get("kullanici")
-    # Odanın lideri (veya sistem Sistem'i) kendi odasına şifresiz girebilir
-    kilitli = bool(odalar_db.get(oda, "")) and not oda_lideri_mi(oda, kullanici)
-    return jsonify({"kilitli": kilitli})
+    ayar = oda_ayarlarini_al(oda)
+    lider = oda_lideri_mi(oda, kullanici)
+    yonetici = oda_yonetici_mi(oda, kullanici)
+    davetli = bool(kullanici and kullanici in oda_davetlileri.get(oda, []))
+    return jsonify({
+        "kilitli": bool(odalar_db.get(oda, "")) and not (lider or yonetici),
+        "sadece_davetliler": ayar["sadece_davetliler"],
+        "giris_onayi": ayar["giris_onayi"],
+        "maks_kullanici": ayar["maks_kullanici"],
+        "aktif_kullanici": oda_aktif_kullanici_sayisi(oda),
+        "davetli": davetli,
+        "izinli": oda_giris_izni_var_mi(oda, kullanici),
+    })
 
 @app.route("/api/oda_giris", methods=["POST"])
 def post_oda_giris():
-    oda = request.form.get("oda")
+    oda = request.form.get("oda", "").strip()
     sifre = request.form.get("sifre", "")
     kullanici = session.get("kullanici")
-    if kullanici and oda_banli_mi(oda, kullanici):
+    if not kullanici:
+        return jsonify({"basarili": False, "hata": "Önce giriş yapmalısınız."})
+    if oda not in odalar_db:
+        return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
+    if oda_banli_mi(oda, kullanici):
         return jsonify({"basarili": False, "hata": "Bu odadan atıldınız."})
-    # Oda lideri (veya sistem Sistem'i) şifreyi bilmese de kendi odasına girebilir
-    if kullanici and oda_lideri_mi(oda, kullanici):
-        return jsonify({"basarili": True})
-    if odalar_db.get(oda) == sifre:
-        return jsonify({"basarili": True})
-    return jsonify({"basarili": False})
+
+    ayar = oda_ayarlarini_al(oda)
+    lider = oda_lideri_mi(oda, kullanici)
+    yonetici = oda_yonetici_mi(oda, kullanici)
+    davetli = kullanici in oda_davetlileri.get(oda, [])
+
+    # Mevcut oda şifresi davranışı korunur; lider/moderatör kendi yönetim odasına şifresiz girebilir.
+    if not lider and not yonetici and odalar_db.get(oda) != sifre:
+        return jsonify({"basarili": False, "hata": "Yanlış şifre!"})
+
+    # Giriş onayı daha önce verildiyse bu giriş tek seferlik olarak kabul edilir.
+    onayli_kayit = oda_onayli_girisler.get(oda, {}).get(kullanici)
+    onayli_giris = False
+    if onayli_kayit:
+        try:
+            onayli_giris = time.time() - float(onayli_kayit) < 120
+        except (TypeError, ValueError):
+            onayli_giris = False
+        if not onayli_giris:
+            oda_onayli_girisler.get(oda, {}).pop(kullanici, None)
+
+    if not lider and not yonetici and not onayli_giris:
+        if ayar["sadece_davetliler"] and not davetli:
+            if ayar["giris_onayi"]:
+                with veri_kilidi:
+                    oda_giris_istekleri.setdefault(oda, {})[kullanici] = time.time()
+                durumu_kaydet()
+                return jsonify({"basarili": False, "onay_bekliyor": True, "hata": "Odaya giriş isteğiniz gönderildi. Lider veya moderatör onayı bekleniyor."})
+            return jsonify({"basarili": False, "hata": "Bu oda sadece davetlilere açık."})
+        if ayar["giris_onayi"] and not davetli:
+            with veri_kilidi:
+                oda_giris_istekleri.setdefault(oda, {})[kullanici] = time.time()
+            durumu_kaydet()
+            return jsonify({"basarili": False, "onay_bekliyor": True, "hata": "Odaya giriş isteğiniz gönderildi. Lider veya moderatör onayı bekleniyor."})
+
+    if oda_giris_kapasitesi_dolu_mu(oda, kullanici):
+        return jsonify({"basarili": False, "kapasite_dolu": True, "hata": f"Oda kapasitesi dolu. Maksimum {ayar['maks_kullanici']} kullanıcı alınabilir."})
+
+    oda_giris_istekleri.get(oda, {}).pop(kullanici, None)
+    oda_onayli_girisler.get(oda, {}).pop(kullanici, None)
+    oda_aktiflik[kullanici] = {"oda": oda, "zaman": time.time()}
+    return jsonify({"basarili": True})
+
+@app.route("/api/oda_giris_durumu", methods=["GET"])
+def get_oda_giris_durumu():
+    kullanici = session.get("kullanici")
+    oda = request.args.get("oda", "").strip()
+    if not kullanici or not oda:
+        return jsonify({"bekliyor": False})
+    with veri_kilidi:
+        bekliyor = kullanici in oda_giris_istekleri.get(oda, {})
+        davetli = kullanici in oda_davetlileri.get(oda, [])
+        onayli = False
+        kayit = oda_onayli_girisler.get(oda, {}).get(kullanici)
+        if kayit:
+            try:
+                onayli = time.time() - float(kayit) < 120
+            except (TypeError, ValueError):
+                onayli = False
+    return jsonify({"bekliyor": bekliyor, "davetli": davetli, "onayli": onayli})
+
+@app.route("/api/oda_ayar_guncelle", methods=["POST"])
+def post_oda_ayar_guncelle():
+    if "kullanici" not in session:
+        return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
+    kullanici = session["kullanici"]
+    oda = request.form.get("oda", "Genel").strip()
+    if oda not in odalar_db:
+        return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
+    if not oda_yonetebilir_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Bu ayarları yalnızca oda lideri veya moderatör değiştirebilir."})
+    try:
+        yavas = max(0, min(3600, int(request.form.get("yavas_mod_saniye", "0") or 0)))
+    except (TypeError, ValueError):
+        return jsonify({"basarili": False, "hata": "Yavaş mod saniyesi geçersiz."})
+    try:
+        maks = max(0, min(500, int(request.form.get("maks_kullanici", "0") or 0)))
+    except (TypeError, ValueError):
+        return jsonify({"basarili": False, "hata": "Maksimum kullanıcı sayısı geçersiz."})
+    sadece_davetliler = request.form.get("sadece_davetliler") == "1"
+    giris_onayi = request.form.get("giris_onayi") == "1"
+    with veri_kilidi:
+        oda_ayarlar[oda] = {
+            "yavas_mod_saniye": yavas,
+            "sadece_davetliler": sadece_davetliler,
+            "giris_onayi": giris_onayi,
+            "maks_kullanici": maks,
+        }
+    log_ekle(f"'{kullanici}', '{oda}' oda ayarlarını güncelledi: yavaş={yavas}s, davetli={sadece_davetliler}, onay={giris_onayi}, limit={maks or 'sınırsız'}.")
+    durumu_kaydet()
+    return jsonify({"basarili": True, "ayarlar": oda_ayarlarini_al(oda), "aktif_kullanici": oda_aktif_kullanici_sayisi(oda)})
+
+@app.route("/api/oda_davetli", methods=["POST"])
+def post_oda_davetli():
+    if "kullanici" not in session:
+        return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
+    kullanici = session["kullanici"]
+    oda = request.form.get("oda", "").strip()
+    hedef = request.form.get("hedef", "").strip()
+    izin = request.form.get("izin", "1") == "1"
+    if oda not in odalar_db:
+        return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
+    if not oda_yonetebilir_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Davetli listesini yalnızca oda lideri veya moderatör değiştirebilir."})
+    if hedef not in kullanici_db or hedef == "Sistem":
+        return jsonify({"basarili": False, "hata": "Kullanıcı bulunamadı."})
+    with veri_kilidi:
+        oda_davetlileri.setdefault(oda, [])
+        if izin:
+            if hedef not in oda_davetlileri[oda]:
+                oda_davetlileri[oda].append(hedef)
+            oda_giris_istekleri.get(oda, {}).pop(hedef, None)
+        else:
+            while hedef in oda_davetlileri[oda]:
+                oda_davetlileri[oda].remove(hedef)
+    log_ekle(f"'{kullanici}', '{oda}' odasında '{hedef}' davetli listesinden {'eklendi' if izin else 'çıkarıldı'}.")
+    durumu_kaydet()
+    return jsonify({"basarili": True, "davetli": hedef in oda_davetlileri.get(oda, [])})
+
+@app.route("/api/oda_giris_istegi_cevap", methods=["POST"])
+def post_oda_giris_istegi_cevap():
+    if "kullanici" not in session:
+        return jsonify({"basarili": False, "hata": "Giriş yapmalısınız."})
+    kullanici = session["kullanici"]
+    oda = request.form.get("oda", "").strip()
+    hedef = request.form.get("hedef", "").strip()
+    cevap = request.form.get("cevap", "red").strip()
+    if oda not in odalar_db:
+        return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
+    if not oda_yonetebilir_mi(oda, kullanici):
+        return jsonify({"basarili": False, "hata": "Giriş isteklerini yalnızca oda lideri veya moderatör yönetebilir."})
+    if cevap not in ("onay", "red"):
+        return jsonify({"basarili": False, "hata": "Geçersiz cevap."})
+    if hedef not in oda_giris_istekleri.get(oda, {}):
+        return jsonify({"basarili": False, "hata": "Bu kullanıcının bekleyen isteği yok."})
+    with veri_kilidi:
+        oda_giris_istekleri.setdefault(oda, {}).pop(hedef, None)
+        if cevap == "onay":
+            oda_onayli_girisler.setdefault(oda, {})[hedef] = time.time()
+            if oda_ayarlarini_al(oda)["sadece_davetliler"] and hedef not in oda_davetlileri.setdefault(oda, []):
+                # Sadece davetliler modu açıksa onay aynı zamanda kalıcı davet hakkı verir.
+                oda_davetlileri[oda].append(hedef)
+    log_ekle(f"'{kullanici}', '{oda}' odasına '{hedef}' giriş isteğini {'onayladı' if cevap == 'onay' else 'reddetti'}.")
+    durumu_kaydet()
+    return jsonify({"basarili": True, "onay": cevap == "onay"})
 
 @app.route("/api/oda_sifre_degistir", methods=["POST"])
 def post_oda_sifre_degistir():
@@ -3952,6 +4394,12 @@ def get_oda_yetki():
             "ban_kalan_dk": oda_gecici_ban_kalan_dk(oda, isim)
         })
 
+    ayar = oda_ayarlarini_al(oda)
+    davetliler = set(oda_davetlileri.get(oda, []))
+    giris_istekleri = [
+        {"isim": isim, "zaman": zaman, "zaman_gorunum": _admin_guvenli_zaman(zaman)}
+        for isim, zaman in sorted(oda_giris_istekleri.get(oda, {}).items(), key=lambda item: float(item[1] or 0))
+    ]
     return jsonify({
         "oda": oda,
         "rol": oda_rolunu_al(oda, kullanici),
@@ -3962,6 +4410,10 @@ def get_oda_yetki():
         "oda_sayisi": kullanicinin_oda_sayisi(kullanici),
         "oda_limiti": MAKS_OZEL_ODA,
         "oda_istegi_bekliyor": kullanici in oda_izin_istekleri,
+        "ayarlar": ayar,
+        "aktif_kullanici": oda_aktif_kullanici_sayisi(oda),
+        "davetliler": sorted(davetliler, key=lambda x: str(x).lower()),
+        "giris_istekleri": giris_istekleri,
         "uyeler": uyeler
     })
 
@@ -4154,7 +4606,20 @@ def get_mesajlar():
         return jsonify({"mesajlar": [], "sabit_duyuru": sabit_duyuru, "oda_banli": False, "zorunlu_sorgu": True})
 
     if kullanici:
-        son_aktiflik[kullanici] = time.time()
+        simdi = time.time()
+        son_aktiflik[kullanici] = simdi
+        if aktif_oda != "Genel" and not oda_giris_izni_var_mi(aktif_oda, kullanici):
+            return jsonify({
+                "mesajlar": [],
+                "sabit_duyuru": sabit_duyuru,
+                "oda_banli": oda_banli_mi(aktif_oda, kullanici),
+                "oda_erisim_yok": True,
+                "oda_ayar": oda_ayarlarini_al(aktif_oda)
+            })
+        oda_aktiflik[kullanici] = {"oda": aktif_oda, "zaman": simdi}
+        oda_ayari = oda_ayarlarini_al(aktif_oda)
+    else:
+        oda_ayari = oda_ayarlarini_al(aktif_oda)
         
     filtrelenmis = []
     for m in sohbet_gecmisi:
@@ -4168,7 +4633,7 @@ def get_mesajlar():
             filtrelenmis.append(m)
 
     oda_banli = oda_banli_mi(aktif_oda, kullanici) if kullanici else False
-    return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "oda_banli": oda_banli})
+    return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "oda_banli": oda_banli, "oda_ayar": oda_ayari, "aktif_kullanici": oda_aktif_kullanici_sayisi(aktif_oda)})
 
 @app.route("/api/mesaj_sil", methods=["POST"])
 def post_mesaj_sil():
@@ -4240,14 +4705,24 @@ def post_gonder():
             
         oda = request.form.get("oda", "Genel").strip()
 
+        if oda not in odalar_db:
+            return "Oda bulunamadı.", 403
+        if not oda_giris_izni_var_mi(oda, kullanici):
+            return "Bu odaya giriş yetkiniz yok.", 403
         if oda_banli_mi(oda, kullanici):
             return "Bu odadan atıldınız.", 403
+        if oda != "Genel" and oda_giris_kapasitesi_dolu_mu(oda, kullanici):
+            return "Oda kapasitesi dolu.", 403
+        oda_aktiflik[kullanici] = {"oda": oda, "zaman": simdi}
 
-        if yavas_mod_saniye > 0 and kullanici != "Sistem":
-            son_z = son_mesaj_zamani.get(kullanici, 0)
+        oda_yavas = oda_mod_yavas_saniye(oda)
+        if oda_yavas <= 0 and oda == "Genel":
+            oda_yavas = yavas_mod_saniye
+        if oda_yavas > 0 and kullanici != "Sistem":
+            son_z = son_mesaj_zamani.get((kullanici, oda), 0)
             fark = simdi - son_z
-            if fark < yavas_mod_saniye:
-                kalan = int(yavas_mod_saniye - fark) + 1
+            if fark < oda_yavas:
+                kalan = int(oda_yavas - fark) + 1
                 return f"Yavaş Mod aktif! Lütfen {kalan} saniye bekleyin.", 403
 
         if kullanici in susturulanlar:
@@ -4285,7 +4760,7 @@ def post_gonder():
             sohbet_gecmisi.append(veri)
             mesaj_kuyrugu.put(veri)
             yaziyor_durumu.pop(kullanici, None)
-            son_mesaj_zamani[kullanici] = simdi
+            son_mesaj_zamani[(kullanici, oda)] = simdi
 
     return "OK", 200
 
@@ -4755,6 +5230,14 @@ def sistem_yonetim_penceresi():
                         yasakli_liste.remove(k_isim)
                 for gecici_liste in oda_gecici_banlar.values():
                     gecici_liste.pop(k_isim, None)
+                for davetli_liste in oda_davetlileri.values():
+                    while k_isim in davetli_liste:
+                        davetli_liste.remove(k_isim)
+                for istek_liste in oda_giris_istekleri.values():
+                    istek_liste.pop(k_isim, None)
+                for onay_liste in oda_onayli_girisler.values():
+                    onay_liste.pop(k_isim, None)
+                oda_aktiflik.pop(k_isim, None)
                 log_ekle(f"Kullanıcı hesabı tamamen silindi: '{k_isim}'")
                 guncelle_veriler(zorla=True)
 
@@ -4916,6 +5399,21 @@ def sistem_yonetim_penceresi():
                 for gecici_liste in oda_gecici_banlar.values():
                     if eski_isim in gecici_liste:
                         gecici_liste[yeni_isim] = gecici_liste.pop(eski_isim)
+                for davetli_liste in oda_davetlileri.values():
+                    if eski_isim in davetli_liste:
+                        while yeni_isim in davetli_liste:
+                            davetli_liste.remove(yeni_isim)
+                        for i, isim in enumerate(davetli_liste):
+                            if isim == eski_isim:
+                                davetli_liste[i] = yeni_isim
+                for istek_liste in oda_giris_istekleri.values():
+                    if eski_isim in istek_liste:
+                        istek_liste[yeni_isim] = istek_liste.pop(eski_isim)
+                for onay_liste in oda_onayli_girisler.values():
+                    if eski_isim in onay_liste:
+                        onay_liste[yeni_isim] = onay_liste.pop(eski_isim)
+                if eski_isim in oda_aktiflik:
+                    oda_aktiflik[yeni_isim] = oda_aktiflik.pop(eski_isim)
                 if eski_isim in oda_kurma_izni:
                     oda_kurma_izni.discard(eski_isim)
                     oda_kurma_izni.add(yeni_isim)
