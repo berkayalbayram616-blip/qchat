@@ -679,7 +679,7 @@ def admin_chat_api():
 
 @app.route("/admin/islem", methods=["POST"])
 def admin_islem():
-    global bakim_modu, yavas_mod_saniye, sabit_duyuru, kufur_filtresi
+    global bakim_modu, yavas_mod_saniye, sabit_duyuru, kufur_filtresi, aktif_siren
 
     if not admin_giris_gerekli():
         return redirect("/admin")
@@ -901,10 +901,16 @@ def admin_islem():
                 kufur_filtresi = not kufur_filtresi
                 log_ekle(f"Küfür filtresi {'açıldı' if kufur_filtresi else 'kapatıldı'}.")
             elif islem == "alarm":
-                metin = (request.form.get("metin") or "").strip()
+                metin = (request.form.get("metin") or "").strip()[:300]
                 if metin:
-                    sohbet_gecmisi.append({"gonderen":"📢 ALARM","mesaj":metin,"alici":"Genel","oda":"Genel","zaman":time.time()})
-                    log_ekle(f"🚨 Sitede sesli alarm tetiklendi: '{metin}'")
+                    simdi = time.time()
+                    aktif_siren = {
+                        "id": secrets.token_hex(10),
+                        "mesaj": metin,
+                        "baslangic": simdi,
+                        "bitis": simdi + 3
+                    }
+                    log_ekle(f"🚨 Web sireni tetiklendi: '{metin}' (3 saniye)")
             elif islem == "temizle":
                 sohbet_gecmisi.clear()
                 log_ekle("Sohbet geçmişi temizlendi.")
@@ -987,6 +993,7 @@ SIKAYET_NEDENLERI = [
     "Küfür",
     "Taciz",
     "Uygunsuz davranış",
+    "Uygunsuz rol adı",
     "Spam",
     "Hakaret",
     "Tehdit / güvenlik",
@@ -1022,6 +1029,8 @@ bakim_modu = bool(veriler.get("bakim_modu", False))
 yavas_mod_saniye = int(veriler.get("yavas_mod_saniye", 0) or 0)
 kufur_filtresi = bool(veriler.get("kufur_filtresi", False))
 sabit_duyuru = veriler.get("sabit_duyuru", "") or ""
+# Web tarafında geçici siren uyarısı. Sohbet geçmişine yazılmaz; yalnızca 3 saniye yayınlanır.
+aktif_siren = None
 zorla_cikis = set()
 
 # ==================== ZORUNLU SORGU / GÖRÜŞME SİSTEMİ ====================
@@ -2157,6 +2166,27 @@ mesaj_html = """
         .room-modal-overlay #odaYonetimPanel {
             width: min(720px, calc(100vw - 40px));
         }
+        .siren-overlay {
+            position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+            background: rgba(8, 16, 28, .52); z-index: 30000; padding: 18px;
+        }
+        .siren-overlay.open { display: flex; }
+        .siren-card {
+            width: min(560px, 94vw); background: #fff; border: 2px solid #a51d1d; border-radius: 12px;
+            box-shadow: 0 22px 80px rgba(0,0,0,.42); overflow: hidden; text-align: center;
+            animation: sirenPop .15s ease-out;
+        }
+        .siren-head { padding: 13px 16px; background: linear-gradient(180deg,#ef7777,#b91c1c); color:#fff; font-size:18px; font-weight:800; }
+        .siren-body { padding: 24px 22px 18px; color:#1f2937; }
+        .siren-message { font-size:18px; font-weight:800; line-height:1.45; word-break:break-word; }
+        .siren-timer { margin-top:10px; font-size:12px; color:#6b7280; }
+        .siren-progress { height:6px; background:#f1f5f9; }
+        .siren-progress i { display:block; height:100%; width:100%; background:#dc2626; transform-origin:left; animation:sirenProgress 3s linear forwards; }
+        @keyframes sirenPop { from{transform:scale(.97);opacity:.4} to{transform:scale(1);opacity:1} }
+        @keyframes sirenProgress { from{transform:scaleX(1)} to{transform:scaleX(0)} }
+        @keyframes sirenBlink { 50%{box-shadow:0 0 0 4px rgba(220,38,38,.14), 0 22px 80px rgba(0,0,0,.42)} }
+        .siren-card { animation:sirenPop .15s ease-out, sirenBlink .7s ease-in-out 0s 4; }
+
         .room-create-panel .field-label { font-size: 11.5px; font-weight: 700; color: #3a5a7a; }
         .room-create-panel input {
             width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px;
@@ -2405,6 +2435,10 @@ mesaj_html = """
         .desktop-mode #odaYonetimPanel, .desktop-mode #odaKurPanel {
             box-shadow:0 10px 30px rgba(48,83,117,.14); border-radius:8px;
         }
+        .oda-istek-badge {
+            display:inline-block; min-width:18px; padding:1px 5px; margin-left:4px; border-radius:999px;
+            background:#c0392b; color:#fff; font-size:10px; line-height:16px; text-align:center; vertical-align:middle;
+        }
         .desktop-mode .typing-indicator { height:20px; }
         @media (max-width: 900px) {
             .desktop-mode { padding:0; }
@@ -2432,7 +2466,7 @@ mesaj_html = """
                 <div class="desktop-room-list" id="desktopRoomList"></div>
                 <div class="desktop-side-actions">
                     <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
-                    <button type="button" class="small-btn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
+                    <button type="button" class="small-btn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi <span id="odaIstekBadge" class="oda-istek-badge" style="display:none;">0</span></button>
                     <button type="button" class="small-btn" onclick="dmPenceresiAc();" style="background:linear-gradient(180deg,#6aa9e8,#2f72b6); border-color:#1c4f82;">💬 DM</button>
                 </div>
                 <div class="desktop-side-footer"><a href="/cikis">🚪 Çıkış Yap</a></div>
@@ -2454,12 +2488,7 @@ mesaj_html = """
                 <div class="settings-card">
                     <div class="settings-title">⚙️ Ayarlar</div>
                     <div class="settings-body">
-                        <div class="settings-row">
-                            <label><input type="checkbox" id="ayarSesler"> Sesler</label>
-                        </div>
-                        <div class="settings-actions">
-                            <button type="button" class="small-btn" onclick="ayarlarKaydet()">Kaydet</button>
-                            <button type="button" class="small-btn" onclick="ayarlarSifirla()">Sıfırla</button>
+                        <div class="settings-actions" style="justify-content:flex-end;">
                             <button type="button" class="small-btn" onclick="ayarlarPenceresiKapat()">Kapat</button>
                         </div>
                         <div class="settings-row" style="flex-direction:column; align-items:flex-start; gap:6px; border-top:1px solid #d7e4ef; padding-top:10px;">
@@ -2483,7 +2512,7 @@ mesaj_html = """
                     <select id="odaSec" onchange="odaDegistir()"><option value="Genel">Genel</option></select>
                 </div>
                 <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
-                <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
+                <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi <span class="oda-istek-badge oda-istek-badge-2" style="display:none;">0</span></button>
                 <button type="button" class="small-btn" onclick="dmPenceresiAc();" style="background:linear-gradient(180deg,#6aa9e8,#2f72b6); border-color:#1c4f82;">💬 DM</button>
             </div>
 
@@ -2509,10 +2538,15 @@ mesaj_html = """
                     <span class="field-label">👥 Kullanıcı / Rol</span>
                     <select id="odaYonetimHedef"></select>
                     <span class="field-label">Rol</span>
-                    <select id="odaYonetimRol">
+                    <select id="odaYonetimRol" onchange="odaOzelRolAlaniniGuncelle()">
                         <option value="yonetici">Yönetici / Moderatör</option>
+                        <option value="ozel">✨ Özel Rol</option>
                         <option value="uye">Sıradan Üye</option>
                     </select>
+                    <div id="odaOzelRolBlok" style="display:none;">
+                        <span class="field-label">Özel rol ismi</span>
+                        <input type="text" id="odaOzelRolAdi" maxlength="24" placeholder="Örn: Etkinlik Sorumlusu">
+                    </div>
                     <div class="room-create-btn-row">
                         <button type="button" class="btn-ok" onclick="odaRolVer()">Rol Ver</button>
                     </div>
@@ -2571,6 +2605,30 @@ mesaj_html = """
             </div>
             </div>
 
+            <div class="room-modal-overlay" id="odaSifreOverlay" onclick="odaSifreDis(event)">
+                <div class="room-create-panel" id="odaSifrePanel" style="width:min(420px,calc(100vw - 40px));">
+                    <span class="field-label" id="odaSifreBaslik">🔐 Oda Şifresi</span>
+                    <div id="odaSifreAciklama" style="font-size:12px;color:#556b7f;margin-bottom:7px;">Bu oda şifreli.</div>
+                    <input type="password" id="odaSifreInput" maxlength="15" placeholder="Oda şifresini girin" autocomplete="off">
+                    <div id="odaSifreHata" style="display:none;font-size:11px;color:#a4141a;background:#fff0ee;border:1px solid #e5b2ad;border-radius:5px;padding:7px;margin-bottom:7px;"></div>
+                    <div class="room-create-btn-row">
+                        <button type="button" class="btn-ok" onclick="odaSifreOnayla()">🔓 Odaya Gir</button>
+                        <button type="button" class="btn-cancel" onclick="odaSifreKapat();">İptal</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="siren-overlay" id="sirenOverlay">
+                <div class="siren-card">
+                    <div class="siren-head">🚨 UYARI SİRENİ</div>
+                    <div class="siren-body">
+                        <div class="siren-message" id="sirenMessage"></div>
+                        <div class="siren-timer">Bu uyarı 3 saniye sonra kapanır.</div>
+                    </div>
+                    <div class="siren-progress"><i id="sirenProgress"></i></div>
+                </div>
+            </div>
+
             <select id="aliciSec" style="display:none;">
                 <option value="Genel">📢 Odadaki Herkes</option>
             </select>
@@ -2624,50 +2682,23 @@ mesaj_html = """
         let audioCtx = null;
         let aktifOda = "Genel";
         let yanitHedefi = null;
-        const AYARLAR_KEY = "qchat_ayarlar";
+        // Bildirim sesleri arka planda mevcut davranışını korur; ayarlarda artık ayrıca seçenek bulunmaz.
         let kullaniciAyarlar = { sesler: true };
         let mentionKullanicilari = [];
         let mentionAcik = false;
         let odaGirisBekleyen = null;
         let odaGirisBekleyenSifre = "";
         let odaGirisBeklemeTimer = null;
+        let odaYonetimIstekTimer = null;
+        let odaSifreCallback = null;
+        let odaSifreIstenen = "";
+        let sonSirenId = null;
+        let sirenTimer = null;
         let aktifDM = null;
         let dmKullanicilari = [];
         const oturumKullanici = {{ kullanici|tojson }};
 
-        // Sayfa açıldığında hem telefon seçicisini hem bilgisayar kenar çubuğunu doldururuz.
-        function ayarlarYukle() {
-            try {
-                const ham = localStorage.getItem(AYARLAR_KEY);
-                if (ham) {
-                    const kayitli = JSON.parse(ham);
-                    kullaniciAyarlar.sesler = kayitli.sesler !== false;
-                }
-            } catch (e) {}
-            ayarlarUygula();
-        }
-
-        function ayarlarUygula() {
-            const ses = document.getElementById('ayarSesler');
-            if (ses) ses.checked = kullaniciAyarlar.sesler;
-        }
-
-        function ayarlarKaydet() {
-            const ses = document.getElementById('ayarSesler');
-            kullaniciAyarlar.sesler = !!(ses && ses.checked);
-            try { localStorage.setItem(AYARLAR_KEY, JSON.stringify(kullaniciAyarlar)); } catch (e) {}
-            ayarlarUygula();
-            ayarlarPenceresiKapat();
-        }
-
-        function ayarlarSifirla() {
-            kullaniciAyarlar = { sesler: true };
-            try { localStorage.removeItem(AYARLAR_KEY); } catch (e) {}
-            ayarlarUygula();
-        }
-
         function ayarlarPenceresiAc() {
-            ayarlarUygula();
             document.getElementById('ayarlarOverlay').style.display = 'flex';
             girisKoduGetir();
         }
@@ -2690,8 +2721,6 @@ mesaj_html = """
             document.getElementById('ayarlarOverlay').style.display = 'none';
         }
 
-        ayarlarYukle();
-
         function sesContextBaslat() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2702,7 +2731,6 @@ mesaj_html = """
         }
 
         function gonderSesiCal() {
-            if (!kullaniciAyarlar.sesler) return;
             sesContextBaslat();
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
@@ -2719,7 +2747,6 @@ mesaj_html = """
         }
 
         function almaSesiCal() {
-            if (!kullaniciAyarlar.sesler) return;
             sesContextBaslat();
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
@@ -2978,7 +3005,12 @@ mesaj_html = """
                 name.textContent = (o.ad === 'Genel' ? '📢 ' : '🏠 ') + o.ad + (o.kilitli ? ' 🔒' : '');
                 const meta = document.createElement('span');
                 meta.className = 'desktop-room-meta';
-                meta.textContent = o.ad === 'Genel' ? 'Genel sohbet' : (o.kilitli ? 'Şifreli oda' : 'Açık oda');
+                const istekSayisi = Number(o.giris_istek_sayisi || 0);
+                if (istekSayisi > 0 && o.yonetebilir_mi) {
+                    meta.textContent = '📨 ' + istekSayisi + ' giriş isteği' + (istekSayisi === 1 ? '' : 'si');
+                } else {
+                    meta.textContent = o.ad === 'Genel' ? 'Genel sohbet' : (o.kilitli ? 'Şifreli oda' : 'Açık oda');
+                }
                 btn.appendChild(name);
                 btn.appendChild(meta);
                 btn.addEventListener('click', () => {
@@ -3072,6 +3104,72 @@ mesaj_html = """
             }, 2000);
         }
 
+        function odaGirisGonder(secilen, sifre) {
+            const sec = document.getElementById('odaSec');
+            fetch('/api/oda_giris', {
+                method: 'POST',
+                headers: {'Content-Type':'application/x-www-form-urlencoded'},
+                body: 'oda=' + encodeURIComponent(secilen) + '&sifre=' + encodeURIComponent(sifre || '')
+            }).then(r => r.json()).then(res => {
+                if(res.basarili) {
+                    odaBasariylaAc(secilen);
+                } else if(res.onay_bekliyor) {
+                    sec.value = aktifOda;
+                    alert('📨 ' + (res.hata || 'Odaya giriş onayı bekleniyor.'));
+                    odaGirisBeklemeBaslat(secilen, sifre || '');
+                } else {
+                    sec.value = aktifOda;
+                    if (res.hata === 'Yanlış şifre!') {
+                        odaSifreModalAc(secilen, 'Yanlış şifre. Tekrar deneyin.', sifre || '');
+                    } else {
+                        alert('🚫 ' + (res.hata || 'Odaya giriş yapılamadı.'));
+                    }
+                }
+            }).catch(() => {
+                sec.value = aktifOda;
+                alert('⚠️ Odaya giriş sırasında bağlantı hatası oluştu.');
+            });
+        }
+
+        function odaSifreModalAc(oda, aciklama = 'Bu oda şifreli.', ilkDeger = '') {
+            const overlay = document.getElementById('odaSifreOverlay');
+            const input = document.getElementById('odaSifreInput');
+            const aciklamaEl = document.getElementById('odaSifreAciklama');
+            const hata = document.getElementById('odaSifreHata');
+            if (!overlay || !input) return;
+            odaSifreIstenen = oda || '';
+            if (aciklamaEl) aciklamaEl.textContent = oda + ' • ' + aciklama;
+            if (hata) { hata.style.display = aciklama.includes('Yanlış') ? 'block' : 'none'; hata.textContent = aciklama.includes('Yanlış') ? '🚫 Yanlış şifre. Lütfen tekrar deneyin.' : ''; }
+            input.value = ilkDeger || '';
+            overlay.classList.add('open');
+            setTimeout(() => { input.focus(); input.select(); }, 40);
+        }
+
+        function odaSifreKapat() {
+            const overlay = document.getElementById('odaSifreOverlay');
+            if (overlay) overlay.classList.remove('open');
+            odaSifreIstenen = '';
+        }
+
+        function odaSifreDis(event) {
+            if (event.target && event.target.id === 'odaSifreOverlay') odaSifreKapat();
+        }
+
+        function odaSifreOnayla() {
+            const input = document.getElementById('odaSifreInput');
+            const oda = odaSifreIstenen;
+            if (!oda || !input) return;
+            const sifre = input.value || '';
+            if (!sifre) {
+                const hata = document.getElementById('odaSifreHata');
+                if (hata) { hata.style.display = 'block'; hata.textContent = '⚠️ Şifreyi girin.'; }
+                input.focus();
+                return;
+            }
+            odaSifreKapat();
+            odaGirisGonder(oda, sifre);
+        }
+
         function odaDegistir() {
             const sec = document.getElementById('odaSec');
             const secilen = sec.value;
@@ -3079,28 +3177,12 @@ mesaj_html = """
 
             fetch('/api/oda_kontrol?oda=' + encodeURIComponent(secilen), {cache:'no-store'})
             .then(r => r.json()).then(data => {
-                let sifre = '';
                 if (data.kilitli && secilen !== 'Genel') {
-                    const pass = prompt(secilen + ' odası şifreli. Şifreyi girin:');
-                    if(pass === null) { sec.value = aktifOda; return; }
-                    sifre = pass;
+                    sec.value = aktifOda;
+                    odaSifreModalAc(secilen);
+                    return;
                 }
-                fetch('/api/oda_giris', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/x-www-form-urlencoded'},
-                    body: 'oda=' + encodeURIComponent(secilen) + '&sifre=' + encodeURIComponent(sifre)
-                }).then(r => r.json()).then(res => {
-                    if(res.basarili) {
-                        odaBasariylaAc(secilen);
-                    } else if(res.onay_bekliyor) {
-                        sec.value = aktifOda;
-                        alert('📨 ' + (res.hata || 'Odaya giriş onayı bekleniyor.'));
-                        odaGirisBeklemeBaslat(secilen, sifre);
-                    } else {
-                        sec.value = aktifOda;
-                        alert('🚫 ' + (res.hata || 'Odaya giriş yapılamadı.'));
-                    }
-                });
+                odaGirisGonder(secilen, '');
             }).catch(() => { sec.value = aktifOda; alert('⚠️ Oda bilgileri alınamadı.'); });
         }
 
@@ -3113,11 +3195,17 @@ mesaj_html = """
             odaKurKapat();
             overlay.classList.add('open');
             odaYetkiYukle();
+            clearInterval(odaYonetimIstekTimer);
+            odaYonetimIstekTimer = setInterval(() => {
+                if (document.getElementById('odaYonetimOverlay')?.classList.contains('open')) odaYetkiYukle();
+            }, 2000);
         }
 
         function odaYonetimKapat() {
             const overlay = document.getElementById('odaYonetimOverlay');
             if (overlay) overlay.classList.remove('open');
+            clearInterval(odaYonetimIstekTimer);
+            odaYonetimIstekTimer = null;
         }
 
         function odaYonetimDis(event) {
@@ -3146,7 +3234,10 @@ mesaj_html = """
                             opt.value = u.isim;
                             let etiket = u.isim;
                             if (u.isim === data.lider) etiket += " (Lider)";
-                            else if (u.rol === "yonetici") etiket += " (Moderatör)";
+                            else {
+                                const rolEtiketi = odaRolEtiketi(u.rol);
+                                if (rolEtiketi) etiket += " (" + rolEtiketi + ")";
+                            }
                             if (u.banli) etiket += u.ban_kalan_dk ? ` (Banlı: ${u.ban_kalan_dk}dk)` : " (Atılmış)";
                             opt.textContent = etiket;
                             if (u.isim === secili) opt.selected = true;
@@ -3165,6 +3256,7 @@ mesaj_html = """
                             davetSec.appendChild(opt);
                         });
 
+                        odaOzelRolAlaniniGuncelle();
                         const ayar = data.ayarlar || {};
                         document.getElementById('odaAyarYavas').checked = !!ayar.yavas_mod_saniye;
                         document.getElementById('odaAyarYavasSaniye').value = Number(ayar.yavas_mod_saniye || 0);
@@ -3197,6 +3289,23 @@ mesaj_html = """
                     }
                 })
                 .catch(err => console.log(err));
+        }
+
+        function odaIstekBadgeGuncelle(sayi) {
+            const n = Number(sayi || 0);
+            document.querySelectorAll('.oda-istek-badge').forEach(el => {
+                el.textContent = String(n);
+                el.style.display = n > 0 ? 'inline-block' : 'none';
+            });
+        }
+
+        function odaIstekBadgeKontrol() {
+            fetch('/api/odalar', {cache:'no-store'})
+                .then(r => r.json()).then(data => {
+                    const toplam = (data || []).reduce((sum, oda) => sum + (oda.yonetebilir_mi ? Number(oda.giris_istek_sayisi || 0) : 0), 0);
+                    odaIstekBadgeGuncelle(toplam);
+                    desktopOdaListesiGuncelle(data || []);
+                }).catch(() => odaIstekBadgeGuncelle(0));
         }
 
         function odaAyarlariKaydet() {
@@ -3236,37 +3345,95 @@ mesaj_html = """
             fd.set('oda', aktifOda); fd.set('hedef', hedef); fd.set('cevap', onay ? 'onay' : 'red');
             fetch('/api/oda_giris_istegi_cevap', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:fd.toString()})
                 .then(r=>r.json()).then(res=>{
-                    if(res.basarili) odaYetkiYukle();
+                    if(res.basarili) { odaYetkiYukle(); odaIstekBadgeKontrol(); }
                     else alert('⚠️ ' + (res.hata || 'İstek işlenemedi.'));
                 });
+        }
+
+        function odaOzelRolAlaniniGuncelle() {
+            const sec = document.getElementById('odaYonetimRol');
+            const blok = document.getElementById('odaOzelRolBlok');
+            if (blok) blok.style.display = (sec && sec.value === 'ozel') ? 'block' : 'none';
+        }
+
+        function odaRolEtiketi(rol) {
+            if (!rol) return '';
+            if (rol === 'yonetici') return 'Moderatör';
+            if (rol === 'lider') return 'Lider';
+            if (String(rol).startsWith('ozel:')) return String(rol).slice(5);
+            return '';
         }
 
         function odaRolVer() {
             const hedef = document.getElementById('odaYonetimHedef').value;
             const rol = document.getElementById('odaYonetimRol').value;
+            const rolAdiEl = document.getElementById('odaOzelRolAdi');
+            const rolAdi = (rolAdiEl?.value || '').trim();
             if (!hedef) return;
+            if (rol === 'ozel' && (!rolAdi || rolAdi.length > 24)) {
+                alert('⚠️ Özel rol ismi 1-24 karakter arasında olmalı.');
+                rolAdiEl?.focus();
+                return;
+            }
+            const body = new URLSearchParams({oda: aktifOda, hedef, rol});
+            if (rol === 'ozel') body.set('rol_adi', rolAdi);
             fetch('/api/oda_rol_ver', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef) + '&rol=' + encodeURIComponent(rol)
+                body: body.toString()
             }).then(r => r.json()).then(res => {
-                if (res.basarili) odaYetkiYukle();
+                if (res.basarili) {
+                    if (rolAdiEl) rolAdiEl.value = '';
+                    odaYetkiYukle();
+                    mesajlariGuncelle(true);
+                }
                 else alert("⚠️ " + (res.hata || "İşlem başarısız."));
             });
+        }
+
+        function merkezOnayGoster(baslik, mesaj, onayMetni, geriCagri) {
+            const eski = document.getElementById('merkezOnayModal');
+            if (eski) eski.remove();
+            const modal = document.createElement('div');
+            modal.id = 'merkezOnayModal';
+            modal.className = 'room-modal-overlay open';
+            modal.innerHTML = `
+                <div class="room-create-panel" style="width:min(460px,calc(100vw - 40px));">
+                    <span class="field-label" style="font-size:14px;">${escapeHtml(baslik)}</span>
+                    <div style="font-size:12px;color:#4b6278;line-height:1.55;margin:8px 0 12px;">${escapeHtml(mesaj)}</div>
+                    <div class="room-create-btn-row">
+                        <button type="button" class="btn-ok" id="merkezOnayBtn">${escapeHtml(onayMetni || 'Kabul Et')}</button>
+                        <button type="button" class="btn-cancel" id="merkezVazgecBtn">Vazgeç</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            const kapat = () => modal.remove();
+            modal.addEventListener('click', e => { if (e.target === modal) kapat(); });
+            document.getElementById('merkezVazgecBtn').onclick = kapat;
+            document.getElementById('merkezOnayBtn').onclick = () => { kapat(); geriCagri(); };
         }
 
         function odaLiderYap() {
             const hedef = document.getElementById('odaYonetimHedef').value;
             if (!hedef) return;
-            if (!confirm(hedef + " kullanıcısını bu odanın lideri yapmak istiyor musunuz? Liderliğiniz devredilecek.")) return;
-            fetch('/api/oda_lider_yap', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef)
-            }).then(r => r.json()).then(res => {
-                if (res.basarili) odaYetkiYukle();
-                else alert("⚠️ " + (res.hata || "İşlem başarısız."));
-            });
+            merkezOnayGoster(
+                '👑 Liderliği Devret',
+                hedef + ' artık bu odanın sahibi/lideri olacak. Mevcut liderlik yetkiniz devredilecek. Kabul ediyor musunuz?',
+                '👑 Evet, Lider Yap',
+                () => {
+                    fetch('/api/oda_lider_yap', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'oda=' + encodeURIComponent(aktifOda) + '&hedef=' + encodeURIComponent(hedef)
+                    }).then(r => r.json()).then(res => {
+                        if (res.basarili) {
+                            odaYetkiYukle();
+                            odalariGuncelle();
+                        }
+                        else alert("⚠️ " + (res.hata || "İşlem başarısız."));
+                    });
+                }
+            );
         }
 
         function odaSifreDegistir() {
@@ -3402,7 +3569,7 @@ mesaj_html = """
         }
 
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { odaKurKapat(); odaYonetimKapat(); dmPenceresiKapat(); }
+            if (e.key === 'Escape') { odaKurKapat(); odaYonetimKapat(); dmPenceresiKapat(); odaSifreKapat(); const m=document.getElementById('merkezOnayModal'); if(m)m.remove(); }
         });
 
         function odaSonucBildirimiGoster(durum, mesaj, oda) {
@@ -3631,6 +3798,25 @@ function kullanicilariGuncelle() {
             div.addEventListener('pointerleave', temizle);
         }
 
+        function sirenUyarisiGoster(siren) {
+            if (!siren || !siren.id || siren.id === sonSirenId) return;
+            sonSirenId = siren.id;
+            const overlay = document.getElementById('sirenOverlay');
+            const msg = document.getElementById('sirenMessage');
+            const progress = document.getElementById('sirenProgress');
+            if (!overlay || !msg) return;
+            msg.textContent = siren.mesaj || 'Yönetici uyarısı';
+            if (progress) {
+                progress.style.animation = 'none';
+                void progress.offsetWidth;
+                progress.style.animation = 'sirenProgress 3s linear forwards';
+            }
+            overlay.classList.add('open');
+            sirenSesiCal();
+            clearTimeout(sirenTimer);
+            sirenTimer = setTimeout(() => overlay.classList.remove('open'), 3000);
+        }
+
         function mesajlariGuncelle(zorla = false) {
             if (zorla) { sonMesajSayisi = 0; ilkYukleme = true; }
             fetch('/api/mesajlar?oda=' + encodeURIComponent(aktifOda))
@@ -3663,14 +3849,13 @@ function kullanicilariGuncelle() {
                         document.getElementById('pinnedBanner').style.display = 'none';
                     }
 
+                    if (data.siren) sirenUyarisiGoster(data.siren);
+
                     const msgs = data.mesajlar || [];
 
                     if (!ilkYukleme && msgs.length > sonMesajSayisi) {
                         const sonMesaj = msgs[msgs.length - 1];
-                        if (sonMesaj.gonderen === '📢 ALARM') {
-                            sirenSesiCal();
-                            alert("🚨 SİSTEM ALARMI: " + sonMesaj.mesaj);
-                        } else if (sonMesaj.gonderen === 'Sistem' || sonMesaj.gonderen === '📢 DUYURU' || sonMesaj.gonderen === '📢 SAYAÇ') {
+                        if (sonMesaj.gonderen === 'Sistem' || sonMesaj.gonderen === '📢 DUYURU' || sonMesaj.gonderen === '📢 SAYAÇ') {
                             almaSesiCal();
                         } else {
                             yeniMesajBildirimSesiCal(sonMesaj);
@@ -3742,7 +3927,8 @@ function kullanicilariGuncelle() {
                             if (isPrivate) {
                                 gosterim = m.gonderen + " ➔ " + m.alici;
                             }
-                            isim.textContent = gosterim;
+                            const mesajRol = (!isPrivate && m.rol && m.rol !== 'uye') ? odaRolEtiketi(m.rol) : '';
+                            isim.textContent = gosterim + (mesajRol ? '  [' + mesajRol + ']' : '');
                             if (!isDuyuru && m.gonderen !== 'Sistem') {
                                 isim.style.color = kullaniciRengi(m.gonderen || '');
                             }
@@ -3871,7 +4057,7 @@ function kullanicilariGuncelle() {
 
         function sikayetPenceresiAc(kullanici, ilgiliMesaj = null) {
             if (!kullanici || kullanici === "{{ kullanici }}" || kullanici === "Sistem") return;
-            const nedenler = ["Küfür","Taciz","Uygunsuz davranış","Spam","Hakaret","Tehdit / güvenlik","Diğer"];
+            const nedenler = ["Küfür","Taciz","Uygunsuz davranış","Uygunsuz rol adı","Spam","Hakaret","Tehdit / güvenlik","Diğer"];
             let secenekler = nedenler.map(n => `<option value="${n}">${n}</option>`).join('');
             const onceki = document.getElementById('sikayetModal');
             if (onceki) onceki.remove();
@@ -3963,6 +4149,8 @@ function kullanicilariGuncelle() {
             mesajInput.addEventListener('click', mentionIcerikGuncelle);
         }
         mentionKullanicilariniYukle();
+        odaIstekBadgeKontrol();
+        setInterval(odaIstekBadgeKontrol, 3000);
 
         setInterval(odalariGuncelle, 5000);
         setInterval(kullanicilariGuncelle, 5000);
@@ -4485,8 +4673,11 @@ def sikayet_olustur():
 @app.route("/api/odalar", methods=["GET"])
 def get_odalar():
     liste = []
+    mevcut_kullanici = session.get("kullanici")
     for k, v in odalar_db.items():
         ayar = oda_ayarlarini_al(k)
+        yonetebilir = bool(mevcut_kullanici and oda_yonetebilir_mi(k, mevcut_kullanici))
+        bekleyen_istek = len(oda_giris_istekleri.get(k, {})) if yonetebilir else 0
         liste.append({
             "ad": k,
             "kilitli": bool(v),
@@ -4494,6 +4685,8 @@ def get_odalar():
             "giris_onayi": ayar["giris_onayi"],
             "maks_kullanici": ayar["maks_kullanici"],
             "aktif_kullanici": oda_aktif_kullanici_sayisi(k),
+            "yonetebilir_mi": yonetebilir,
+            "giris_istek_sayisi": bekleyen_istek,
         })
     return jsonify(liste)
 
@@ -4829,16 +5022,17 @@ def get_oda_yetki():
 
     ayar = oda_ayarlarini_al(oda)
     davetliler = set(oda_davetlileri.get(oda, []))
+    yonetebilir = oda_yonetebilir_mi(oda, kullanici)
     giris_istekleri = [
         {"isim": isim, "zaman": zaman, "zaman_gorunum": _admin_guvenli_zaman(zaman)}
         for isim, zaman in sorted(oda_giris_istekleri.get(oda, {}).items(), key=lambda item: float(item[1] or 0))
-    ]
+    ] if yonetebilir else []
     return jsonify({
         "oda": oda,
         "rol": oda_rolunu_al(oda, kullanici),
         "lider": oda_liderleri.get(oda, ""),
         "lider_mi": oda_lideri_mi(oda, kullanici),
-        "yonetebilir_mi": oda_yonetebilir_mi(oda, kullanici),
+        "yonetebilir_mi": yonetebilir,
         "oda_kurma_izni_var_mi": oda_kurma_yetkisi_var_mi(kullanici),
         "oda_sayisi": kullanicinin_oda_sayisi(kullanici),
         "oda_limiti": MAKS_OZEL_ODA,
@@ -4859,6 +5053,7 @@ def post_oda_rol_ver():
     oda = request.form.get("oda", "Genel").strip()
     hedef = request.form.get("hedef", "").strip()
     rol = request.form.get("rol", "uye").strip()
+    rol_adi = request.form.get("rol_adi", "").strip()
 
     if oda not in odalar_db:
         return jsonify({"basarili": False, "hata": "Oda bulunamadı."})
@@ -4873,17 +5068,27 @@ def post_oda_rol_ver():
     if hedef == oda_liderleri.get(oda):
         return jsonify({"basarili": False, "hata": "Odanın liderinin rolü buradan değiştirilemez."})
 
-    if rol not in ("yonetici", "uye"):
+    if rol not in ("yonetici", "uye", "ozel"):
         return jsonify({"basarili": False, "hata": "Geçersiz rol."})
+
+    if rol == "ozel":
+        rol_adi = re.sub(r"[\x00-\x1f\x7f]", "", rol_adi).strip()[:24]
+        if not rol_adi:
+            return jsonify({"basarili": False, "hata": "Özel rol ismi boş olamaz."})
+        sakincali = {"lider", "yönetici", "yonetici", "moderatör", "moderator", "sistem", "admin"}
+        if rol_adi.casefold() in sakincali:
+            return jsonify({"basarili": False, "hata": "Bu rol ismi kullanılamaz."})
 
     with veri_kilidi:
         oda_roller.setdefault(oda, {})
         if rol == "uye":
             oda_roller[oda].pop(hedef, None)
+        elif rol == "yonetici":
+            oda_roller[oda][hedef] = "yonetici"
         else:
-            oda_roller[oda][hedef] = rol
+            oda_roller[oda][hedef] = "ozel:" + rol_adi
 
-    log_ekle(f"'{kullanici}', '{oda}' odasında '{hedef}' kullanıcısına '{rol}' rolü verdi.")
+    log_ekle(f"'{kullanici}', '{oda}' odasında '{hedef}' kullanıcısına '{('ozel:' + rol_adi) if rol == 'ozel' else rol}' rolü verdi.")
     durumu_kaydet()
     return jsonify({"basarili": True})
 
@@ -5036,7 +5241,7 @@ def get_mesajlar():
     aktif_oda = request.args.get("oda", "Genel")
     
     if kullanici in aktif_sorgular:
-        return jsonify({"mesajlar": [], "sabit_duyuru": sabit_duyuru, "oda_banli": False, "zorunlu_sorgu": True})
+        return jsonify({"mesajlar": [], "sabit_duyuru": sabit_duyuru, "oda_banli": False, "zorunlu_sorgu": True, "siren": None})
 
     if kullanici:
         simdi = time.time()
@@ -5058,15 +5263,34 @@ def get_mesajlar():
     for m in sohbet_gecmisi:
         alici = m.get("alici", "Genel")
         oda = m.get("oda", "Genel")
-        
-        is_global = m.get("gonderen") in ["📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"] or m.get("tur") == "duyuru"
+
+        # Eski alarm kayıtlarını da normal sohbette göstermeyelim. Yeni alarmlar artık transient siren olarak yayınlanıyor.
+        if m.get("gonderen") == "📢 ALARM":
+            continue
+
+        is_global = m.get("gonderen") in ["📢 DUYURU", "📢 SAYAÇ"] or m.get("tur") == "duyuru"
         is_dm = (alici == kullanici or m.get("gonderen") == kullanici) and alici != "Genel"
-        
+
         if is_global or is_dm or (oda == aktif_oda and alici == "Genel"):
-            filtrelenmis.append(m)
+            kopya = dict(m)
+            gonderen = kopya.get("gonderen", "")
+            kopya["rol"] = oda_rolunu_al(oda, gonderen) if gonderen and not str(gonderen).startswith("📢") and gonderen != "Sistem" else "uye"
+            filtrelenmis.append(kopya)
+
+    aktif_siren_veri = None
+    global aktif_siren
+    with veri_kilidi:
+        if isinstance(aktif_siren, dict):
+            try:
+                if time.time() < float(aktif_siren.get("bitis", 0) or 0):
+                    aktif_siren_veri = dict(aktif_siren)
+                else:
+                    aktif_siren = None
+            except (TypeError, ValueError):
+                aktif_siren = None
 
     oda_banli = oda_banli_mi(aktif_oda, kullanici) if kullanici else False
-    return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "oda_banli": oda_banli, "oda_ayar": oda_ayari, "aktif_kullanici": oda_aktif_kullanici_sayisi(aktif_oda)})
+    return jsonify({"mesajlar": filtrelenmis, "sabit_duyuru": sabit_duyuru, "oda_banli": oda_banli, "oda_ayar": oda_ayari, "aktif_kullanici": oda_aktif_kullanici_sayisi(aktif_oda), "siren": aktif_siren_veri})
 
 @app.route("/api/mesaj_sil", methods=["POST"])
 def post_mesaj_sil():
@@ -6146,10 +6370,18 @@ def sistem_yonetim_penceresi():
         a_giris.select_range(0, tk.END)
 
         def sireni_yolla(event=None):
-            metin = a_giris.get().strip()
+            global aktif_siren
+            metin = a_giris.get().strip()[:300]
             if metin:
-                sohbet_gecmisi.append({"gonderen": "📢 ALARM", "mesaj": metin, "alici": "Genel", "oda": "Genel", "zaman": time.time()})
-                log_ekle(f"🚨 Sitede sesli alarm tetiklendi: '{metin}'")
+                simdi = time.time()
+                with veri_kilidi:
+                    aktif_siren = {
+                        "id": secrets.token_hex(10),
+                        "mesaj": metin,
+                        "baslangic": simdi,
+                        "bitis": simdi + 3
+                    }
+                log_ekle(f"🚨 Web sireni tetiklendi: '{metin}' (3 saniye)")
                 guncelle_veriler(zorla=True)
             alarm_win.destroy()
 
