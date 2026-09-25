@@ -2308,11 +2308,6 @@ mesaj_html = """
         .msg-sistem { color: #b8281f !important; font-weight: 700; }
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
-        .msg-row { display: flex; gap: 8px; align-items: flex-start; }
-        .msg-avatar, .msg-avatar-fallback { width: 30px; height: 30px; border-radius: 50%; flex: 0 0 30px; }
-        .msg-avatar { object-fit: cover; border: 1px solid #b9cfe4; background: #dcecff; display: block; }
-        .msg-avatar-fallback { display: flex; align-items: center; justify-content: center; background: #dcecff; border: 1px solid #b9cfe4; color: #24465f; font-size: 14px; font-weight: 800; }
-        .msg-content { min-width: 0; flex: 1; }
 
         .msg-reply {
             margin: 4px 0 6px;
@@ -2818,32 +2813,6 @@ mesaj_html = """
             return String(v ?? '').replace(/[&<>'"]/g, m => ({
                 '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
             }[m]));
-        }
-
-        function mesajAvatarDegeri(m) {
-            if (m && typeof m.avatar === 'string' && m.avatar.trim()) return m.avatar.trim();
-            if (m && m.gonderen && dmAvatarlar && typeof dmAvatarlar[m.gonderen] === 'string' && dmAvatarlar[m.gonderen].trim()) {
-                return dmAvatarlar[m.gonderen].trim();
-            }
-            return '';
-        }
-
-        function mesajAvatarOlustur(m) {
-            const avatar = mesajAvatarDegeri(m);
-            const isim = String((m && m.gonderen) || '').trim();
-            if (avatar) {
-                const img = document.createElement('img');
-                img.className = 'msg-avatar';
-                img.src = avatar;
-                img.alt = isim || 'Profil';
-                img.loading = 'lazy';
-                img.draggable = false;
-                return img;
-            }
-            const fb = document.createElement('div');
-            fb.className = 'msg-avatar-fallback';
-            fb.textContent = isim ? isim.charAt(0).toUpperCase() : '👤';
-            return fb;
         }
 
         function profilAvatarUygula(veri) {
@@ -4153,7 +4122,7 @@ function kullanicilariGuncelle() {
 
                     const chatBox = document.getElementById('chatBox');
                     chatBox.innerHTML = '';
-
+                    
                     msgs.slice().reverse().forEach(m => {
                         const div = document.createElement('div');
                         const isPrivate = m.alici && m.alici !== "Genel";
@@ -4167,14 +4136,14 @@ function kullanicilariGuncelle() {
 
                         const isDuyuru = m.gonderen === '📢 DUYURU' || m.gonderen === '📢 ALARM' || m.tur === 'duyuru';
                         const isSayac = m.gonderen === '📢 SAYAÇ';
-
+                        
                         if (isSayac) {
                             div.className = 'msg-item msg-sayac';
                             let kalanSaniye = Math.max(0, Math.floor(m.bitis_zamani - (Date.now() / 1000)));
                             let dk = Math.floor(kalanSaniye / 60);
                             let sn = kalanSaniye % 60;
                             let formatli = dk.toString().padStart(2, '0') + ":" + sn.toString().padStart(2, '0');
-
+                            
                             if (kalanSaniye > 0) {
                                 div.textContent = '⏱️ ' + formatli;
                             } else {
@@ -4183,14 +4152,8 @@ function kullanicilariGuncelle() {
                         } else {
                             div.className = isPrivate ? 'msg-private' : (isDuyuru ? 'msg-item msg-duyuru' : 'msg-item');
 
-                            const row = document.createElement('div');
-                            row.className = 'msg-row';
-
-                            const avatar = mesajAvatarOlustur(m);
-                            row.appendChild(avatar);
-
-                            const content = document.createElement('div');
-                            content.className = 'msg-content';
+                            const head = document.createElement('div');
+                            head.className = 'msg-head';
 
                             if (m.reply_to && m.reply_to.gonderen) {
                                 const reply = document.createElement('div');
@@ -4203,11 +4166,8 @@ function kullanicilariGuncelle() {
                                 replyText.className = 'reply-text';
                                 replyText.textContent = m.reply_to.mesaj || '';
                                 reply.appendChild(replyText);
-                                content.appendChild(reply);
+                                div.appendChild(reply);
                             }
-
-                            const head = document.createElement('div');
-                            head.className = 'msg-head';
 
                             const isim = document.createElement('span');
                             isim.className = isDuyuru ? 'msg-user msg-sistem' : (m.gonderen === 'Sistem' ? 'msg-user msg-sistem' : 'msg-user');
@@ -4258,15 +4218,12 @@ function kullanicilariGuncelle() {
                                 head.appendChild(silBtn);
                             }
 
-                            content.appendChild(head);
+                            div.appendChild(head);
 
                             const govde = document.createElement('div');
                             govde.className = 'msg-body';
                             mesajMetniRenderEt(govde, m.mesaj);
-                            content.appendChild(govde);
-
-                            row.appendChild(content);
-                            div.appendChild(row);
+                            div.appendChild(govde);
 
                             if (!isDuyuru && m.gonderen) {
                                 div.style.cursor = 'pointer';
@@ -4277,7 +4234,6 @@ function kullanicilariGuncelle() {
                         }
                         chatBox.appendChild(div);
                     });
-
             })
             .catch(err => console.log(err));
 
@@ -5710,10 +5666,6 @@ def get_mesajlar():
             kopya = dict(m)
             gonderen = kopya.get("gonderen", "")
             kopya["rol"] = oda_rolunu_al(oda, gonderen) if gonderen and not str(gonderen).startswith("📢") and gonderen != "Sistem" else "uye"
-            if gonderen and gonderen not in ["Sistem", "📢 DUYURU", "📢 SAYAÇ", "📢 ALARM"]:
-                kopya["avatar"] = kullanici_avatarini_al(gonderen)
-            else:
-                kopya["avatar"] = ""
             filtrelenmis.append(kopya)
 
     aktif_siren_veri = None
@@ -5839,7 +5791,7 @@ def post_gonder():
             mesaj = kufur_filtrele(mesaj)
 
         if mesaj:
-            veri = {"id": secrets.token_hex(8), "gonderen": kullanici, "mesaj": mesaj, "alici": alici, "oda": oda, "zaman": simdi, "avatar": kullanici_avatarini_al(kullanici)}
+            veri = {"id": secrets.token_hex(8), "gonderen": kullanici, "mesaj": mesaj, "alici": alici, "oda": oda, "zaman": simdi}
             reply_id = request.form.get("reply_id", "").strip()
             reply_gonderen = request.form.get("reply_gonderen", "").strip()
             reply_mesaj = request.form.get("reply_mesaj", "").strip()
