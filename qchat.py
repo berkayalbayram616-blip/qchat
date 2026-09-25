@@ -3999,6 +3999,9 @@ def giris():
     guvenlik_kodu_gerekli = False
     form_kullanici = ""
     form_email = ""
+    cihaz = session.get("cihaz", "telefon")
+    if cihaz not in ("telefon", "bilgisayar"):
+        cihaz = "telefon"
 
     bekleyen_token = session.get("kayit_dogrulama_token")
     bekleyen = bekleyen_kayitlar.get(bekleyen_token) if bekleyen_token else None
