@@ -2248,6 +2248,65 @@ mesaj_html = """
         .mention-highlight {
             background: #fff2a8; color: #7a5a00; border-radius: 3px; padding: 0 2px; font-weight: 800;
         }
+
+        /* ==================== DM KİŞİ SEÇİMİ ==================== */
+        .dm-overlay {
+            position: fixed; inset: 0; z-index: 1300; display: none;
+            align-items: center; justify-content: center; padding: 18px;
+            background: rgba(20, 38, 56, .38); backdrop-filter: blur(2px);
+        }
+        .dm-overlay.open { display: flex; }
+        .dm-card {
+            width: min(520px, calc(100vw - 36px)); max-height: min(78vh, 700px);
+            display: flex; flex-direction: column; overflow: hidden;
+            background: #f4f8fc; border: 1px solid #5b8ac4; border-radius: 10px;
+            box-shadow: 0 18px 55px rgba(20, 45, 70, .32);
+        }
+        .dm-head {
+            display:flex; align-items:center; justify-content:space-between; gap:10px;
+            padding:10px 13px; color:#fff; font-weight:700;
+            background:linear-gradient(180deg,#79bdf7 0%,#3a8ee6 45%,#1c5fb0 55%,#2d7fd6 100%);
+            border-bottom:1px solid #14417f;
+        }
+        .dm-close {
+            border:0; background:rgba(255,255,255,.2); color:#fff;
+            border-radius:4px; padding:4px 8px; cursor:pointer; font-weight:800;
+        }
+        .dm-body { display:flex; flex-direction:column; min-height:0; padding:12px; }
+        .dm-search {
+            width:100%; padding:9px 10px; margin:0 0 10px; box-sizing:border-box;
+            border:1px solid #8fa9c4; border-radius:5px; outline:none;
+            background:#fff; color:#1c2b3a; font-family:inherit; font-size:13px;
+        }
+        .dm-search:focus { border-color:#3a8ee6; box-shadow:0 0 0 3px rgba(58,142,230,.18); }
+        .dm-kisi-listesi {
+            min-height:80px; max-height:52vh; overflow-y:auto; display:flex;
+            flex-direction:column; gap:5px; padding-right:2px;
+        }
+        .dm-kisi-item {
+            width:100%; border:1px solid #b9cfe4; border-radius:7px;
+            background:linear-gradient(180deg,#fff,#eef4fb); color:#24465f;
+            padding:10px 11px; text-align:left; font-size:13px; font-weight:700;
+            cursor:pointer; display:flex; align-items:center; gap:9px;
+        }
+        .dm-kisi-item:hover { background:#eaf3fb; border-color:#5b8ac4; }
+        .dm-kisi-avatar {
+            width:32px; height:32px; border-radius:50%; display:flex; align-items:center;
+            justify-content:center; background:#dcecff; color:#24465f; border:1px solid #9fb9d1;
+            flex:0 0 auto; font-size:15px;
+        }
+        .dm-kisi-adi { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .dm-empty { padding:18px 8px; text-align:center; color:#708499; font-size:12px; border:1px dashed #c5d6e7; border-radius:6px; }
+        .dm-mode-bar {
+            display:none; align-items:center; justify-content:space-between; gap:8px;
+            margin:0 0 7px; padding:7px 9px; border:1px solid #b9cfe4; border-radius:6px;
+            background:#eef6ff; color:#24465f; font-size:12px; font-weight:700;
+        }
+        .dm-mode-bar.open { display:flex; }
+        .dm-mode-bar .dm-cikis-btn {
+            border:1px solid #8fa9c4; background:#fff; color:#24465f;
+            border-radius:4px; padding:4px 8px; cursor:pointer; font-weight:700;
+        }
         .input-row { display: flex; gap: 6px; position: relative; }
         input[type="text"] {
             flex: 1; padding: 8px 10px; font-size: 14px; font-family: inherit;
@@ -2327,7 +2386,6 @@ mesaj_html = """
         .desktop-mode .panel-row { display:none; }
         .desktop-mode .chat-title { font-size:12px; padding:6px 10px; margin-top:6px; }
         .desktop-mode .chat-box { height:calc(100vh - 350px); min-height:280px; max-height:none; padding:12px 14px; border-radius:7px; font-size:14px; }
-        .desktop-mode .dm-box { height:150px; }
         .desktop-mode .msg-item, .desktop-mode .msg-private {
             margin-bottom:7px; padding:7px 9px; border-radius:6px; line-height:1.45;
         }
@@ -2375,6 +2433,7 @@ mesaj_html = """
                 <div class="desktop-side-actions">
                     <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
                     <button type="button" class="small-btn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
+                    <button type="button" class="small-btn" onclick="dmPenceresiAc();" style="background:linear-gradient(180deg,#6aa9e8,#2f72b6); border-color:#1c4f82;">💬 DM</button>
                 </div>
                 <div class="desktop-side-footer"><a href="/cikis">🚪 Çıkış Yap</a></div>
             </aside>
@@ -2425,6 +2484,7 @@ mesaj_html = """
                 </div>
                 <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
                 <button type="button" class="small-btn" id="odaYonetimBtn" onclick="odaYonetimAcKapat();" style="background:linear-gradient(180deg,#8a7fe0,#5a4bc7); border-color:#3d2f9e;">🛡️ Oda Yönetimi</button>
+                <button type="button" class="small-btn" onclick="dmPenceresiAc();" style="background:linear-gradient(180deg,#6aa9e8,#2f72b6); border-color:#1c4f82;">💬 DM</button>
             </div>
 
             <div class="room-modal-overlay" id="odaKurOverlay" onclick="odaKurDis(event)">
@@ -2511,15 +2571,30 @@ mesaj_html = """
             </div>
             </div>
 
-            <select id="aliciSec">
+            <select id="aliciSec" style="display:none;">
                 <option value="Genel">📢 Odadaki Herkes</option>
             </select>
+
+            <div class="dm-mode-bar" id="dmModeBar">
+                <span id="dmModeText">💬 DM</span>
+                <button type="button" class="dm-cikis-btn" onclick="dmdenCik();">← Odaya dön</button>
+            </div>
 
             <div class="chat-title" id="aktifOdaBaslik">📢 Genel Odası</div>
             <div class="chat-box" id="chatBox"></div>
 
-            <div class="chat-title">🔒 DM'lerim</div>
-            <div class="chat-box" id="dmBox"></div>
+            <div class="dm-overlay" id="dmOverlay" onclick="dmDis(event)">
+                <div class="dm-card">
+                    <div class="dm-head">
+                        <span>💬 Direkt Mesaj</span>
+                        <button type="button" class="dm-close" onclick="dmPenceresiKapat();">✕</button>
+                    </div>
+                    <div class="dm-body">
+                        <input id="dmArama" class="dm-search" type="text" placeholder="Kişi ara..." autocomplete="off" oninput="dmKisileriFiltrele()">
+                        <div class="dm-kisi-listesi" id="dmKisiListesi"></div>
+                    </div>
+                </div>
+            </div>
 
             <div class="typing-indicator" id="yaziyorBox"></div>
 
@@ -2556,6 +2631,9 @@ mesaj_html = """
         let odaGirisBekleyen = null;
         let odaGirisBekleyenSifre = "";
         let odaGirisBeklemeTimer = null;
+        let aktifDM = null;
+        let dmKullanicilari = [];
+        const oturumKullanici = {{ kullanici|tojson }};
 
         // Sayfa açıldığında hem telefon seçicisini hem bilgisayar kenar çubuğunu doldururuz.
         function ayarlarYukle() {
@@ -2956,6 +3034,7 @@ mesaj_html = """
         function odaBasariylaAc(oda) {
             odaGirisBeklemeDurdur();
             aktifOda = oda;
+            dmdenCik(true);
             document.getElementById('aktifOdaBaslik').textContent = "📢 " + oda + " Odası";
             desktopAktifOdaGuncelle();
             mesajlariGuncelle(true);
@@ -3323,7 +3402,7 @@ mesaj_html = """
         }
 
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { odaKurKapat(); odaYonetimKapat(); }
+            if (e.key === 'Escape') { odaKurKapat(); odaYonetimKapat(); dmPenceresiKapat(); }
         });
 
         function odaSonucBildirimiGoster(durum, mesaj, oda) {
@@ -3357,20 +3436,130 @@ function kullanicilariGuncelle() {
                     return res.json();
                 })
                 .then(data => {
+                    dmKullanicilari = Array.isArray(data) ? data.filter(k => k && k !== oturumKullanici) : [];
+
                     const sec = document.getElementById('aliciSec');
-                    const secili = sec.value;
-                    sec.innerHTML = '<option value="Genel">📢 Odadaki Herkes</option>';
-                    data.forEach(k => {
-                        if(k !== "{{ kullanici }}") {
+                    if (sec) {
+                        const secili = sec.value || 'Genel';
+                        sec.innerHTML = '<option value="Genel">📢 Odadaki Herkes</option>';
+                        dmKullanicilari.forEach(k => {
                             const opt = document.createElement('option');
                             opt.value = k;
                             opt.textContent = "🔒 Özel: " + k;
-                            if(k === secili) opt.selected = true;
+                            if (k === secili) opt.selected = true;
                             sec.appendChild(opt);
-                        }
-                    });
+                        });
+                    }
+
+                    dmKisileriFiltrele();
                 })
                 .catch(err => console.log(err));
+        }
+
+        function dmPenceresiAc() {
+            const overlay = document.getElementById('dmOverlay');
+            if (!overlay) return;
+            overlay.classList.add('open');
+            const arama = document.getElementById('dmArama');
+            if (arama) { arama.value = ''; setTimeout(() => arama.focus(), 40); }
+            dmKisileriFiltrele();
+            // Kişiler her durumda sunucudan güncel gelsin.
+            fetch('/api/kullanicilar', {cache:'no-store'})
+                .then(r => r.json())
+                .then(data => {
+                    dmKullanicilari = Array.isArray(data) ? data.filter(k => k && k !== oturumKullanici) : [];
+                    dmKisileriFiltrele();
+                })
+                .catch(() => {});
+        }
+
+        function dmPenceresiKapat() {
+            const overlay = document.getElementById('dmOverlay');
+            if (overlay) overlay.classList.remove('open');
+        }
+
+        function dmDis(event) {
+            if (event.target && event.target.id === 'dmOverlay') dmPenceresiKapat();
+        }
+
+        function dmKisileriFiltrele() {
+            const liste = document.getElementById('dmKisiListesi');
+            const arama = document.getElementById('dmArama');
+            if (!liste) return;
+            const q = (arama?.value || '').trim().toLocaleLowerCase('tr-TR');
+            const filtre = dmKullanicilari.filter(k => !q || String(k).toLocaleLowerCase('tr-TR').includes(q));
+
+            liste.innerHTML = '';
+            if (!filtre.length) {
+                const bos = document.createElement('div');
+                bos.className = 'dm-empty';
+                bos.textContent = q ? 'Aramaya uyan kayıtlı kişi bulunamadı.' : 'Kayıtlı başka kişi bulunmuyor.';
+                liste.appendChild(bos);
+                return;
+            }
+
+            filtre.forEach(k => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'dm-kisi-item';
+                btn.onclick = () => dmKisiSec(k);
+
+                const avatar = document.createElement('span');
+                avatar.className = 'dm-kisi-avatar';
+                avatar.textContent = '👤';
+
+                const ad = document.createElement('span');
+                ad.className = 'dm-kisi-adi';
+                ad.textContent = k;
+
+                btn.appendChild(avatar);
+                btn.appendChild(ad);
+                liste.appendChild(btn);
+            });
+        }
+
+        function dmKisiSec(kullanici) {
+            if (!kullanici || kullanici === oturumKullanici) return;
+            aktifDM = kullanici;
+            const sec = document.getElementById('aliciSec');
+            if (sec) sec.value = kullanici;
+
+            const bar = document.getElementById('dmModeBar');
+            const text = document.getElementById('dmModeText');
+            if (bar) bar.classList.add('open');
+            if (text) text.textContent = '💬 ' + kullanici + ' ile DM';
+
+            const baslik = document.getElementById('aktifOdaBaslik');
+            if (baslik) baslik.textContent = '💬 ' + kullanici + ' ile özel mesaj';
+
+            yanitTemizle();
+            dmPenceresiKapat();
+            mesajlariGuncelle(true);
+            const input = document.getElementById('mesajInput');
+            if (input) {
+                input.placeholder = kullanici + ' kişisine mesaj yaz...';
+                input.focus();
+            }
+        }
+
+        function dmdenCik(sessiz = false) {
+            aktifDM = null;
+            const sec = document.getElementById('aliciSec');
+            if (sec) sec.value = 'Genel';
+
+            const bar = document.getElementById('dmModeBar');
+            if (bar) bar.classList.remove('open');
+
+            const text = document.getElementById('dmModeText');
+            if (text) text.textContent = '💬 DM';
+
+            const baslik = document.getElementById('aktifOdaBaslik');
+            if (baslik) baslik.textContent = '📢 ' + aktifOda + ' Odası';
+
+            const input = document.getElementById('mesajInput');
+            if (input) input.placeholder = 'Mesajınızı yazın...';
+            yanitTemizle();
+            if (!sessiz) mesajlariGuncelle(true);
         }
 
 
@@ -3498,13 +3687,19 @@ function kullanicilariGuncelle() {
                     }
 
                     const chatBox = document.getElementById('chatBox');
-                    const dmBox = document.getElementById('dmBox');
                     chatBox.innerHTML = '';
-                    dmBox.innerHTML = '';
                     
                     msgs.slice().reverse().forEach(m => {
                         const div = document.createElement('div');
                         const isPrivate = m.alici && m.alici !== "Genel";
+                        const dmEslesiyor = isPrivate && aktifDM && (
+                            (m.gonderen === oturumKullanici && m.alici === aktifDM) ||
+                            (m.gonderen === aktifDM && m.alici === oturumKullanici)
+                        );
+                        // DM modundayken sadece seçilen kişiyle olan konuşmayı göster.
+                        // Normal oda görünümünde ise DM mesajlarını ana sohbetten ayır.
+                        if (aktifDM ? !dmEslesiyor : isPrivate) return;
+
                         const isDuyuru = m.gonderen === '📢 DUYURU' || m.gonderen === '📢 ALARM' || m.tur === 'duyuru';
                         const isSayac = m.gonderen === '📢 SAYAÇ';
                         
@@ -3602,11 +3797,7 @@ function kullanicilariGuncelle() {
                             }
                             mesajSwipeKur(div, m);
                         }
-                        if (isPrivate && !isSayac) {
-                            dmBox.appendChild(div);
-                        } else {
-                            chatBox.appendChild(div);
-                        }
+                        chatBox.appendChild(div);
                     });
             })
             .catch(err => console.log(err));
