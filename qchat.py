@@ -4876,8 +4876,10 @@ def profil_avatar():
             return jsonify({"basarili": False, "hata": "Bir profil fotoğrafı seçin."}), 400
 
         mime = (dosya.mimetype or "").lower()
-        izinli = {"image/jpeg", "image/png", "image/webp", "image/gif"}
-        if mime not in izinli:
+        dosya_adi = (dosya.filename or "").lower()
+        uzanti_izinli = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+        mime_izinli = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
+        if mime and mime not in mime_izinli and not any(dosya_adi.endswith(ext) for ext in uzanti_izinli):
             return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
 
         ham = dosya.read()
@@ -4904,7 +4906,7 @@ def profil_avatar():
             img.save(out, format="JPEG", quality=84, optimize=True)
             veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
         except Exception:
-            return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin."}), 400
+            return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin. JPG/PNG/WEBP/GIF deneyin."}), 400
 
         kullanici_avatarlari[kullanici] = veri
         durumu_kaydet()
