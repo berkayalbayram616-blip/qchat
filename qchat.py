@@ -4875,12 +4875,10 @@ def profil_avatar():
         if not dosya or not dosya.filename:
             return jsonify({"basarili": False, "hata": "Bir profil fotoğrafı seçin."}), 400
 
-        mime = (dosya.mimetype or "").lower()
         dosya_adi = (dosya.filename or "").lower()
+        mime = (dosya.mimetype or "").lower()
         uzanti_izinli = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
         mime_izinli = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"}
-        if mime and mime not in mime_izinli and not any(dosya_adi.endswith(ext) for ext in uzanti_izinli):
-            return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
 
         ham = dosya.read()
         if not ham:
@@ -4888,25 +4886,43 @@ def profil_avatar():
         if len(ham) > 2 * 1024 * 1024:
             return jsonify({"basarili": False, "hata": "Profil fotoğrafı en fazla 2 MB olabilir."}), 400
 
-        # Pillow ile gerçek görseli doğrula ve küçük bir JPEG olarak sakla.
-        try:
-            from PIL import Image, ImageOps
-            img = Image.open(BytesIO(ham))
-            img = ImageOps.exif_transpose(img)
-            img.thumbnail((256, 256))
-            if img.mode not in ("RGB", "RGBA"):
-                img = img.convert("RGBA")
-            if img.mode == "RGBA":
-                bg = Image.new("RGB", img.size, "white")
-                bg.paste(img, mask=img.getchannel("A"))
-                img = bg
-            else:
-                img = img.convert("RGB")
-            out = BytesIO()
-            img.save(out, format="JPEG", quality=84, optimize=True)
-            veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
-        except Exception:
-            return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin. JPG/PNG/WEBP/GIF deneyin."}), 400
+        # Dosya imzasına göre türü anla; bu, bazı tarayıcılarda yanlış gelen MIME bilgisini tolere eder.
+        imza_mime = ""
+        if ham.startswith(b"\xff\xd8\xff"):
+            imza_mime = "image/jpeg"
+        elif ham.startswith(b"\x89PNG\r\n\x1a\n"):
+            imza_mime = "image/png"
+        elif ham[:6] in (b"GIF87a", b"GIF89a"):
+            imza_mime = "image/gif"
+        elif len(ham) >= 12 and ham[:4] == b"RIFF" and ham[8:12] == b"WEBP":
+            imza_mime = "image/webp"
+
+        if not imza_mime:
+            if mime not in mime_izinli and not any(dosya_adi.endswith(ext) for ext in uzanti_izinli):
+                return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
+            # Son çare olarak Pillow ile dene; çalışmazsa yine açık hata ver.
+            try:
+                from PIL import Image, ImageOps
+                img = Image.open(BytesIO(ham))
+                img.load()
+                img = ImageOps.exif_transpose(img)
+                img.thumbnail((256, 256))
+                if img.mode not in ("RGB", "RGBA"):
+                    img = img.convert("RGBA")
+                if img.mode == "RGBA":
+                    bg = Image.new("RGB", img.size, "white")
+                    bg.paste(img, mask=img.getchannel("A"))
+                    img = bg
+                else:
+                    img = img.convert("RGB")
+                out = BytesIO()
+                img.save(out, format="JPEG", quality=84, optimize=True)
+                veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
+            except Exception:
+                return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin. JPG/PNG/WEBP/GIF deneyin."}), 400
+        else:
+            # Desteklenen görüntüleri ham haliyle sakla; bu sayede resim dönüştürme kaynaklı hatalar oluşmaz.
+            veri = f"data:{imza_mime};base64," + base64.b64encode(ham).decode("ascii")
 
         kullanici_avatarlari[kullanici] = veri
         durumu_kaydet()
