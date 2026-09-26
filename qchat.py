@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, session, jsonify
+from flask import Flask, request, render_template_string, redirect, session, jsonify, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 try:
     import tkinter as tk
@@ -1412,6 +1412,18 @@ odalar_db = veriler.get("odalar_db", {"Genel": ""})
 
 kullanici_emailleri = veriler.get("kullanici_emailleri", {})
 kullanici_avatarlari = veriler.get("kullanici_avatarlari", {})  # {kullanici: data:image/jpeg;base64,...}
+kullanici_avatar_surmleri = veriler.get("kullanici_avatar_surmleri", {})
+if not isinstance(kullanici_avatar_surmleri, dict):
+    kullanici_avatar_surmleri = {}
+for _avatar_kullanici in kullanici_avatarlari.keys():
+    # Eski sürümlerde versiyon bulunmuyorsa tek seferlik başlangıç değeri kullan.
+    try:
+        kullanici_avatar_surmleri[_avatar_kullanici] = max(1, int(kullanici_avatar_surmleri.get(_avatar_kullanici, 1) or 1))
+    except (TypeError, ValueError):
+        kullanici_avatar_surmleri[_avatar_kullanici] = 1
+# Sunulmuş avatar baytlarının küçük bir RAM cache'i. Profil fotoğrafı değişince ilgili kayıt silinir.
+_avatar_http_cache = {}  # {kullanici: (surum, bytes, mime)}
+AVATAR_HTTP_CACHE_MAKS = 128
 email_hesaplari = veriler.get("email_hesaplari", {})
 banli_emailler = set(veriler.get("banli_emailler", []))
 
@@ -1723,6 +1735,44 @@ def kullanici_avatarini_al(kullanici):
     veri = kullanici_avatarlari.get(kullanici, "")
     return veri if isinstance(veri, str) else ""
 
+def kullanici_avatar_surumu_al(kullanici):
+    try:
+        return max(1, int(kullanici_avatar_surmleri.get(kullanici, 1) or 1))
+    except (TypeError, ValueError):
+        return 1
+
+def kullanici_avatar_url(kullanici):
+    """Fotoğrafın kendisini değil, cache'lenebilir avatar URL'sini döndürür."""
+    kullanici = str(kullanici or "").strip()
+    if not kullanici or not kullanici_avatarini_al(kullanici):
+        return ""
+    return f"/api/profil_avatar_gorsel/{urllib.parse.quote(kullanici, safe='')}?v={kullanici_avatar_surumu_al(kullanici)}"
+
+def _profil_avatar_bytes(kullanici):
+    """Data URI avatarı bir kez bytes'a çevirir ve RAM cache'den tekrar kullanır."""
+    kullanici = str(kullanici or "").strip()
+    if not kullanici:
+        return None, None, 0
+    veri = kullanici_avatarini_al(kullanici)
+    surum = kullanici_avatar_surumu_al(kullanici)
+    if not veri.startswith("data:") or "," not in veri:
+        return None, None, surum
+    cached = _avatar_http_cache.get(kullanici)
+    if cached and cached[0] == surum:
+        return cached[1], cached[2], surum
+    try:
+        baslik, kod = veri.split(",", 1)
+        mime = baslik[5:].split(";", 1)[0].strip().lower()
+        if mime not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+            return None, None, surum
+        ham = base64.b64decode(kod, validate=True)
+    except Exception:
+        return None, None, surum
+    _avatar_http_cache[kullanici] = (surum, ham, mime)
+    if len(_avatar_http_cache) > AVATAR_HTTP_CACHE_MAKS:
+        _avatar_http_cache.pop(next(iter(_avatar_http_cache)))
+    return ham, mime, surum
+
 def kullanici_bilgi_hazirla(kullanici):
     simdi = time.time()
     mesaj_sayisi = sum(1 for m in sohbet_gecmisi if m.get("gonderen") == kullanici)
@@ -1819,6 +1869,7 @@ def durumu_kaydet():
             "aktif_oturumlar": dict(aktif_oturumlar),
             "kullanici_emailleri": dict(kullanici_emailleri),
             "kullanici_avatarlari": dict(kullanici_avatarlari),
+            "kullanici_avatar_surmleri": dict(kullanici_avatar_surmleri),
             "email_hesaplari": dict(email_hesaplari),
             "banli_emailler": list(banli_emailler),
             "bildirimler": {k: list(v) for k, v in bildirimler.items()},
@@ -2502,6 +2553,10 @@ mesaj_html = """
         .msg-sistem { color: #b8281f !important; font-weight: 700; }
         .msg-time { font-size: 10.5px; color: #90a2b4; font-weight: 600; }
         .msg-body { color: #1c2b3a; }
+        .msg-with-avatar { display:flex; align-items:flex-start; gap:7px; min-width:0; }
+        .msg-avatar-wrap { width:32px; height:32px; flex:0 0 32px; margin-top:1px; }
+        .msg-avatar, .msg-avatar-fallback { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1px solid #9fb9d1; background:#dcecff; color:#24465f; object-fit:cover; font-size:15px; }
+        .msg-content-with-avatar { min-width:0; flex:1; }
 
         .msg-reply {
             margin: 4px 0 6px;
@@ -2698,6 +2753,7 @@ mesaj_html = """
             margin-bottom:7px; padding:7px 9px; border-radius:6px; line-height:1.45;
         }
         .desktop-mode .msg-body { font-size:14px; }
+        .desktop-mode .msg-avatar-wrap, .desktop-mode .msg-avatar, .desktop-mode .msg-avatar-fallback { width:36px; height:36px; flex-basis:36px; }
         .desktop-mode select#aliciSec { width:auto; min-width:220px; margin:0 0 8px; }
         .desktop-mode #mesajForm {
             position:sticky; bottom:0; z-index:15; background:rgba(239,246,252,.96);
@@ -2728,6 +2784,8 @@ mesaj_html = """
 
         @media (max-width: 600px) {
             .phone-mode { padding: 0 6px; }
+            .phone-mode .msg-with-avatar { gap:6px; }
+            .phone-mode .msg-avatar-wrap, .phone-mode .msg-avatar, .phone-mode .msg-avatar-fallback { width:28px; height:28px; flex-basis:28px; font-size:13px; }
             .phone-mode .win7-window { max-width:100%; border-radius:6px; }
             .phone-mode .topbar { align-items:flex-start; flex-direction:column; gap:8px; padding:7px; }
             .phone-mode .topbar .user-info { width:100%; min-width:0; }
@@ -4405,7 +4463,12 @@ function kullanicilariGuncelle() {
                     avatar.className = 'dm-kisi-avatar';
                     avatar.src = dmAvatarlar[k];
                     avatar.alt = 'Profil';
+                    avatar.loading = 'lazy';
+                    avatar.decoding = 'async';
                     avatar.style.objectFit = 'cover';
+                    avatar.onerror = () => {
+                        avatar.replaceWith(Object.assign(document.createElement('span'), {className:'dm-kisi-avatar', textContent:'👤'}));
+                    };
                 } else {
                     avatar = document.createElement('span');
                     avatar.className = 'dm-kisi-avatar';
@@ -4662,6 +4725,33 @@ function kullanicilariGuncelle() {
                         } else {
                             div.className = isPrivate ? 'msg-private' : (isDuyuru ? 'msg-item msg-duyuru' : 'msg-item');
 
+                            const mesajSatir = document.createElement('div');
+                            mesajSatir.className = 'msg-with-avatar';
+
+                            const avatarKutusu = document.createElement('div');
+                            avatarKutusu.className = 'msg-avatar-wrap';
+                            if (m.avatar_url) {
+                                const avatar = document.createElement('img');
+                                avatar.className = 'msg-avatar';
+                                avatar.src = m.avatar_url;
+                                avatar.alt = 'Profil';
+                                avatar.loading = 'lazy';
+                                avatar.decoding = 'async';
+                                avatar.onerror = () => {
+                                    avatar.replaceWith(Object.assign(document.createElement('span'), {className:'msg-avatar-fallback', textContent:'👤'}));
+                                };
+                                avatarKutusu.appendChild(avatar);
+                            } else {
+                                const fallback = document.createElement('span');
+                                fallback.className = 'msg-avatar-fallback';
+                                fallback.textContent = '👤';
+                                avatarKutusu.appendChild(fallback);
+                            }
+                            mesajSatir.appendChild(avatarKutusu);
+
+                            const mesajIcerik = document.createElement('div');
+                            mesajIcerik.className = 'msg-content-with-avatar';
+
                             const head = document.createElement('div');
                             head.className = 'msg-head';
 
@@ -4728,12 +4818,14 @@ function kullanicilariGuncelle() {
                                 head.appendChild(silBtn);
                             }
 
-                            div.appendChild(head);
+                            mesajIcerik.appendChild(head);
 
                             const govde = document.createElement('div');
                             govde.className = 'msg-body';
                             mesajMetniRenderEt(govde, m.mesaj);
-                            div.appendChild(govde);
+                            mesajIcerik.appendChild(govde);
+                            mesajSatir.appendChild(mesajIcerik);
+                            div.appendChild(mesajSatir);
 
                             if (!isDuyuru && m.gonderen) {
                                 div.style.cursor = 'pointer';
@@ -5489,6 +5581,24 @@ def kullanici_bilgi():
     bilgi["basarili"] = True
     return jsonify(bilgi)
 
+@app.route("/api/profil_avatar_gorsel/<path:kullanici>", methods=["GET"])
+def profil_avatar_gorsel(kullanici):
+    """Profil fotoğrafını ayrı, uzun süre cache'lenebilir bir görsel olarak sunar."""
+    if "kullanici" not in session or kullanici not in kullanici_db:
+        return Response(status=403)
+    ham, mime, surum = _profil_avatar_bytes(kullanici)
+    if not ham or not mime:
+        return Response(status=404)
+    etag = f'"qchat-avatar-{kullanici_avatar_surumu_al(kullanici)}"'
+    if request.headers.get("If-None-Match") == etag:
+        return Response(status=304)
+    response = Response(ham, mimetype=mime)
+    # URL'deki ?v= değiştiğinde yeni fotoğraf alınır; aksi halde tarayıcı fotoğrafı diskte/RAM'de tutar.
+    response.headers["Cache-Control"] = "private, max-age=31536000, immutable"
+    response.headers["ETag"] = etag
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
 @app.route("/api/profil_avatar", methods=["GET", "POST", "DELETE"])
 def profil_avatar():
     kullanici = session.get("kullanici")
@@ -5501,9 +5611,11 @@ def profil_avatar():
     with veri_kilidi:
         if request.method == "DELETE":
             kullanici_avatarlari.pop(kullanici, None)
+            kullanici_avatar_surmleri[kullanici] = kullanici_avatar_surumu_al(kullanici) + 1
+            _avatar_http_cache.pop(kullanici, None)
             durumu_kaydet()
             log_ekle(f"'{kullanici}' profil fotoğrafını kaldırdı.")
-            return jsonify({"basarili": True, "avatar": ""})
+            return jsonify({"basarili": True, "avatar": "", "avatar_url": ""})
 
         dosya = request.files.get("foto")
         if not dosya or not dosya.filename:
@@ -5531,44 +5643,55 @@ def profil_avatar():
         elif len(ham) >= 12 and ham[:4] == b"RIFF" and ham[8:12] == b"WEBP":
             imza_mime = "image/webp"
 
-        if not imza_mime:
-            if mime not in mime_izinli and not any(dosya_adi.endswith(ext) for ext in uzanti_izinli):
-                return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
-            # Son çare olarak Pillow ile dene; çalışmazsa yine açık hata ver.
-            try:
-                from PIL import Image, ImageOps
-                img = Image.open(BytesIO(ham))
-                img.load()
-                img = ImageOps.exif_transpose(img)
-                img.thumbnail((256, 256))
-                if img.mode not in ("RGB", "RGBA"):
-                    img = img.convert("RGBA")
-                if img.mode == "RGBA":
-                    bg = Image.new("RGB", img.size, "white")
-                    bg.paste(img, mask=img.getchannel("A"))
-                    img = bg
-                else:
-                    img = img.convert("RGB")
-                out = BytesIO()
-                img.save(out, format="JPEG", quality=84, optimize=True)
-                veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
-            except Exception:
+        if not imza_mime and mime not in mime_izinli and not any(dosya_adi.endswith(ext) for ext in uzanti_izinli):
+            return jsonify({"basarili": False, "hata": "Sadece JPG, PNG, WEBP veya GIF yükleyebilirsiniz."}), 400
+
+        # Avatarlar sohbet içinde küçük gösterildiğinden, yüklerken 256x256 altına indirip
+        # JPEG'e sıkıştırıyoruz. Böylece veriler.json gereksiz büyük base64 verisi tutmuyor.
+        try:
+            from PIL import Image, ImageOps
+            img = Image.open(BytesIO(ham))
+            img.load()
+            img = ImageOps.exif_transpose(img)
+            if getattr(img, "is_animated", False):
+                img.seek(0)
+            img.thumbnail((256, 256), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA")
+            if img.mode == "RGBA":
+                bg = Image.new("RGB", img.size, "white")
+                bg.paste(img, mask=img.getchannel("A"))
+                img = bg
+            else:
+                img = img.convert("RGB")
+            out = BytesIO()
+            img.save(out, format="JPEG", quality=82, optimize=True, progressive=True)
+            veri = "data:image/jpeg;base64," + base64.b64encode(out.getvalue()).decode("ascii")
+        except Exception:
+            # Pillow kullanılamıyorsa güvenli imzalı görseli olduğu gibi kabul et; mevcut davranış bozulmasın.
+            if not imza_mime:
                 return jsonify({"basarili": False, "hata": "Geçerli bir görsel dosyası yükleyin. JPG/PNG/WEBP/GIF deneyin."}), 400
-        else:
-            # Desteklenen görüntüleri ham haliyle sakla; bu sayede resim dönüştürme kaynaklı hatalar oluşmaz.
             veri = f"data:{imza_mime};base64," + base64.b64encode(ham).decode("ascii")
 
         kullanici_avatarlari[kullanici] = veri
+        kullanici_avatar_surmleri[kullanici] = kullanici_avatar_surumu_al(kullanici) + 1
+        _avatar_http_cache.pop(kullanici, None)
         durumu_kaydet()
 
     log_ekle(f"'{kullanici}' profil fotoğrafını güncelledi.")
-    return jsonify({"basarili": True, "avatar": veri})
+    return jsonify({"basarili": True, "avatar": veri, "avatar_url": kullanici_avatar_url(kullanici)})
 
 @app.route("/api/profil_avatarlari", methods=["GET"])
 def profil_avatarlari():
     if "kullanici" not in session:
         return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
-    return jsonify({"basarili": True, "avatarlari": {k: kullanici_avatarini_al(k) for k in kullanici_db.keys()}})
+    # DM penceresinde artık base64 fotoğraf taşınmıyor; yalnızca küçük URL sözlüğü dönüyor.
+    avatarlari = {}
+    for k in kullanici_db.keys():
+        avatar_url = kullanici_avatar_url(k)
+        if avatar_url:
+            avatarlari[k] = avatar_url
+    return jsonify({"basarili": True, "avatarlari": avatarlari})
 
 @app.route("/api/sikayet_mesajlari", methods=["GET"])
 def sikayet_mesajlari():
@@ -6303,6 +6426,8 @@ def get_mesajlar():
         oda_ayari = oda_ayarlarini_al(aktif_oda)
         
     filtrelenmis = []
+    # Aynı odadaki yüzlerce mesaj için aynı kullanıcı avatar URL'sini tekrar üretme.
+    mesaj_avatar_url_cache = {}
     for m in sohbet_gecmisi:
         alici = m.get("alici", "Genel")
         oda = m.get("oda", "Genel")
@@ -6318,6 +6443,13 @@ def get_mesajlar():
             kopya = dict(m)
             gonderen = kopya.get("gonderen", "")
             kopya["rol"] = oda_rolunu_al(oda, gonderen) if gonderen and not str(gonderen).startswith("📢") and gonderen != "Sistem" else "uye"
+            # Fotoğrafı mesaj içine gömmiyoruz; yalnızca cache-busting avatar URL'si gönderiyoruz.
+            if gonderen in kullanici_db:
+                if gonderen not in mesaj_avatar_url_cache:
+                    mesaj_avatar_url_cache[gonderen] = kullanici_avatar_url(gonderen)
+                avatar_url = mesaj_avatar_url_cache[gonderen]
+                if avatar_url:
+                    kopya["avatar_url"] = avatar_url
             filtrelenmis.append(kopya)
 
     aktif_siren_veri = None
@@ -7061,6 +7193,10 @@ def sistem_yonetim_penceresi():
                 kullanici_renames[eski_isim] = yeni_isim
                 if eski_isim in kullanici_avatarlari:
                     kullanici_avatarlari[yeni_isim] = kullanici_avatarlari.pop(eski_isim)
+                    kullanici_avatar_surmleri[yeni_isim] = kullanici_avatar_surumu_al(eski_isim) + 1
+                    kullanici_avatar_surmleri.pop(eski_isim, None)
+                    _avatar_http_cache.pop(eski_isim, None)
+                    _avatar_http_cache.pop(yeni_isim, None)
                 if eski_isim in son_aktiflik:
                     son_aktiflik[yeni_isim] = son_aktiflik.pop(eski_isim)
                 if eski_isim in kullanici_kayit_zamani:
