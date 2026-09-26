@@ -1894,74 +1894,9 @@ def kullanici_bilgi_hazirla(kullanici):
 
 # ============================================================================
 
-# Normal oda sohbetinde yalnızca son 20 herkese açık mesaj tutulur.
-# DM ve diğer özel mesaj kayıtlarına bu sınır uygulanmaz.
-MAKS_NORMAL_ODA_MESAJI = 20
-
-def normal_oda_mesaji_mi(veri):
-    """Normal odada görünen herkese açık mesajları tanımlar; DM'lere dokunmaz."""
-    if not isinstance(veri, dict):
-        return False
-    if veri.get("alici", "Genel") != "Genel":
-        return False
-    # Alarm kayıtları sohbet akışında zaten gösterilmediği için 20 mesajlık
-    # görüntüleme/kayıt sınırını da tüketmesin. Diğer duyuru ve sistem mesajları
-    # normal oda akışının parçası olarak sayılır.
-    if veri.get("gonderen") == "📢 ALARM":
-        return False
-    return True
-
-def normal_oda_gecmisini_sinirla(oda):
-    """Belirli bir normal oda için yalnızca son 20 mesajı bırakır. DM'ler korunur."""
-    oda = str(oda or "Genel")
-    bulunan = 0
-    silinecek_idx = None
-
-    # Yeni mesaj eklendikten sonra, mevcut sistemde oda başına en fazla 21 normal
-    # mesaj bulunması beklenir. Sondan geriye gidip 21. mesajı bulmak yeterlidir.
-    for idx in range(len(sohbet_gecmisi) - 1, -1, -1):
-        m = sohbet_gecmisi[idx]
-        if not normal_oda_mesaji_mi(m) or m.get("oda", "Genel") != oda:
-            continue
-        bulunan += 1
-        if bulunan > MAKS_NORMAL_ODA_MESAJI:
-            silinecek_idx = idx
-            break
-
-    if silinecek_idx is not None:
-        sohbet_gecmisi.pop(silinecek_idx)
-        return True
-    return False
-
-def normal_oda_gecmisini_baslangicta_temizle():
-    """Eski sürümden kalan normal oda geçmişini tek seferde oda başına 20'ye indirir."""
-    oda_sayaclari = {}
-    korunacak = set()
-    degisti = False
-
-    for idx in range(len(sohbet_gecmisi) - 1, -1, -1):
-        m = sohbet_gecmisi[idx]
-        if not normal_oda_mesaji_mi(m):
-            korunacak.add(idx)
-            continue
-        oda = str(m.get("oda", "Genel") or "Genel")
-        sayi = oda_sayaclari.get(oda, 0)
-        if sayi < MAKS_NORMAL_ODA_MESAJI:
-            korunacak.add(idx)
-            oda_sayaclari[oda] = sayi + 1
-        else:
-            degisti = True
-
-    if degisti:
-        sohbet_gecmisi[:] = [m for idx, m in enumerate(sohbet_gecmisi) if idx in korunacak]
-    return degisti
-
 def sohbet_mesaji_ekle(veri):
-    """Mevcut append davranışını korur; yalnızca normal oda mesajlarını oda bazında sınırlar."""
+    """Mesajı mevcut sohbet geçmişine ekler; normal oda mesajlarına özel bir limit uygulanmaz."""
     sohbet_gecmisi.append(veri)
-    if normal_oda_mesaji_mi(veri):
-        normal_oda_gecmisini_sinirla(veri.get("oda", "Genel"))
-
 
 def oda_giris_isteklerini_diskten_yenile():
     """Sadece oda giriş isteklerini güvenli biçimde diskten günceller."""
@@ -2064,15 +1999,6 @@ def durumu_kaydet():
             "sorgu_mesajlari": {k: list(v) for k, v in sorgu_mesajlari.items()},
         }
     verileri_kaydet(guncel_veriler)
-
-# Eski sürümden kalan normal oda mesajlarını bir kez temizle; DM kayıtları korunur.
-try:
-    with veri_kilidi:
-        _ilk_mesaj_gecmisi_temizlendi = normal_oda_gecmisini_baslangicta_temizle()
-    if _ilk_mesaj_gecmisi_temizlendi:
-        durumu_kaydet()
-except Exception as _mesaj_temizleme_hatasi:
-    log_ekle(f"Normal oda geçmişi optimize edilemedi: {_mesaj_temizleme_hatasi}")
 
 def otomatik_kayit():
     while True:
@@ -6609,18 +6535,6 @@ def get_mesajlar():
         oda_ayari = oda_ayarlarini_al(aktif_oda)
         
     filtrelenmis = []
-    # Normal oda mesajları için yalnızca son 20 mesajın indekslerini belirle.
-    # DM/private mesajlar bu sınırdan etkilenmez.
-    son_20_normal_oda_indeksleri = set()
-    normal_sayi = 0
-    for idx in range(len(sohbet_gecmisi) - 1, -1, -1):
-        m = sohbet_gecmisi[idx]
-        if normal_oda_mesaji_mi(m) and m.get("oda", "Genel") == aktif_oda:
-            son_20_normal_oda_indeksleri.add(idx)
-            normal_sayi += 1
-            if normal_sayi >= MAKS_NORMAL_ODA_MESAJI:
-                break
-
     # Aynı odadaki yüzlerce mesaj için aynı kullanıcı avatar URL'sini tekrar üretme.
     mesaj_avatar_url_cache = {}
     for idx, m in enumerate(sohbet_gecmisi):
@@ -6633,10 +6547,6 @@ def get_mesajlar():
 
         is_global = m.get("gonderen") in ["📢 DUYURU", "📢 SAYAÇ"] or m.get("tur") == "duyuru"
         is_dm = (alici == kullanici or m.get("gonderen") == kullanici) and alici != "Genel"
-
-        is_normal_aktif_oda = normal_oda_mesaji_mi(m) and oda == aktif_oda
-        if is_normal_aktif_oda and idx not in son_20_normal_oda_indeksleri:
-            continue
 
         if is_global or is_dm or (oda == aktif_oda and alici == "Genel"):
             kopya = dict(m)
