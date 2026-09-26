@@ -702,12 +702,15 @@ def admin_islem():
 
             if islem == "ban":
                 kullanici_banla_ve_email(hedef)
+                bildirim_ekle(hedef, "🚫 Hesabınız banlandı", "Yönetici tarafından hesabınıza ban uygulandı.", "ban")
                 log_ekle(f"Admin '{hedef}' kullanıcısını banladı.")
             elif islem == "unban":
                 kullanici_banini_ac(hedef)
+                bildirim_ekle(hedef, "✅ Ban kaldırıldı", "Yönetici hesabınızdaki banı kaldırdı.", "ban")
                 log_ekle(f"Admin '{hedef}' kullanıcısının banını kaldırdı.")
             elif islem == "kick":
                 zorla_cikis.add(hedef)
+                bildirim_ekle(hedef, "👢 Sohbetten çıkarıldınız", "Yönetici tarafından sohbetten çıkarıldınız.", "kick")
                 log_ekle(f"Admin '{hedef}' kullanıcısını kickledi.")
             elif islem == "mute":
                 try:
@@ -715,9 +718,11 @@ def admin_islem():
                 except ValueError:
                     dakika = 10
                 susturulanlar[hedef] = {"bitis": time.time() + dakika * 60, "oda": "Hepsi"}
+                bildirim_ekle(hedef, "🔇 Susturuldunuz", f"Yönetici tarafından {dakika} dakika susturuldunuz.", "mute")
                 log_ekle(f"Admin '{hedef}' kullanıcısını {dakika} dakika susturdu.")
             elif islem == "unmute":
                 susturulanlar.pop(hedef, None)
+                bildirim_ekle(hedef, "🔊 Susturma kaldırıldı", "Yönetici hesabınızdaki susturmayı kaldırdı.", "mute")
                 log_ekle(f"Admin '{hedef}' kullanıcısının susturmasını kaldırdı.")
             elif islem == "oda_izni":
                 if hedef in oda_kurma_izni:
@@ -734,6 +739,7 @@ def admin_islem():
                     banli_emailler.discard(email)
                     email_hesaplari.pop(email, None)
                 kullanici_emailleri.pop(hedef, None)
+                bildirimler.pop(hedef, None)
                 engellenenler.discard(hedef)
                 susturulanlar.pop(hedef, None)
                 zorla_cikis.add(hedef)
@@ -774,6 +780,8 @@ def admin_islem():
                                 kullanici_kayit_zamani[yeni_isim] = kullanici_kayit_zamani.pop(eski)
                             if eski in kullanici_oturum_toplam_saniye:
                                 kullanici_oturum_toplam_saniye[yeni_isim] = kullanici_oturum_toplam_saniye.pop(eski)
+                            if eski in bildirimler:
+                                bildirimler[yeni_isim] = bildirimler.pop(eski)
                             if eski in engellenenler:
                                 engellenenler.discard(eski); engellenenler.add(yeni_isim)
                             if eski in susturulanlar:
@@ -833,21 +841,26 @@ def admin_islem():
                         ozel_sayi = kullanicinin_oda_sayisi(hedef)
                         if hedef not in kullanici_db or hedef == "Sistem":
                             oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Kullanıcı bulunamadı."}
+                            bildirim_ekle(hedef, "❌ Oda isteği reddedildi", "Kullanıcı bulunamadığı için oda isteği tamamlanamadı.", "oda")
                             log_ekle(f"'{hedef}' oda isteği onaylanamadı: kullanıcı bulunamadı.")
                         elif ozel_sayi >= MAKS_OZEL_ODA:
                             oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":f"Kullanıcı zaten {MAKS_OZEL_ODA} oda oluşturmuş."}
+                            bildirim_ekle(hedef, "❌ Oda isteği reddedildi", f"Kullanıcı başına {MAKS_OZEL_ODA} oda sınırına ulaştığınız için istek reddedildi.", "oda")
                             log_ekle(f"'{hedef}' oda isteği reddedildi: kullanıcı oda limitine ulaştı.")
                         elif not oda_adi or oda_adi == "Genel" or oda_adi in odalar_db:
                             oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Oda adı artık kullanılamıyor."}
+                            bildirim_ekle(hedef, "❌ Oda isteği reddedildi", "Oda adı artık kullanılamıyor.", "oda")
                             log_ekle(f"'{hedef}' oda isteği reddedildi: oda adı geçersiz/mevcut.")
                         else:
                             odalar_db[oda_adi] = oda_sifre
                             oda_olustur_kaydi(oda_adi, hedef)
                             oda_izin_sonuclari[hedef] = {"durum":"onay","oda":oda_adi,"mesaj":f"'{oda_adi}' odası oluşturuldu."}
+                            bildirim_ekle(hedef, "✅ Oda isteği kabul edildi", f"'{oda_adi}' odanız oluşturuldu.", "oda")
                             log_ekle(f"'{hedef}' oda isteği onaylandı; '{oda_adi}' odası oluşturuldu.")
                             durumu_kaydet()
                     else:
                         oda_izin_sonuclari[hedef] = {"durum":"red","oda":oda_adi,"mesaj":"Oda kurma isteğiniz reddedildi."}
+                        bildirim_ekle(hedef, "❌ Oda isteği reddedildi", f"'{oda_adi}' oda kurma isteğiniz reddedildi.", "oda")
                         log_ekle(f"'{hedef}' oda isteği reddedildi.")
                     oda_izin_istekleri.pop(hedef, None)
             elif islem == "oda_kur":
@@ -1327,6 +1340,10 @@ odalar_db = veriler.get("odalar_db", {"Genel": ""})
 kullanici_emailleri = veriler.get("kullanici_emailleri", {})
 kullanici_avatarlari = veriler.get("kullanici_avatarlari", {})  # {kullanici: data:image/jpeg;base64,...}
 email_hesaplari = veriler.get("email_hesaplari", {})
+# Bildirimler: {kullanici_adi: [{id, baslik, mesaj, tur, zaman, okundu}, ...]}
+bildirimler = veriler.get("bildirimler", {})
+if not isinstance(bildirimler, dict):
+    bildirimler = {}
 banli_emailler = set(veriler.get("banli_emailler", []))
 
 # ==================== GİRİŞ GÜVENLİK KODU (6 haneli) ====================
@@ -1655,6 +1672,34 @@ def oda_durumunu_diskten_yenile():
     except Exception as e:
         log_ekle(f"Oda verileri diskten yenilenemedi: {e}")
 
+def bildirim_ekle(kullanici, baslik, mesaj, tur="sistem"):
+    """Belirli kullanıcıya kalıcı bildirim ekler. En fazla son 100 bildirim tutulur."""
+    kullanici = (kullanici or "").strip()
+    if not kullanici:
+        return
+    kayit = {
+        "id": secrets.token_hex(10),
+        "baslik": str(baslik or "Bildirim")[:120],
+        "mesaj": str(mesaj or "")[:1000],
+        "tur": str(tur or "sistem")[:40],
+        "zaman": time.time(),
+        "okundu": False,
+    }
+    liste = bildirimler.setdefault(kullanici, [])
+    if not isinstance(liste, list):
+        liste = []
+        bildirimler[kullanici] = liste
+    liste.append(kayit)
+    if len(liste) > 100:
+        del liste[:-100]
+
+def bildirimler_sayac(kullanici):
+    liste = bildirimler.get(kullanici, [])
+    if not isinstance(liste, list):
+        return 0
+    return sum(1 for b in liste if isinstance(b, dict) and not b.get("okundu", False))
+
+
 def durumu_kaydet():
     # Kilit altında, diğer thread'ler dict/listeleri değiştirirken json.dump'ın
     # "dictionary changed size during iteration" gibi hatalarla çökmesini engeller.
@@ -1670,6 +1715,7 @@ def durumu_kaydet():
             "aktif_oturumlar": dict(aktif_oturumlar),
             "kullanici_emailleri": dict(kullanici_emailleri),
             "kullanici_avatarlari": dict(kullanici_avatarlari),
+            "bildirimler": {k: list(v) for k, v in bildirimler.items() if isinstance(v, list)},
             "email_hesaplari": dict(email_hesaplari),
             "banli_emailler": list(banli_emailler),
             "odalar_db": dict(odalar_db),
@@ -2464,7 +2510,32 @@ mesaj_html = """
         }
         .desktop-user-card .name { font-weight:800; font-size:14px; }
         .desktop-user-card .state { margin-top:4px; font-size:10px; color:#21853f; font-weight:700; }
+        .desktop-room-search, .oda-search {
+            width:100%; padding:7px 8px; margin:0 0 7px; border:1px solid #9fb9d1; border-radius:5px;
+            outline:none; background:#fff; color:#1c2b3a; font-family:inherit; font-size:11.5px;
+        }
+        .desktop-room-search:focus, .oda-search:focus { border-color:#3a8ee6; box-shadow:0 0 0 3px rgba(58,142,230,.14); }
         .desktop-room-list { display:flex; flex-direction:column; gap:5px; overflow:auto; min-height:0; flex:1; padding-right:2px; }
+        .notification-btn { position:relative; }
+        .notification-badge {
+            display:none; min-width:17px; height:17px; padding:0 5px; margin-left:4px; border-radius:999px;
+            background:#c0392b; color:#fff; font-size:10px; line-height:17px; text-align:center; vertical-align:middle;
+        }
+        .notification-list {
+            display:flex; flex-direction:column; gap:7px; max-height:54vh; overflow:auto; padding-right:2px;
+        }
+        .notification-item {
+            border:1px solid #b9cfe4; border-radius:7px; background:#fff; padding:9px 10px; color:#24465f;
+        }
+        .notification-item.unread { background:#fff8dc; border-color:#e0b400; }
+        .notification-item .ni-head { display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:800; }
+        .notification-item .ni-time { font-size:10px; color:#7c8ea0; font-weight:600; white-space:nowrap; }
+        .notification-item .ni-body { margin-top:4px; font-size:12px; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+        .notification-admin-box { margin-top:11px; padding-top:11px; border-top:1px solid #d7e4ef; }
+        .notification-admin-box textarea { width:100%; min-height:90px; resize:vertical; padding:8px 9px; border:1px solid #8fa9c4; border-radius:6px; outline:none; font-family:inherit; font-size:12px; }
+        .notification-user-list { display:flex; flex-direction:column; gap:4px; max-height:140px; overflow:auto; margin-top:5px; }
+        .notification-user-option { border:1px solid #c4d6e7; background:#fbfdff; color:#24465f; border-radius:5px; padding:6px 8px; text-align:left; cursor:pointer; font-weight:700; font-size:11.5px; }
+        .notification-user-option:hover, .notification-user-option.active { background:#fff6d0; border-color:#e0b400; }
         .desktop-side-actions { display:grid; grid-template-columns:1fr; gap:6px; margin-top:9px; }
         .desktop-side-actions .small-btn { width:100%; }
         .desktop-side-footer { margin-top:9px; padding-top:9px; border-top:1px solid #cbdbe9; }
@@ -2548,6 +2619,7 @@ mesaj_html = """
                     <div class="state">● Çevrim içi • Aynı QChat sunucusu</div></div>
                 </div>
                 <div class="desktop-sidebar-title"><span>🏠 ODALAR</span><span class="desktop-side-badge" id="desktopRoomCount">0</span></div>
+                <input id="desktopRoomSearch" class="desktop-room-search" type="text" placeholder="🔎 Oda ara..." autocomplete="off" oninput="odaListesiFiltrele()">
                 <div class="desktop-room-list" id="desktopRoomList"></div>
                 <div class="desktop-side-actions">
                     <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
@@ -2563,7 +2635,8 @@ mesaj_html = """
 
             <div class="topbar">
                 <div class="user-info" style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="profilPenceresiAc();">{% if profil_avatar %}<img class="profile-avatar" style="width:32px;height:32px;flex-basis:32px;" id="topProfileAvatar" src="{{ profil_avatar }}" alt="Profil">{% else %}<span class="profile-avatar-fallback" style="width:32px;height:32px;font-size:16px;" id="topProfileAvatarFallback">👤</span>{% endif %}<span>{{ kullanici }}</span></div>
-                <div style="display:flex; gap:6px; align-items:center;">
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                    <button type="button" class="logout-btn settings-btn notification-btn" onclick="bildirimPenceresiAc()">🔔 Bildirimlerim <span id="bildirimBadge" class="notification-badge">0</span></button>
                     <button type="button" class="logout-btn settings-btn" onclick="profilPenceresiAc()">👤 Profil</button>
                     <button type="button" class="logout-btn settings-btn" onclick="ayarlarPenceresiAc()">⚙️ Ayarlar</button>
                     <a href="/cikis" class="logout-btn">Çıkış Yap</a>
@@ -2591,6 +2664,36 @@ mesaj_html = """
                 </div>
             </div>
 
+            <div class="settings-overlay" id="bildirimOverlay" onclick="if(event.target===this) bildirimPenceresiKapat();">
+                <div class="settings-card" style="max-width:560px;">
+                    <div class="settings-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <span>🔔 Bildirimlerim</span>
+                        <button type="button" class="dm-close" onclick="bildirimPenceresiKapat();">✕</button>
+                    </div>
+                    <div class="settings-body">
+                        <div id="bildirimListe" class="notification-list"><div class="empty">Bildirimler yükleniyor...</div></div>
+                        <div style="display:flex;justify-content:flex-end;gap:7px;">
+                            <button type="button" class="small-btn" onclick="bildirimleriYenile();">↻ Yenile</button>
+                            <button type="button" class="small-btn" onclick="bildirimPenceresiKapat();">Kapat</button>
+                        </div>
+
+                        {% if kullanici == admin_kullanici %}
+                        <div class="notification-admin-box">
+                            <div style="font-size:13px;font-weight:800;color:#1c3d5c;margin-bottom:7px;">📢 Uyarı Gönder</div>
+                            <div style="font-size:11px;color:#6b7d90;margin-bottom:7px;">Kullanıcıyı arayın, seçin ve yalnızca o kişiye bildirim gönderin.</div>
+                            <input id="uyariKisiAra" class="oda-search" type="text" placeholder="🔎 Kullanıcı adı ara..." autocomplete="off" oninput="uyariKisileriFiltrele()">
+                            <div id="uyariKisiListesi" class="notification-user-list"><div class="empty">Kullanıcılar yükleniyor...</div></div>
+                            <div id="uyariSecili" style="display:none;margin-top:6px;font-size:11px;background:#eef6ff;border:1px solid #b9cfe4;border-radius:5px;padding:7px;color:#24465f;font-weight:800;"></div>
+                            <textarea id="uyariMetni" maxlength="1000" placeholder="Gönderilecek bildirim metni..."></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:7px;">
+                                <button type="button" class="small-btn" style="background:linear-gradient(180deg,#efb34f,#c77b11);border-color:#945d08;" onclick="adminUyariGonder();">📢 Uyarıyı Gönder</button>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
             <div class="settings-overlay" id="ayarlarOverlay" onclick="if(event.target===this) ayarlarPenceresiKapat();">
                 <div class="settings-card">
                     <div class="settings-title">⚙️ Ayarlar</div>
@@ -2614,8 +2717,9 @@ mesaj_html = """
             </div>
 
             <div class="panel-row">
-                <div class="panel-box grow">
-                    Mekan:
+                <div class="panel-box grow" style="flex-direction:column;align-items:stretch;gap:4px;">
+                    <div style="display:flex;align-items:center;gap:6px;font-weight:700;">Mekan:</div>
+                    <input id="odaArama" class="oda-search" type="text" placeholder="🔎 Oda ara..." autocomplete="off" oninput="odaListesiFiltrele()">
                     <select id="odaSec" onchange="odaDegistir()"><option value="Genel">Genel</option></select>
                 </div>
                 <button type="button" class="small-btn" onclick="odaKurAc();">➕ Oda Kur</button>
@@ -2805,6 +2909,9 @@ mesaj_html = """
         let aktifDM = null;
         let dmKullanicilari = [];
         let dmAvatarlar = {};
+        let bildirimTimer = null;
+        let bildirimAdminKullanicilari = [];
+        let bildirimAdminSecili = '';
         const oturumKullanici = {{ kullanici|tojson }};
 
         // Ana sohbet sayfasında kullanılan güvenli HTML kaçış yardımcısı.
@@ -3081,6 +3188,134 @@ mesaj_html = """
             kullaniciBilgiTimer = setInterval(yukle, 5000);
         }
 
+        function bildirimRozetiniGuncelle(sayi) {
+            const badge = document.getElementById('bildirimBadge');
+            if (!badge) return;
+            const n = Math.max(0, Number(sayi || 0));
+            badge.textContent = n > 99 ? '99+' : String(n);
+            badge.style.display = n > 0 ? 'inline-block' : 'none';
+        }
+
+        function bildirimZamani(zaman) {
+            if (!zaman) return '';
+            try { return new Date(Number(zaman) * 1000).toLocaleString('tr-TR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+            catch(e) { return ''; }
+        }
+
+        async function bildirimSayisiniGuncelle() {
+            try {
+                const r = await fetch('/api/bildirimler?sadece_sayac=1', {cache:'no-store'});
+                if (!r.ok) return;
+                const d = await r.json();
+                if (d && d.basarili) bildirimRozetiniGuncelle(d.okunmamis || 0);
+            } catch(e) {}
+        }
+
+        function bildirimPenceresiKapat() {
+            const overlay = document.getElementById('bildirimOverlay');
+            if (overlay) overlay.classList.remove('open');
+        }
+
+        function bildirimleriYukle() {
+            const liste = document.getElementById('bildirimListe');
+            if (!liste) return;
+            liste.innerHTML = '<div class="empty">Bildirimler yükleniyor...</div>';
+            fetch('/api/bildirimler', {cache:'no-store'})
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.basarili) { liste.innerHTML = '<div class="empty">Bildirimler alınamadı.</div>'; return; }
+                    const items = Array.isArray(d.bildirimler) ? d.bildirimler.slice().reverse() : [];
+                    bildirimRozetiniGuncelle(d.okunmamis || 0);
+                    if (!items.length) {
+                        liste.innerHTML = '<div class="empty">Henüz bildiriminiz yok.</div>';
+                    } else {
+                        liste.innerHTML = items.map(b => {
+                            const cls = b.okundu ? 'notification-item' : 'notification-item unread';
+                            return '<div class="'+cls+'"><div class="ni-head"><span>'+escapeHtml(b.baslik || 'Bildirim')+'</span><span class="ni-time">'+escapeHtml(bildirimZamani(b.zaman))+'</span></div><div class="ni-body">'+escapeHtml(b.mesaj || '')+'</div></div>';
+                        }).join('');
+                    }
+                    // Açıldığı anda bildirimleri okunduya çevir.
+                    fetch('/api/bildirimler/okundu', {method:'POST'}).then(()=>bildirimRozetiniGuncelle(0)).catch(()=>{});
+                })
+                .catch(() => { liste.innerHTML = '<div class="empty">Bildirimler alınamadı.</div>'; });
+        }
+
+        function bildirimleriYenile() {
+            bildirimleriYukle();
+            {% if kullanici == admin_kullanici %}uyariKullanicilariYukle();{% endif %}
+        }
+
+        function bildirimPenceresiAc() {
+            const overlay = document.getElementById('bildirimOverlay');
+            if (!overlay) return;
+            overlay.classList.add('open');
+            bildirimleriYukle();
+            {% if kullanici == admin_kullanici %}uyariKullanicilariYukle();{% endif %}
+        }
+
+        {% if kullanici == admin_kullanici %}
+        async function uyariKullanicilariYukle() {
+            try {
+                const r = await fetch('/api/kullanicilar', {cache:'no-store'});
+                const d = await r.json();
+                bildirimAdminKullanicilari = Array.isArray(d) ? d.filter(k => k && k !== oturumKullanici) : [];
+                uyariKisileriFiltrele();
+            } catch(e) {}
+        }
+
+        function uyariKisileriFiltrele() {
+            const liste = document.getElementById('uyariKisiListesi');
+            const arama = document.getElementById('uyariKisiAra');
+            if (!liste) return;
+            const q = (arama?.value || '').trim().toLocaleLowerCase('tr-TR');
+            const sonuc = bildirimAdminKullanicilari.filter(k => !q || String(k).toLocaleLowerCase('tr-TR').includes(q));
+            liste.innerHTML = '';
+            if (!sonuc.length) {
+                liste.innerHTML = '<div class="empty">Aramaya uyan kullanıcı bulunamadı.</div>';
+                return;
+            }
+            sonuc.slice(0, 50).forEach(k => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'notification-user-option' + (bildirimAdminSecili === k ? ' active' : '');
+                btn.textContent = '👤 ' + k;
+                btn.onclick = () => uyariKisiSec(k);
+                liste.appendChild(btn);
+            });
+        }
+
+        function uyariKisiSec(kullanici) {
+            bildirimAdminSecili = kullanici || '';
+            const alan = document.getElementById('uyariSecili');
+            if (alan) {
+                alan.style.display = bildirimAdminSecili ? 'block' : 'none';
+                alan.textContent = bildirimAdminSecili ? 'Seçilen kişi: ' + bildirimAdminSecili : '';
+            }
+            uyariKisileriFiltrele();
+        }
+
+        async function adminUyariGonder() {
+            const metinEl = document.getElementById('uyariMetni');
+            const metin = (metinEl?.value || '').trim();
+            if (!bildirimAdminSecili) { alert('Lütfen bir kullanıcı seçin.'); return; }
+            if (!metin) { alert('Lütfen bildirim metnini yazın.'); return; }
+            try {
+                const r = await fetch('/api/admin/uyari_gonder', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+                    body:new URLSearchParams({hedef:bildirimAdminSecili, metin})
+                });
+                const d = await r.json();
+                if (!d.basarili) { alert('⚠️ ' + (d.hata || 'Bildirim gönderilemedi.')); return; }
+                alert('✅ Bildirim gönderildi.');
+                metinEl.value = '';
+                bildirimAdminSecili = '';
+                uyariKisiSec('');
+                bildirimleriYenile();
+            } catch(e) { alert('⚠️ Bildirim gönderilirken bağlantı hatası oluştu.'); }
+        }
+        {% endif %}
+
         function mentionKullanicilariniYukle() {
             fetch('/api/kullanicilar')
                 .then(res => res.json())
@@ -3103,7 +3338,7 @@ mesaj_html = """
 
             const cursor = input.selectionStart ?? input.value.length;
             const sol = input.value.slice(0, cursor);
-            const match = sol.match(/(?:^|\\s)@([\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
+            const match = sol.match(/(?:^|\\s)@([\\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
             if (!match) { mentionKapat(); return; }
 
             const aranan = (match[1] || '').toLocaleLowerCase('tr-TR');
@@ -3134,7 +3369,7 @@ mesaj_html = """
             const cursor = input.selectionStart ?? input.value.length;
             const once = input.value.slice(0, cursor);
             const sonra = input.value.slice(cursor);
-            const match = once.match(/(^|\s)@([\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
+            const match = once.match(/(^|\\s)@([\\wÇĞİÖŞÜçğıöşü0-9._-]*)$/);
             if (!match) return;
             const baslangic = once.length - match[0].length + match[1].length;
             input.value = once.slice(0, baslangic) + '@' + kullanici + ' ' + sonra;
@@ -3147,11 +3382,11 @@ mesaj_html = """
 
         function mesajMetniRenderEt(hedef, metin) {
             hedef.textContent = '';
-            const parcalar = String(metin || '').split(/(@[\wÇĞİÖŞÜçğıöşü0-9._-]+)/g);
+            const parcalar = String(metin || '').split(/(@[\\wÇĞİÖŞÜçğıöşü0-9._-]+)/g);
             parcalar.forEach(parca => {
                 const mentionAdi = parca.slice(1);
                 const bilinenKullanici = mentionAdi && mentionKullanicilari.some(k => k === mentionAdi);
-                if (bilinenKullanici && /^@[\wÇĞİÖŞÜçğıöşü0-9._-]+$/.test(parca)) {
+                if (bilinenKullanici && /^@[\\wÇĞİÖŞÜçğıöşü0-9._-]+$/.test(parca)) {
                     const span = document.createElement('span');
                     span.className = 'mention-highlight';
                     span.textContent = parca;
@@ -3186,6 +3421,7 @@ mesaj_html = """
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'desktop-room-button' + (o.ad === aktifOda ? ' active' : '');
+                btn.dataset.roomName = String(o.ad || '').toLocaleLowerCase('tr-TR');
                 btn.dataset.room = o.ad;
                 const name = document.createElement('span');
                 name.className = 'desktop-room-name';
@@ -3207,6 +3443,26 @@ mesaj_html = """
                 });
                 liste.appendChild(btn);
             });
+        }
+
+        function odaListesiFiltrele() {
+            const masaArama = (document.getElementById('desktopRoomSearch')?.value || '').trim().toLocaleLowerCase('tr-TR');
+            const telefonArama = (document.getElementById('odaArama')?.value || '').trim().toLocaleLowerCase('tr-TR');
+            const q = telefonArama || masaArama;
+
+            document.querySelectorAll('#desktopRoomList .desktop-room-button').forEach(btn => {
+                const ad = (btn.dataset.roomName || btn.dataset.room || btn.textContent || '').toLocaleLowerCase('tr-TR');
+                btn.style.display = !q || ad.includes(q) ? '' : 'none';
+            });
+
+            const sec = document.getElementById('odaSec');
+            if (sec) {
+                const mevcut = sec.value;
+                Array.from(sec.options).forEach(opt => {
+                    const ad = String(opt.value || opt.textContent || '').toLocaleLowerCase('tr-TR');
+                    opt.hidden = !!q && !ad.includes(q) && opt.value !== mevcut;
+                });
+            }
         }
 
         function desktopAktifOdaGuncelle() {
@@ -3238,6 +3494,7 @@ mesaj_html = """
                         desktopAktifOdaGuncelle();
                         mesajlariGuncelle(true);
                     }
+                    odaListesiFiltrele();
                 });
         }
         
@@ -3800,7 +4057,7 @@ mesaj_html = """
         }
 
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') { odaKurKapat(); odaYonetimKapat(); dmPenceresiKapat(); odaSifreKapat(); const m=document.getElementById('merkezOnayModal'); if(m)m.remove(); }
+            if (e.key === 'Escape') { bildirimPenceresiKapat(); odaKurKapat(); odaYonetimKapat(); dmPenceresiKapat(); odaSifreKapat(); const m=document.getElementById('merkezOnayModal'); if(m)m.remove(); }
         });
 
         function odaSonucBildirimiGoster(durum, mesaj, oda) {
@@ -3980,7 +4237,7 @@ function kullanicilariGuncelle() {
 
 
         function yanitOzetMetni(metin) {
-            return (metin || '').toString().replace(/\s+/g, ' ').trim().slice(0, 140);
+            return (metin || '').toString().replace(/\\s+/g, ' ').trim().slice(0, 140);
         }
 
         function yanitTemizle() {
@@ -4398,6 +4655,8 @@ function kullanicilariGuncelle() {
             mesajInput.addEventListener('click', mentionIcerikGuncelle);
         }
         mentionKullanicilariniYukle();
+        bildirimSayisiniGuncelle();
+        setInterval(bildirimSayisiniGuncelle, 5000);
         odaIstekBadgeKontrol();
         setInterval(odaIstekBadgeKontrol, 3000);
 
@@ -4585,7 +4844,13 @@ def ana_sayfa():
     cihaz = session.get("cihaz", "telefon")
     if cihaz not in ("telefon", "bilgisayar"):
         cihaz = "telefon"
-    return render_template_string(mesaj_html, kullanici=session["kullanici"], cihaz=cihaz, profil_avatar=kullanici_avatarini_al(session["kullanici"]))
+    return render_template_string(
+        mesaj_html,
+        kullanici=session["kullanici"],
+        cihaz=cihaz,
+        profil_avatar=kullanici_avatarini_al(session["kullanici"]),
+        admin_kullanici=ADMIN_KULLANICI,
+    )
 
 @app.route("/cikis", methods=["GET"])
 def cikis():
@@ -4832,6 +5097,57 @@ def api_giris_kodu_yenile():
     log_ekle(f"'{kullanici}' giriş kodunu yeniledi.")
     return jsonify({"basarili": True, "kod": kod})
 
+@app.route("/api/bildirimler", methods=["GET"])
+def get_bildirimler():
+    kullanici = session.get("kullanici")
+    if not kullanici or kullanici not in kullanici_db:
+        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
+    with veri_kilidi:
+        liste = bildirimler.get(kullanici, [])
+        if not isinstance(liste, list):
+            liste = []
+        liste = [dict(x) for x in liste if isinstance(x, dict)][-100:]
+        okunmamis = sum(1 for x in liste if not x.get("okundu", False))
+    if request.args.get("sadece_sayac") == "1":
+        return jsonify({"basarili": True, "okunmamis": okunmamis})
+    return jsonify({"basarili": True, "bildirimler": liste, "okunmamis": okunmamis})
+
+@app.route("/api/bildirimler/okundu", methods=["POST"])
+def post_bildirimler_okundu():
+    kullanici = session.get("kullanici")
+    if not kullanici or kullanici not in kullanici_db:
+        return jsonify({"basarili": False, "hata": "Oturumunuz bulunmuyor."}), 403
+    with veri_kilidi:
+        liste = bildirimler.get(kullanici, [])
+        if not isinstance(liste, list):
+            liste = []
+            bildirimler[kullanici] = liste
+        for kayit in liste:
+            if isinstance(kayit, dict):
+                kayit["okundu"] = True
+    durumu_kaydet()
+    return jsonify({"basarili": True, "okunmamis": 0})
+
+@app.route("/api/admin/uyari_gonder", methods=["POST"])
+def post_admin_uyari_gonder():
+    kullanici = session.get("kullanici")
+    if kullanici != ADMIN_KULLANICI:
+        return jsonify({"basarili": False, "hata": "Bu işlem yalnızca Admin hesabından yapılabilir."}), 403
+
+    hedef = (request.form.get("hedef") or "").strip()
+    metin = (request.form.get("metin") or "").strip()[:1000]
+    if not hedef or hedef == kullanici or hedef not in kullanici_db:
+        return jsonify({"basarili": False, "hata": "Geçerli bir kullanıcı seçin."}), 400
+    if not metin:
+        return jsonify({"basarili": False, "hata": "Bildirim metni boş olamaz."}), 400
+
+    with veri_kilidi:
+        bildirim_ekle(hedef, "📢 Yönetici Bildirimi", metin, "admin")
+    log_ekle(f"Admin '{hedef}' kullanıcısına özel bildirim gönderdi: {metin}")
+    durumu_kaydet()
+    return jsonify({"basarili": True})
+
+
 @app.route("/api/kullanicilar", methods=["GET"])
 
 def get_kullanicilar():
@@ -4998,6 +5314,10 @@ def sikayet_olustur():
             sikayetler = sikayetler[-1000:]
         sikayetleri_kaydet(sikayetler)
 
+    with veri_kilidi:
+        bildirim_ekle(bildiren, "⚠️ Şikayetiniz gönderildi", f"'{hedef}' kullanıcısı için şikayetiniz yönetime iletildi. Neden: {neden}.", "sikayet")
+        bildirim_ekle(ADMIN_KULLANICI, "⚠️ Yeni şikayet", f"{bildiren}, '{hedef}' kullanıcısını '{neden}' nedeni ile şikayet etti.", "sikayet")
+    durumu_kaydet()
     log_ekle(f"Yeni şikayet: {bildiren} -> {hedef} ({neden})")
     return jsonify({"basarili": True})
 
@@ -5791,6 +6111,13 @@ def post_gonder():
             mesaj = kufur_filtrele(mesaj)
 
         if mesaj:
+            # @kullanici şeklindeki mention'ları kalıcı bildirime çevir.
+            mention_adlari = set(re.findall(r"@([\wÇĞİÖŞÜçğıöşü0-9._-]+)", mesaj))
+            mention_hedefleri = []
+            for ad in mention_adlari:
+                if ad in kullanici_db and ad != kullanici:
+                    mention_hedefleri.append(ad)
+
             veri = {"id": secrets.token_hex(8), "gonderen": kullanici, "mesaj": mesaj, "alici": alici, "oda": oda, "zaman": simdi}
             reply_id = request.form.get("reply_id", "").strip()
             reply_gonderen = request.form.get("reply_gonderen", "").strip()
@@ -5807,6 +6134,8 @@ def post_gonder():
                 }
             sohbet_gecmisi.append(veri)
             mesaj_kuyrugu.put(veri)
+            for mention_hedef in mention_hedefleri:
+                bildirim_ekle(mention_hedef, "🔔 Birinden bahsedildiniz", f"{kullanici}, {oda} odasında size @mention yaptı: {mesaj}", "mention")
             yaziyor_durumu.pop(kullanici, None)
             son_mesaj_zamani[(kullanici, oda)] = simdi
 
