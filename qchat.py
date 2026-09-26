@@ -180,7 +180,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 .grid{display:grid;grid-template-columns:1.45fr 1fr;gap:12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.box{background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:10px;padding:13px;box-shadow:var(--shadow);min-width:0}.box h2,.box h3{margin:0 0 10px;color:#1d3c5b}.box h2{font-size:17px}.box h3{font-size:14px}.muted{color:var(--muted)}.notice{background:#fff8dc;border:1px solid #e2bf45;padding:9px;border-radius:8px;font-size:12px;line-height:1.45}.good{background:#edf9f0;border:1px solid #a8d8b3}.danger-note{background:#fff0ee;border:1px solid #e5b2ad}
 .toolbar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.toolbar .grow{flex:1;min-width:210px}.toolbar input,.toolbar select,.field input,.field textarea,.field select{width:100%;padding:9px 10px;border:1px solid #9fb9d1;border-radius:7px;background:#fbfdff;color:#253d55;outline:none}.toolbar input:focus,.field input:focus,.field textarea:focus,.field select:focus{border-color:#4f91d2;box-shadow:0 0 0 3px rgba(79,145,210,.12)}
 .btn{border:1px solid #1c5fb0;background:#2b7ed3;color:#fff;border-radius:7px;padding:7px 10px;font-weight:700}.btn:hover{filter:brightness(.97)}.red{background:#c0392b;border-color:#8f241a}.green{background:#21853f;border-color:#17682e}.orange{background:#c77b11;border-color:#945d08}.dark{background:#46515d;border-color:#35404a}.purple{background:#6b56bd;border-color:#4f3f92}.light{background:#eef4fb;color:#2b557b;border-color:#b9cfe4}
-.user-table-wrap,.table-wrap,.chat-wrap{overflow:auto;border:1px solid #d7e4ef;border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}.table th,.table td{padding:9px;border-bottom:1px solid #e1eaf2;text-align:left;vertical-align:middle}.table th{background:#eef4fb;color:#385974;position:sticky;top:0;z-index:1}.table tr:hover td{background:#f8fbfe}.status{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:800}.online{background:#e8f7ec;color:#17733a}.offline{background:#eef1f4;color:#677584}.ban{background:#fdeceb;color:#a92a20}.mute{background:#fff4df;color:#9a6508}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#edf3fa;color:#42627d;font-size:10px;font-weight:800}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions form{margin:0}.row-actions{white-space:nowrap}
+.user-table-wrap,.table-wrap,.chat-wrap{overflow:auto;border:1px solid #d7e4ef;border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}.table th,.table td{padding:9px;border-bottom:1px solid #e1eaf2;text-align:left;vertical-align:middle}.table th{background:#eef4fb;color:#385974;position:sticky;top:0;z-index:1}.table tr:hover td{background:#f8fbfe}.status{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;font-size:11px;font-weight:800}.online{background:#e8f7ec;color:#17733a}.offline{background:#eef1f4;color:#677584}.ban{background:#fdeceb;color:#a92a20}.mute{background:#fff4df;color:#9a6508}.rejected{background:#eef1f4;color:#5f6d7a}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#edf3fa;color:#42627d;font-size:10px;font-weight:800}.actions{display:flex;gap:5px;flex-wrap:wrap}.actions form{margin:0}.row-actions{white-space:nowrap}
 .quick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.quick form,.quick a{text-decoration:none}.quick .btn{width:100%}.metric-list{display:grid;gap:7px}.metric{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #dae6f0;border-radius:7px;background:#fbfdff}.metric span{color:var(--muted)}.barline{display:grid;grid-template-columns:100px 1fr 50px;align-items:center;gap:8px;margin:7px 0;font-size:11px}.bar{height:8px;border-radius:999px;background:#e6eef5;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#327fca,#7aaedb)}
 .chat-stream{height:430px;overflow:auto;background:#0e1721;color:#dce9f6;padding:10px;border-radius:8px;font-family:Consolas,monospace;font-size:11px}.chat-item{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)}.chat-item:last-child{border-bottom:0}.chat-head{color:#86bdea}.chat-head b{color:#fff}.chat-body{white-space:pre-wrap;word-break:break-word;margin-top:2px}.mini-meta{font-size:10px;color:#7f93a8}.compose{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:8px}.compose input{padding:10px;border:1px solid #9fb9d1;border-radius:7px}.compose button{min-width:110px}
 .room-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}.room{border:1px solid #d5e2ed;background:#fbfdff;border-radius:8px;padding:10px}.room-top{display:flex;justify-content:space-between;gap:8px}.room strong{font-size:14px}.room .sub{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}.room form{margin-top:8px}
@@ -380,7 +380,7 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}.app{max-width:1
 </tbody></table></div></div></section>
 
 
-<section id="reports" class="section"><div class="box"><h2>⚠️ Şikâyet Merkezi</h2><div class="toolbar"><div class="grow"><input id="reportSearch" placeholder="Bildiren, hedef, neden veya açıklama ara…" oninput="filtreRapor()"></div><select id="reportFilter" onchange="filtreRapor()"><option value="all">Tüm durumlar</option><option value="Yeni">Yeni</option><option value="İnceleniyor">İnceleniyor</option><option value="Çözüldü">Çözüldü</option></select></div>{% if sikayetler %}<div class="table-wrap"><table class="table" id="reportTable"><thead><tr><th>Zaman</th><th>Bildiren</th><th>Hedef</th><th>Neden</th><th>Oda</th><th>Açıklama / Mesaj</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{% for s in sikayetler %}<tr class="report-row" data-status="{{ s.durum }}" data-search="{{ (s.bildiren ~ ' ' ~ s.sikayet_edilen ~ ' ' ~ s.neden ~ ' ' ~ s.aciklama ~ ' ' ~ s.ilgili_mesaj)|lower }}"><td>{{ s.zaman }}</td><td>{{ s.bildiren }}</td><td><b>{{ s.sikayet_edilen }}</b></td><td>{{ s.neden }}</td><td>{{ s.oda }}</td><td><div>{{ s.aciklama }}</div>{% if s.ilgili_mesaj %}<div class="notice" style="margin-top:5px"><b>İlgili mesaj:</b> {{ s.ilgili_mesaj }}</div>{% endif %}</td><td><span class="status {{ 'ban' if s.durum=='Yeni' else ('mute' if s.durum=='İnceleniyor' else 'online') }}">{{ s.durum }}</span></td><td><div class="actions"><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sikayet_durum"><input type="hidden" name="sikayet_idx" value="{{ s.idx }}"><select name="durum" onchange="this.form.submit()"><option {{ 'selected' if s.durum=='Yeni' else '' }}>Yeni</option><option {{ 'selected' if s.durum=='İnceleniyor' else '' }}>İnceleniyor</option><option {{ 'selected' if s.durum=='Çözüldü' else '' }}>Çözüldü</option></select></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="ban"><button class="btn red">Ban</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">Kick</button></form><button type="button" class="btn dark" onclick="muteAc('{{ s.sikayet_edilen|e }}')">🔇 Mute</button></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty">Kayıtlı şikâyet bulunmuyor.</div>{% endif %}</div></section>
+<section id="reports" class="section"><div class="box"><h2>⚠️ Şikâyet Merkezi</h2><div class="toolbar"><div class="grow"><input id="reportSearch" placeholder="Bildiren, hedef, neden veya açıklama ara…" oninput="filtreRapor()"></div><select id="reportFilter" onchange="filtreRapor()"><option value="all">Tüm durumlar</option><option value="Yeni">Yeni</option><option value="İnceleniyor">İnceleniyor</option><option value="Çözüldü">Çözüldü</option><option value="Reddedildi">Reddedildi</option></select></div>{% if sikayetler %}<div class="table-wrap"><table class="table" id="reportTable"><thead><tr><th>Zaman</th><th>Bildiren</th><th>Hedef</th><th>Neden</th><th>Oda</th><th>Açıklama / Mesaj</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{% for s in sikayetler %}<tr class="report-row" data-status="{{ s.durum }}" data-search="{{ (s.bildiren ~ ' ' ~ s.sikayet_edilen ~ ' ' ~ s.neden ~ ' ' ~ s.aciklama ~ ' ' ~ s.ilgili_mesaj)|lower }}"><td>{{ s.zaman }}</td><td><b>{{ s.bildiren }}</b></td><td><b>{{ s.sikayet_edilen }}</b></td><td>{{ s.neden }}</td><td>{{ s.oda }}</td><td><div>{{ s.aciklama }}</div>{% if s.ilgili_mesaj %}<div class="notice" style="margin-top:5px"><b>İlgili mesaj:</b> {{ s.ilgili_mesaj }}</div>{% endif %}</td><td><span class="status {{ 'ban' if s.durum=='Yeni' else ('mute' if s.durum=='İnceleniyor' else ('rejected' if s.durum=='Reddedildi' else 'online')) }}" data-report-status>{{ s.durum }}</span></td><td><div class="actions"><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="sikayet_durum"><input type="hidden" name="sikayet_idx" value="{{ s.idx }}"><select name="durum" onchange="this.form.submit()"><option {{ 'selected' if s.durum=='Yeni' else '' }}>Yeni</option><option {{ 'selected' if s.durum=='İnceleniyor' else '' }}>İnceleniyor</option><option {{ 'selected' if s.durum=='Çözüldü' else '' }}>Çözüldü</option><option {{ 'selected' if s.durum=='Reddedildi' else '' }}>Reddedildi</option></select></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="ban"><button class="btn red">Ban</button></form><form method="post" action="/admin/islem"><input type="hidden" name="hedef" value="{{ s.sikayet_edilen }}"><input type="hidden" name="islem" value="kick"><button class="btn orange">Kick</button></form><button type="button" class="btn dark" onclick="muteAc('{{ s.sikayet_edilen|e }}')">🔇 Mute</button>{% if s.durum != 'Reddedildi' %}<button type="button" class="btn red" data-reddet-btn onclick="sikayetReddet(this, {{ s.idx }})">🚫 Şikayeti Reddet</button>{% else %}<span class="pill">✅ Reddedildi</span>{% endif %}</div></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty">Kayıtlı şikâyet bulunmuyor.</div>{% endif %}</div></section>
 
 <section id="system" class="section"><div class="grid3">
 <div class="box"><h3>📢 Duyuru</h3><form method="post" action="/admin/islem"><input type="hidden" name="islem" value="duyuru"><div class="field"><label>Genel sohbete duyuru</label><textarea name="metin" maxlength="500" required></textarea></div><button class="btn">📢 Yayınla</button></form></div>
@@ -439,6 +439,44 @@ function otomatikToggle(){auto=!auto;sessionStorage.setItem('qchatAdminAuto',aut
 (function(){const s=sessionStorage.getItem('qchatAdminAuto');if(s==='0')auto=false;})();
 function filtreKullanicilar(){const q=(document.getElementById('userSearch').value||'').toLowerCase();const f=document.getElementById('userFilter').value;document.querySelectorAll('.user-row').forEach(r=>{const okQ=!q||r.dataset.name.includes(q);let okF=true;if(f==='online')okF=r.dataset.online==='1';if(f==='offline')okF=r.dataset.online==='0';if(f==='ban')okF=r.dataset.ban==='1';if(f==='mute')okF=r.dataset.mute==='1';if(f==='room')okF=r.dataset.room==='1';r.style.display=(okQ&&okF)?'':'none';});}
 function filtreChat(){const q=(document.getElementById('chatSearch').value||'').toLowerCase();const room=document.getElementById('chatRoom').value;document.querySelectorAll('.chat-item').forEach(r=>{r.style.display=(!q||r.dataset.search.includes(q))&&(room==='all'||r.dataset.room===room)?'':'none';});}
+async function sikayetReddet(btn, idx){
+  if(!Number.isInteger(Number(idx))) return;
+  if(!confirm('Bu şikayeti reddetmek istediğine emin misin?')) return;
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Reddediliyor…'; }
+  try{
+    const r=await fetch('/admin/sikayet_reddet',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body:new URLSearchParams({sikayet_idx:String(idx)})});
+    const d=await r.json();
+    if(!d.basarili){
+      if(btn){ btn.disabled=false; btn.textContent='🚫 Şikayeti Reddet'; }
+      alert('⚠️ '+(d.hata||'Şikayet reddedilemedi.'));
+      return;
+    }
+    const row=btn ? btn.closest('.report-row') : null;
+    if(row){
+      row.dataset.status='Reddedildi';
+      const badge=row.querySelector('[data-report-status]');
+      if(badge){ badge.textContent='Reddedildi'; badge.className='status rejected'; }
+      btn.outerHTML='<span class="pill">✅ Reddedildi</span>';
+    }
+    filtreRapor();
+    const mesaj=d.bildirim_gonderildi ? '✅ Şikayet reddedildi ve kullanıcıya bildirim gönderildi.' : '✅ Şikayet reddedildi.';
+    bilgilendirmeGoster(mesaj);
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='🚫 Şikayeti Reddet'; }
+    alert('⚠️ Şikayet reddedilirken bağlantı hatası oluştu.');
+  }
+}
+function bilgilendirmeGoster(mesaj){
+  let el=document.getElementById('qchatAdminToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='qchatAdminToast';
+    el.style.cssText='position:fixed;right:18px;bottom:18px;z-index:200;background:#17324b;color:#fff;border:1px solid #2d7fd6;border-radius:8px;padding:10px 14px;box-shadow:0 10px 25px rgba(0,0,0,.2);font-size:12px;font-weight:700;max-width:min(420px,calc(100vw - 36px));';
+    document.body.appendChild(el);
+  }
+  el.textContent=mesaj; el.style.display='block';
+  clearTimeout(el._timer); el._timer=setTimeout(()=>el.style.display='none',3500);
+}
 function filtreRapor(){const q=(document.getElementById('reportSearch').value||'').toLowerCase();const f=document.getElementById('reportFilter').value;document.querySelectorAll('.report-row').forEach(r=>{r.style.display=(!q||r.dataset.search.includes(q))&&(f==='all'||r.dataset.status===f)?'':'none';});}
 function filtreOdaIstekleri(){const q=(document.getElementById('roomRequestSearch')?.value||'').toLowerCase();document.querySelectorAll('.room-request-row').forEach(r=>{r.style.display=!q||r.dataset.search.includes(q)?'':'none';});}
 function kullaniciDetay(isim){const u=users.find(x=>x.isim===isim);if(!u)return;document.getElementById('modalTitle').textContent='👤 '+u.isim;document.getElementById('modalBody').innerHTML=`<div class="detail-grid"><div class="detail"><b>DURUM</b><span>${u.online?'🟢 Online':'⚪ Çevrimdışı'}</span></div><div class="detail"><b>MESAJ</b><span>${u.mesaj_sayisi}</span></div><div class="detail"><b>E-POSTA</b><span>${escapeHtml(u.email||'Yok')}</span></div><div class="detail"><b>ODA İZNİ</b><span>${u.oda_izni?'✅ Var':'❌ Yok'}</span></div><div class="detail"><b>BAN</b><span>${u.banli?'🚫 Banlı':'✅ Ban yok'}</span></div><div class="detail"><b>MUTE</b><span>${u.muteli?'🔇 '+u.mute_kalan+' dk':'✅ Susturulmamış'}</span></div></div><div class="notice" style="margin-top:10px">Kullanıcıya ait veriler mevcut sunucu belleğinden hazırlanır; şifre değeri panele hiçbir zaman gönderilmez.</div>`;document.getElementById('userModal').classList.add('open');}
@@ -746,6 +784,58 @@ def admin_chat_api():
             })
     return jsonify({"mesajlar": mesajlar[:100]})
 
+@app.route("/admin/sikayet_reddet", methods=["POST"])
+def admin_sikayet_reddet():
+    """Bir şikayeti reddeder, tekrar bildirimi önler ve bildirimi şikayeti yapan kullanıcıya yollar."""
+    if not admin_giris_gerekli():
+        return jsonify({"basarili": False, "hata": "Yönetici oturumu gerekli."}), 403
+
+    try:
+        idx = int(request.form.get("sikayet_idx", "-1"))
+    except (TypeError, ValueError):
+        idx = -1
+
+    if idx < 0:
+        return jsonify({"basarili": False, "hata": "Geçersiz şikayet."}), 400
+
+    bildirim_gonderildi = False
+    bildiren = ""
+    rapor_id = ""
+
+    with sikayet_kilidi:
+        if idx >= len(sikayetler) or not isinstance(sikayetler[idx], dict):
+            return jsonify({"basarili": False, "hata": "Şikayet bulunamadı."}), 404
+
+        sikayet = sikayetler[idx]
+        if sikayet.get("durum") == "Reddedildi" or sikayet.get("sikayet_reddi_bildirimi_gonderildi") is True:
+            return jsonify({"basarili": False, "hata": "Bu şikayet zaten reddedilmiş."}), 409
+
+        bildiren = str(sikayet.get("bildiren") or "").strip()
+        rapor_id = str(sikayet.get("id") or idx)
+
+        # Önce bildirim oluşturulur; aynı istek ikinci kez gelirse aşağıdaki kalıcı
+        # işaret nedeniyle aynı bildirim tekrar gönderilmez.
+        if bildiren and bildiren in kullanici_db:
+            bildirim_gonderildi = bildirim_ekle(
+                bildiren,
+                "Şikayet",
+                "Şikayetiniz reddedildi",
+                f"Gönderdiğiniz şikayet (#{rapor_id}) yönetim tarafından reddedildi.",
+                gonderen=ADMIN_KULLANICI,
+                kaydet=False,
+            )
+
+        sikayet["durum"] = "Reddedildi"
+        sikayet["sikayet_reddi_bildirimi_gonderildi"] = bool(bildirim_gonderildi)
+        sikayet["reddedilme_zamani"] = time.time()
+        sikayetleri_kaydet(sikayetler)
+
+    # Bildirim kalıcı veriler.json içine yazılsın; şikayet ayrı dosyada kalır.
+    durumu_kaydet()
+    log_ekle(f"Admin şikayeti reddetti: #{rapor_id} ({bildiren or 'Bilinmeyen kullanıcı'})")
+    return jsonify({"basarili": True, "bildirim_gonderildi": bildirim_gonderildi, "durum": "Reddedildi"})
+
+
 @app.route("/admin/islem", methods=["POST"])
 def admin_islem():
     global bakim_modu, yavas_mod_saniye, sabit_duyuru, kufur_filtresi, aktif_siren
@@ -1013,8 +1103,24 @@ def admin_islem():
                 except ValueError:
                     idx = -1
                 durum = request.form.get("durum", "Yeni")
-                if 0 <= idx < len(sikayetler):
-                    sikayetler[idx]["durum"] = durum
+                if durum not in {"Yeni", "İnceleniyor", "Çözüldü", "Reddedildi"}:
+                    durum = "Yeni"
+                if 0 <= idx < len(sikayetler) and isinstance(sikayetler[idx], dict):
+                    sikayet = sikayetler[idx]
+                    if durum == "Reddedildi" and sikayet.get("sikayet_reddi_bildirimi_gonderildi") is not True:
+                        bildiren = str(sikayet.get("bildiren") or "").strip()
+                        if bildiren and bildiren in kullanici_db:
+                            bildirim_ekle(
+                                bildiren,
+                                "Şikayet",
+                                "Şikayetiniz reddedildi",
+                                f"Gönderdiğiniz şikayet (#{sikayet.get('id') or idx}) yönetim tarafından reddedildi.",
+                                gonderen=ADMIN_KULLANICI,
+                                kaydet=False,
+                            )
+                            sikayet["sikayet_reddi_bildirimi_gonderildi"] = True
+                        sikayet["reddedilme_zamani"] = time.time()
+                    sikayet["durum"] = durum
                     sikayetleri_kaydet(sikayetler)
                     log_ekle(f"Şikayet #{idx} durumu '{durum}' yapıldı.")
 
@@ -5748,7 +5854,8 @@ def sikayet_olustur():
             "ilgili_mesaj": ilgili.get("mesaj", "") if ilgili else "",
             "ilgili_mesaj_zamani": ilgili.get("zaman", 0) if ilgili else 0,
             "ilgili_mesaj_oda": ilgili.get("oda", oda) if ilgili else oda,
-            "durum": "Yeni"
+            "durum": "Yeni",
+            "sikayet_reddi_bildirimi_gonderildi": False
         }
         sikayetler.append(kayit)
         if len(sikayetler) > 1000:
